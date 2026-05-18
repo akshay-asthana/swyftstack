@@ -48,7 +48,19 @@ export default async function DashboardLayout({
         </form>
         <div className="small" style={{ marginTop: 12 }}>{admin.email}</div>
       </aside>
-      <main className="main">{children}</main>
+      <main className="main">
+        <div className="page-head">
+          <div>
+            <div className="small">Control plane</div>
+            <div style={{ fontWeight: 700 }}>Operations console</div>
+          </div>
+          <div className="row">
+            <span className="badge ok">Admin</span>
+            <span className="small">{admin.email}</span>
+          </div>
+        </div>
+        {children}
+      </main>
     </div>
   );
 }

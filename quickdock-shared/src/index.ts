@@ -6,6 +6,8 @@ export * from "./permissions.js";
 export * from "./usage.js";
 export * from "./dbsql.js";
 export * from "./backup-state.js";
+export * from "./session.js";
+export * from "./onboarding.js";
 export { env } from "./env.js";
 export {
   encryptSecret,

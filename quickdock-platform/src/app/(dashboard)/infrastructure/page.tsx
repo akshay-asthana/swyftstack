@@ -45,9 +45,8 @@ async function setClusterStatus(fd: FormData) {
 }
 async function testCluster(fd: FormData) {
   "use server";
-  const r = await databaseClusterService.testConnection(String(fd.get("id")));
+  await databaseClusterService.testConnection(String(fd.get("id")));
   revalidatePath("/infrastructure");
-  return r;
 }
 
 async function createObjectStorage(fd: FormData) {

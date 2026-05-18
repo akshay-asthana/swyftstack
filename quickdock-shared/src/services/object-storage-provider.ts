@@ -39,6 +39,14 @@ export async function storageProviderFor(providerId: string): Promise<StoragePro
     return makeUnwiredS3Provider(p.provider as StorageProvider["kind"]);
   }
   const root = path.resolve(p.localPath ?? "./storage-local");
+  const createCredentials = async (bucketId: string) => {
+    const accessKey = `AK${crypto.randomBytes(6).toString("hex")}`;
+    const secretKey = crypto.randomBytes(18).toString("base64url");
+    await prisma.storageCredential.create({
+      data: { bucketId, accessKey, encryptedSecretKey: encryptSecret(secretKey), status: "active" },
+    });
+    return { accessKey, secretKey };
+  };
 
   return {
     kind: "local_dev",
@@ -46,20 +54,13 @@ export async function storageProviderFor(providerId: string): Promise<StoragePro
       const b = await prisma.storageBucket.findUniqueOrThrow({ where: { id: bucketId } });
       await fs.mkdir(path.join(root, b.bucketName, b.prefix ?? ""), { recursive: true });
     },
-    async createCredentials(bucketId: string) {
-      const accessKey = `AK${crypto.randomBytes(6).toString("hex")}`;
-      const secretKey = crypto.randomBytes(18).toString("base64url");
-      await prisma.storageCredential.create({
-        data: { bucketId, accessKey, encryptedSecretKey: encryptSecret(secretKey), status: "active" },
-      });
-      return { accessKey, secretKey };
-    },
+    createCredentials,
     async rotateCredentials(bucketId: string) {
       await prisma.storageCredential.updateMany({
         where: { bucketId, status: "active" },
         data: { status: "rotated", rotatedAt: new Date() },
       });
-      return this.createCredentials(bucketId);
+      return createCredentials(bucketId);
     },
     async getUsage(bucketId: string) {
       const b = await prisma.storageBucket.findUniqueOrThrow({ where: { id: bucketId } });

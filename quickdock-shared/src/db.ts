@@ -1,5 +1,8 @@
 // Prisma client singleton. Run `npm run db:generate` before importing this.
+import { loadRootEnv } from "./load-env.js";
 import { PrismaClient } from "./generated/prisma/index.js";
+
+loadRootEnv();
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 

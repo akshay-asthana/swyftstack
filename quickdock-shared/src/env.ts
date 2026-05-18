@@ -7,6 +7,9 @@
 // managed from the admin dashboard. The DEV_* and DEFAULT_WORKER_* values below
 // are *fallback* defaults only — used when no DB-managed config exists yet.
 import { z } from "zod";
+import { loadRootEnv } from "./load-env.js";
+
+loadRootEnv();
 
 const schema = z.object({
   // Control-plane database (the only DB connection string in env).
@@ -27,6 +30,12 @@ const schema = z.object({
   // URLs.
   PLATFORM_BASE_URL: z.string().default("http://localhost:3000"),
   USERAPP_BASE_URL: z.string().default("http://localhost:3001"),
+
+  // Optional Google OAuth for customer sign-in. The callback can live on the
+  // platform app because the user cookie is scoped to localhost, not the port.
+  GOOGLE_CLIENT_ID: z.string().default(""),
+  GOOGLE_CLIENT_SECRET: z.string().default(""),
+  GOOGLE_CALLBACK_URL: z.string().default(""),
 
   // Runtime.
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
