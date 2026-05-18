@@ -1,0 +1,110 @@
+// Job handler registry. Each handler is idempotent-ish and writes audit logs.
+import { prisma } from "../db.js";
+import { audit } from "../audit.js";
+import { localNodeService } from "../services/node.js";
+import { localAppService } from "../services/app.js";
+import { localDatabaseService } from "../services/database.js";
+import { backupService } from "../services/backup.js";
+import { migrationService } from "../services/migration.js";
+import { storageProviderFor } from "../services/storage.js";
+import { objectStorageProviderService } from "../services/object-storage-provider.js";
+import { rollUpUsage, enforceLimits } from "../usage-engine.js";
+
+type Handler = (payload: Record<string, unknown>) => Promise<unknown>;
+
+export const JOB_HANDLERS: Record<string, Handler> = {
+  async deploy_app(p) {
+    const deploymentId = String(p.deploymentId);
+    const dep = await prisma.deployment.findUniqueOrThrow({ where: { id: deploymentId } });
+    await prisma.deployment.update({ where: { id: deploymentId }, data: { status: "building" } });
+    const app = await prisma.app.findUniqueOrThrow({ where: { id: dep.appId } });
+    if (app.type === "static") {
+      await localAppService.deployStaticSite(app.id, deploymentId);
+    } else {
+      await prisma.deployment.update({ where: { id: deploymentId }, data: { status: "deploying" } });
+      await localAppService.createAppContainer(app.id);
+      await prisma.deployment.update({
+        where: { id: deploymentId },
+        data: { status: "live", finishedAt: new Date() },
+      });
+    }
+    await audit({ actorType: "system", action: "deployment.completed", targetType: "app", targetId: app.id });
+    return { deploymentId };
+  },
+
+  async create_database(p) {
+    await localDatabaseService.createProjectDatabase(String(p.databaseId));
+    return { databaseId: p.databaseId };
+  },
+
+  async backup_database(p) {
+    return { backupId: await backupService.runDatabaseBackup(String(p.databaseId)) };
+  },
+
+  async restore_database(p) {
+    await localDatabaseService.restoreDatabaseBackup(String(p.backupId));
+    return { backupId: p.backupId };
+  },
+
+  async collect_node_metrics() {
+    const nodes = await prisma.node.findMany({ where: { status: { in: ["active", "draining", "degraded"] } } });
+    for (const n of nodes) await localNodeService.collectMetrics(n.id);
+    await localNodeService.reconcileHealth();
+    return { count: nodes.length };
+  },
+
+  async collect_usage() {
+    return rollUpUsage();
+  },
+
+  async enforce_limits() {
+    return enforceLimits();
+  },
+
+  async sync_storage_usage() {
+    const buckets = await prisma.storageBucket.findMany({
+      where: { status: "active", objectStorageProviderId: { not: null } },
+    });
+    for (const b of buckets) {
+      const provider = await storageProviderFor(b.objectStorageProviderId!);
+      await provider.getUsage(b.id).catch(() => undefined);
+    }
+    // Roll bucket usage up into each object_storage_providers row.
+    const providers = await objectStorageProviderService.listActiveProviders();
+    for (const p of providers) await objectStorageProviderService.updateProviderUsage(p.id);
+    return { count: buckets.length };
+  },
+
+  async migrate_app(p) {
+    await migrationService.runMigration(String(p.migrationId));
+    return { migrationId: p.migrationId };
+  },
+
+  async migrate_database(p) {
+    await migrationService.runMigration(String(p.migrationId));
+    return { migrationId: p.migrationId };
+  },
+
+  async suspend_project(p) {
+    const projectId = String(p.projectId);
+    await prisma.project.update({ where: { id: projectId }, data: { status: "suspended" } });
+    const apps = await prisma.app.findMany({ where: { projectId } });
+    for (const a of apps) await localAppService.stopAppContainer(a.id).catch(() => undefined);
+    await audit({ actorType: "system", action: "project.suspended", targetType: "project", targetId: projectId });
+    return { projectId };
+  },
+
+  async delete_project(p) {
+    const projectId = String(p.projectId);
+    // Final backup before destroy (payment-failure Day 30 path).
+    const dbs = await prisma.database.findMany({ where: { projectId } });
+    for (const d of dbs) await backupService.runDatabaseBackup(d.id).catch(() => undefined);
+    await prisma.project.update({ where: { id: projectId }, data: { status: "deleted" } });
+    await audit({ actorType: "system", action: "project.deleted", targetType: "project", targetId: projectId });
+    return { projectId };
+  },
+
+  async backup_control_db() {
+    return { backupId: await backupService.runControlPlaneBackup() };
+  },
+};

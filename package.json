@@ -1,0 +1,31 @@
+{
+  "name": "quickdock",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Quickdock — Infra Control Plane: admin-first orchestration platform for a small PaaS/DBaaS.",
+  "workspaces": [
+    "quickdock-shared",
+    "quickdock-platform",
+    "quickdock-workers",
+    "quickdock-userapp"
+  ],
+  "scripts": {
+    "db:generate": "npm -w quickdock-shared run prisma:generate",
+    "db:migrate": "npm -w quickdock-shared run prisma:migrate",
+    "db:push": "npm -w quickdock-shared run prisma:push",
+    "db:seed": "npm -w quickdock-shared run seed",
+    "docker:up": "docker compose up -d postgres",
+    "docker:down": "docker compose down",
+    "dev:platform": "npm -w quickdock-platform run dev",
+    "dev:userapp": "npm -w quickdock-userapp run dev",
+    "dev:workers": "npm -w quickdock-workers run dev",
+    "dev:admin": "npm -w quickdock-platform run dev",
+    "dev:user": "npm -w quickdock-userapp run dev",
+    "dev:worker": "npm -w quickdock-workers run dev",
+    "build": "npm -w quickdock-shared run build && npm -w quickdock-platform run build && npm -w quickdock-userapp run build && npm -w quickdock-workers run build",
+    "test": "npm -w quickdock-shared run test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
