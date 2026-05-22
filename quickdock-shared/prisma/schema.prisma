@@ -1128,7 +1128,9 @@ model MetricRollup {
   period      RollupPeriod
   bucketStart DateTime     @map("bucket_start") @db.Timestamptz
   scopeType   String       @map("scope_type")
-  scopeId     String?      @map("scope_id") @db.Uuid
+  // Platform-scope rows use the all-zero sentinel UUID (PLATFORM_SCOPE_ID).
+  // A nullable column cannot participate in an upsert compound unique key.
+  scopeId     String       @default("00000000-0000-0000-0000-000000000000") @map("scope_id") @db.Uuid
   metricType  String       @map("metric_type")
   sum         BigInt       @default(0)
   min         BigInt?

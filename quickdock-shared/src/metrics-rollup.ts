@@ -3,6 +3,7 @@
 // raw time-series. Runs periodically; every run recomputes the *current*
 // hourly + daily buckets, so the upserts are idempotent.
 import { prisma } from "./db.js";
+import { PLATFORM_SCOPE_ID } from "./constants.js";
 
 /** Map a raw usage_type onto its dashboard metric_type. */
 const USAGE_TO_METRIC: Record<string, string> = {
@@ -44,13 +45,16 @@ async function upsertRollup(args: {
   samples: number;
   unit: string;
 }) {
+  // Platform rows have no resource id — use the non-null sentinel so the
+  // compound unique key can be used for upsert.
+  const scopeId = args.scopeId ?? PLATFORM_SCOPE_ID;
   await prisma.metricRollup.upsert({
     where: {
       period_bucketStart_scopeType_scopeId_metricType: {
         period: args.period,
         bucketStart: args.bucketStart,
         scopeType: args.scopeType,
-        scopeId: args.scopeId as unknown as string,
+        scopeId,
         metricType: args.metricType,
       },
     },
@@ -60,7 +64,7 @@ async function upsertRollup(args: {
     },
     create: {
       period: args.period, bucketStart: args.bucketStart,
-      scopeType: args.scopeType, scopeId: args.scopeId,
+      scopeType: args.scopeType, scopeId,
       metricType: args.metricType, sum: args.sum,
       min: args.min ?? null, max: args.max ?? null,
       avg: args.avg ?? null, samples: args.samples, unit: args.unit,

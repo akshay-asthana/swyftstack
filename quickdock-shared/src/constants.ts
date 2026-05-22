@@ -88,6 +88,13 @@ export const ROLLUP_PERIODS = ["hourly", "daily", "billing"] as const;
 export type RollupPeriodKey = (typeof ROLLUP_PERIODS)[number];
 
 /**
+ * Sentinel scopeId for platform-wide metric_rollups rows. A nullable column
+ * cannot take part in an upsert compound unique key, so platform rows carry
+ * this all-zero UUID instead of NULL.
+ */
+export const PLATFORM_SCOPE_ID = "00000000-0000-0000-0000-000000000000";
+
+/**
  * Metric types stored in metric_rollups.metricType. Not exhaustive/strict —
  * collectors may write additional keys — but these power the standard charts.
  */
