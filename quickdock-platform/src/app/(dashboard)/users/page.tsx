@@ -1,69 +1,22 @@
+import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import {
   audit,
   createPasswordCustomerAccount,
-  hashPassword,
   prisma,
   SignupEmailExistsError,
+  BANDWIDTH_IN_TYPES,
+  BANDWIDTH_OUT_TYPES,
 } from "quickdock-shared";
-import { Table, Badge } from "@/components/ui";
+import { Badge, bytes, StatCard, Modal, AreaChart, BarChart, Panel, timeAgo } from "@/components/ui";
+import { DataTable, RowMenu, type DTRow } from "@/components/client";
+import { assignPlanToUser } from "@/lib/user-admin";
+import { monthStart, vcpuHours } from "@/lib/stats";
 
 export const dynamic = "force-dynamic";
 
-function str(formData: FormData, key: string): string {
-  return String(formData.get(key) ?? "").trim();
-}
-
-async function ensureOwnedWorkspace(userId: string, displayName: string) {
-  const existing = await prisma.organization.findFirst({
-    where: { ownerUserId: userId },
-    orderBy: { createdAt: "asc" },
-  });
-  if (existing) return existing;
-
-  return prisma.organization.create({
-    data: {
-      name: displayName ? `${displayName}'s workspace` : "User workspace",
-      ownerUserId: userId,
-      members: { create: { userId, role: "owner" } },
-      projects: {
-        create: {
-          name: "Default project",
-          slug: "default",
-          region: "local",
-          createdBy: userId,
-          members: { create: { userId, role: "owner" } },
-        },
-      },
-    },
-  });
-}
-
-async function assignPlanToUser(userId: string, planId: string) {
-  if (!planId) return;
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
-  const organization = await ensureOwnedWorkspace(userId, user.name ?? user.email);
-  const now = new Date();
-  const periodEnd = new Date(now);
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
-
-  await prisma.subscription.updateMany({
-    where: {
-      organizationId: organization.id,
-      status: { in: ["active", "trialing", "past_due"] },
-    },
-    data: { status: "cancelled", cancelAtPeriodEnd: false },
-  });
-  await prisma.subscription.create({
-    data: {
-      organizationId: organization.id,
-      planId,
-      status: "active",
-      provider: "manual",
-      currentPeriodStart: now,
-      currentPeriodEnd: periodEnd,
-    },
-  });
+function str(fd: FormData, k: string): string {
+  return String(fd.get(k) ?? "").trim();
 }
 
 async function createUser(formData: FormData) {
@@ -80,12 +33,7 @@ async function createUser(formData: FormData) {
       data: { isPlatformAdmin: formData.get("isPlatformAdmin") === "on" },
     });
     await assignPlanToUser(account.user.id, str(formData, "planId"));
-    await audit({
-      actorType: "admin",
-      action: "user.created",
-      targetType: "user",
-      targetId: account.user.id,
-    });
+    await audit({ actorType: "admin", action: "user.created", targetType: "user", targetId: account.user.id });
   } catch (err) {
     if (err instanceof SignupEmailExistsError) return;
     throw err;
@@ -93,40 +41,29 @@ async function createUser(formData: FormData) {
   revalidatePath("/users");
 }
 
-async function updateUser(formData: FormData) {
-  "use server";
+async function setUserStatus(formData: FormData, status: "active" | "suspended") {
   const id = str(formData, "id");
-  const password = String(formData.get("password") ?? "");
-  const data: {
-    name: string | null;
-    status: "active" | "suspended" | "deleted";
-    isPlatformAdmin: boolean;
-    passwordHash?: string;
-  } = {
-    name: str(formData, "name") || null,
-    status: str(formData, "status") as "active" | "suspended" | "deleted",
-    isPlatformAdmin: formData.get("isPlatformAdmin") === "on",
-  };
-  if (password) data.passwordHash = hashPassword(password);
-
-  await prisma.user.update({ where: { id }, data });
-  await assignPlanToUser(id, str(formData, "planId"));
-  await audit({ actorType: "admin", action: "user.edited", targetType: "user", targetId: id });
+  await prisma.user.update({ where: { id }, data: { status } });
+  await audit({ actorType: "admin", action: `user.${status}`, targetType: "user", targetId: id });
   revalidatePath("/users");
 }
+async function suspendUser(fd: FormData) { "use server"; await setUserStatus(fd, "suspended"); }
+async function unsuspendUser(fd: FormData) { "use server"; await setUserStatus(fd, "active"); }
 
-async function toggleSuspend(formData: FormData) {
+async function deleteUser(formData: FormData) {
   "use server";
   const id = str(formData, "id");
-  const u = await prisma.user.findUniqueOrThrow({ where: { id } });
-  const next = u.status === "suspended" ? "active" : "suspended";
-  await prisma.user.update({ where: { id }, data: { status: next } });
-  await audit({ actorType: "admin", action: `user.${next}`, targetType: "user", targetId: id });
+  const resources = await prisma.app.count({ where: { project: { organization: { ownerUserId: id } } } });
+  const dbs = await prisma.database.count({ where: { project: { organization: { ownerUserId: id } } } });
+  if (resources > 0 || dbs > 0) return; // not safe — surfaced as a disabled menu item
+  await prisma.user.update({ where: { id }, data: { status: "deleted" } });
+  await audit({ actorType: "admin", action: "user.deleted", targetType: "user", targetId: id });
   revalidatePath("/users");
 }
 
 export default async function UsersPage() {
-  const [users, plans] = await Promise.all([
+  const since = monthStart();
+  const [users, plans, usageRows, dbRows, bucketRows] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: "desc" },
       include: {
@@ -134,7 +71,7 @@ export default async function UsersPage() {
           orderBy: { createdAt: "asc" },
           include: {
             subscriptions: {
-              where: { status: "active" },
+              where: { status: { in: ["active", "trialing", "past_due"] } },
               orderBy: { createdAt: "desc" },
               take: 1,
               include: { plan: true },
@@ -145,98 +82,207 @@ export default async function UsersPage() {
       },
     }),
     prisma.plan.findMany({ where: { status: "active" }, orderBy: { priceCents: "asc" } }),
+    prisma.usageEvent.groupBy({
+      by: ["userId", "usageType"],
+      where: { recordedAt: { gte: since }, userId: { not: null } },
+      _sum: { quantity: true },
+    }),
+    prisma.database.findMany({
+      where: { status: { not: "deleted" } },
+      select: { currentSizeBytes: true, project: { select: { organization: { select: { ownerUserId: true } } } } },
+    }),
+    prisma.storageBucket.findMany({
+      where: { status: { not: "deleted" } },
+      select: { currentStorageBytes: true, project: { select: { organization: { select: { ownerUserId: true } } } } },
+    }),
   ]);
+
+  // Per-user flow usage from usage_events.
+  const usageByUser = new Map<string, { vcpu: number; bwIn: number; bwOut: number }>();
+  for (const r of usageRows) {
+    if (!r.userId) continue;
+    const u = usageByUser.get(r.userId) ?? { vcpu: 0, bwIn: 0, bwOut: 0 };
+    const q = Number(r._sum.quantity ?? 0);
+    if (r.usageType === "app_runtime_vcpu_seconds" || r.usageType === "build_vcpu_seconds") u.vcpu += q;
+    if ((BANDWIDTH_IN_TYPES as readonly string[]).includes(r.usageType)) u.bwIn += q;
+    if ((BANDWIDTH_OUT_TYPES as readonly string[]).includes(r.usageType)) u.bwOut += q;
+    usageByUser.set(r.userId, u);
+  }
+  // Per-user storage from resource tables.
+  const storageByUser = new Map<string, number>();
+  for (const d of dbRows) {
+    const owner = d.project.organization.ownerUserId;
+    if (owner) storageByUser.set(owner, (storageByUser.get(owner) ?? 0) + Number(d.currentSizeBytes));
+  }
+  for (const b of bucketRows) {
+    const owner = b.project.organization.ownerUserId;
+    if (owner) storageByUser.set(owner, (storageByUser.get(owner) ?? 0) + Number(b.currentStorageBytes));
+  }
+
+  // Dashboard metrics.
+  const weekAgo = new Date(Date.now() - 7 * 86_400_000);
+  const realUsers = users.filter((u) => u.status !== "deleted");
+  const cards = {
+    total: realUsers.length,
+    newWeek: realUsers.filter((u) => u.createdAt >= weekAgo).length,
+    newMonth: realUsers.filter((u) => u.createdAt >= since).length,
+    paying: 0,
+    trial: 0,
+    suspended: realUsers.filter((u) => u.status === "suspended").length,
+    active: realUsers.filter((u) => u.status === "active").length,
+  };
+  for (const u of realUsers) {
+    const sub = u.ownedOrganizations[0]?.subscriptions[0];
+    if (sub?.status === "trialing") cards.trial++;
+    else if (sub && (sub.plan.priceCents > 0)) cards.paying++;
+  }
+
+  // Signup graph — last 12 weeks.
+  const weeks: { label: string; count: number }[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const start = new Date(Date.now() - i * 7 * 86_400_000);
+    const end = new Date(start.getTime() + 7 * 86_400_000);
+    weeks.push({
+      label: `${start.getMonth() + 1}/${start.getDate()}`,
+      count: realUsers.filter((u) => u.createdAt >= start && u.createdAt < end).length,
+    });
+  }
+
+  // Top users by usage (vCPU-hours).
+  const topUsers = realUsers
+    .map((u) => ({ name: u.name ?? u.email, value: (usageByUser.get(u.id)?.vcpu ?? 0) / 3600 }))
+    .filter((x) => x.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+
+  const rows: DTRow[] = realUsers.map((u) => {
+    const sub = u.ownedOrganizations[0]?.subscriptions[0];
+    const usage = usageByUser.get(u.id) ?? { vcpu: 0, bwIn: 0, bwOut: 0 };
+    const storage = storageByUser.get(u.id) ?? 0;
+    const billing = sub?.status === "trialing" ? "trial" : sub && sub.plan.priceCents > 0 ? "paying" : "free";
+    return {
+      id: u.id,
+      href: `/users/${u.id}`,
+      values: {
+        user: `${u.name ?? ""} ${u.email}`,
+        auth: u.authProvider,
+        status: u.status,
+        plan: sub?.plan.name ?? "none",
+        billing,
+        vcpu: usage.vcpu,
+        storage,
+      },
+      cells: [
+        <div key="u">
+          <Link href={`/users/${u.id}`}><strong>{u.name ?? "—"}</strong></Link>
+          <div className="small">{u.email}{u.isPlatformAdmin ? " · admin" : ""}</div>
+        </div>,
+        <Badge key="a" status={u.authProvider === "password" ? "muted" : "ok"} />,
+        <Badge key="s" status={u.status} />,
+        sub?.plan.name ?? <span className="small">none</span>,
+        <Badge key="b" status={billing === "paying" ? "active" : billing === "trial" ? "trialing" : "muted"} />,
+        `${u._count.orgMemberships} / ${u._count.projectMemberships}`,
+        vcpuHours(usage.vcpu),
+        bytes(storage),
+        <span key="bw" className="small">↓{bytes(usage.bwIn)} ↑{bytes(usage.bwOut)}</span>,
+        <span key="ll" className="small">{timeAgo(u.lastLoginAt)}</span>,
+        <RowMenu key="m" label={u.email}>
+          <Link href={`/users/${u.id}`}>View profile</Link>
+          <Link href={`/users/${u.id}#billing`}>Edit / assign plan</Link>
+          <Link href={`/users/${u.id}#activity`}>View audit logs</Link>
+          <div className="sep" />
+          {u.status === "suspended" ? (
+            <form action={unsuspendUser}><input type="hidden" name="id" value={u.id} /><button>Unsuspend</button></form>
+          ) : (
+            <form action={suspendUser}><input type="hidden" name="id" value={u.id} /><button className="danger">Suspend</button></form>
+          )}
+          <form action={deleteUser}><input type="hidden" name="id" value={u.id} /><button className="danger">Delete (if no resources)</button></form>
+        </RowMenu>,
+      ],
+    };
+  });
 
   return (
     <>
-      <h1 className="h1">Users</h1>
-      <p className="sub">Create accounts, control access, and assign workspace plans.</p>
-
-      <div className="split">
-        <Table
-          columns={["Email", "Name", "Admin", "Status", "Plan", "Orgs", "Projects", "Action"]}
-          rows={users.map((u) => {
-            const activePlan = u.ownedOrganizations[0]?.subscriptions[0]?.plan;
-            return [
-              <strong key="email">{u.email}</strong>,
-              u.name ?? "—",
-              u.isPlatformAdmin ? "yes" : "—",
-              <Badge key="s" status={u.status} />,
-              activePlan?.name ?? "—",
-              u._count.orgMemberships,
-              u._count.projectMemberships,
-              <form key="a" action={toggleSuspend}>
-                <input type="hidden" name="id" value={u.id} />
-                <button className="btn secondary">
-                  {u.status === "suspended" ? "Unsuspend" : "Suspend"}
-                </button>
-              </form>,
-            ];
-          })}
-        />
-
+      <div className="actionbar">
         <div>
-          <form action={createUser} className="card">
-            <div className="panel-title">Create User</div>
-            <div className="form-grid">
-              <div><label>Name</label><input name="name" required /></div>
-              <div><label>Email</label><input name="email" type="email" required /></div>
-              <div><label>Company</label><input name="company" /></div>
-              <div><label>Password</label><input name="password" type="password" minLength={8} required /></div>
-              <div><label>Plan</label>
-                <select name="planId" defaultValue={plans[0]?.id ?? ""}>
-                  {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-              </div>
-            </div>
-            <label className="check" style={{ marginTop: 12 }}>
-              <input type="checkbox" name="isPlatformAdmin" /> Platform admin
-            </label>
-            <div style={{ marginTop: 14 }}><button className="btn">Create user</button></div>
-          </form>
+          <h1 className="h1">Users</h1>
+          <p className="sub">Customer accounts, plans, trial status, and per-user usage.</p>
+        </div>
+        <a className="btn" href="#new-user">+ Create user</a>
+      </div>
 
-          <div className="card" style={{ marginTop: 16 }}>
-            <div className="panel-title">Edit User</div>
-            <div style={{ display: "grid", gap: 12, marginTop: 10 }}>
-              {users.map((u) => {
-                const activePlan = u.ownedOrganizations[0]?.subscriptions[0]?.plan;
-                return (
-                  <form key={u.id} action={updateUser} className="panel" style={{ marginBottom: 0 }}>
-                    <input type="hidden" name="id" value={u.id} />
-                    <div className="panel-head">
-                      <strong>{u.email}</strong>
-                      <Badge status={u.status} />
-                    </div>
-                    <div style={{ padding: 14 }}>
-                      <div className="form-grid">
-                        <div><label>Name</label><input name="name" defaultValue={u.name ?? ""} /></div>
-                        <div><label>New password</label><input name="password" type="password" minLength={8} /></div>
-                        <div><label>Status</label>
-                          <select name="status" defaultValue={u.status}>
-                            <option value="active">active</option>
-                            <option value="suspended">suspended</option>
-                            <option value="deleted">deleted</option>
-                          </select>
-                        </div>
-                        <div><label>Plan</label>
-                          <select name="planId" defaultValue={activePlan?.id ?? ""}>
-                            <option value="">No plan</option>
-                            {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                      <label className="check" style={{ marginTop: 12 }}>
-                        <input type="checkbox" name="isPlatformAdmin" defaultChecked={u.isPlatformAdmin} /> Platform admin
-                      </label>
-                      <div style={{ marginTop: 14 }}><button className="btn">Save user</button></div>
-                    </div>
-                  </form>
-                );
-              })}
+      <div className="grid compact" style={{ marginBottom: 16 }}>
+        <StatCard icon="users" tone="violet" label="Total users" value={cards.total} />
+        <StatCard icon="activity" tone="blue" label="New this week" value={cards.newWeek} deltaNote={`${cards.newMonth} this month`} />
+        <StatCard icon="revenue" tone="green" label="Paying users" value={cards.paying} />
+        <StatCard icon="clock" tone="amber" label="Trial users" value={cards.trial} />
+        <StatCard icon="check" tone="blue" label="Active users" value={cards.active} />
+        <StatCard icon="power" tone="rose" label="Suspended" value={cards.suspended} />
+      </div>
+
+      <div className="split" style={{ marginBottom: 16 }}>
+        <Panel title="User signups — last 12 weeks">
+          <AreaChart points={weeks.map((w) => w.count)} labels={weeks.map((w) => w.label)} />
+        </Panel>
+        <Panel title="Top users by vCPU-hours">
+          {topUsers.length === 0
+            ? <div className="small">No metered usage yet.</div>
+            : <BarChart items={topUsers} format={(n) => `${n.toFixed(1)}h`} />}
+        </Panel>
+      </div>
+
+      <DataTable
+        columns={[
+          { key: "user", label: "User", sortable: true },
+          { key: "auth", label: "Auth" },
+          { key: "status", label: "Status", sortable: true },
+          { key: "plan", label: "Plan", sortable: true },
+          { key: "billing", label: "Billing", sortable: true },
+          { key: "counts", label: "Orgs / Projects" },
+          { key: "vcpu", label: "vCPU-hrs", sortable: true },
+          { key: "storage", label: "Storage", sortable: true },
+          { key: "bandwidth", label: "Bandwidth" },
+          { key: "login", label: "Last login" },
+          { key: "actions", label: "" },
+        ]}
+        rows={rows}
+        filters={[
+          { key: "status", label: "Status", options: ["active", "suspended"] },
+          { key: "billing", label: "Billing", options: ["paying", "trial", "free"] },
+          { key: "auth", label: "Auth", options: ["password", "google", "github"] },
+        ]}
+        searchPlaceholder="Search users by name or email…"
+        emptyText="No users yet."
+      />
+
+      <Modal id="new-user" title="Create user">
+        <form action={createUser}>
+          <div className="form-grid">
+            <div><label>Name</label><input name="name" required /></div>
+            <div><label>Email</label><input name="email" type="email" required /></div>
+            <div><label>Company (optional)</label><input name="company" /></div>
+            <div><label>Password</label><input name="password" type="password" minLength={8} required /></div>
+            <div><label>Plan</label>
+              <select name="planId" defaultValue={plans[0]?.id ?? ""}>
+                <option value="">No plan</option>
+                {plans.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}{p.hasTrial ? ` (trial ${p.trialDays}d)` : ""}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
-        </div>
-      </div>
+          <label className="check" style={{ marginTop: 12 }}>
+            <input type="checkbox" name="isPlatformAdmin" /> Platform admin
+          </label>
+          <div className="row" style={{ marginTop: 16 }}>
+            <button className="btn" type="submit">Create user</button>
+            <a href="#" className="btn secondary">Cancel</a>
+          </div>
+        </form>
+      </Modal>
     </>
   );
 }

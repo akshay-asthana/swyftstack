@@ -32,6 +32,19 @@ function planStatus(formData: FormData): PlanStatusValue {
   return str(formData, "status") === "archived" ? "archived" : "active";
 }
 
+// §13 — trial pricing. A trial can be free or discounted and last any number
+// of days; billing reverts to the regular monthly price afterwards.
+function planTrialData(formData: FormData) {
+  const hasTrial = formData.get("hasTrial") === "on";
+  return {
+    description: str(formData, "description") || null,
+    hasTrial,
+    trialPriceCents: hasTrial ? intOrNull(formData, "trialPriceCents") ?? 0 : null,
+    trialDays: hasTrial ? intOrNull(formData, "trialDays") : null,
+    trialRequiresPaymentMethod: formData.get("trialRequiresPaymentMethod") === "on",
+  };
+}
+
 function planLimitData(formData: FormData) {
   return {
     maxProjects: intOrNull(formData, "maxProjects"),
@@ -76,6 +89,7 @@ async function createPlan(formData: FormData) {
       currency: str(formData, "currency") || "USD",
       billingInterval: str(formData, "billingInterval") || "monthly",
       status: planStatus(formData),
+      ...planTrialData(formData),
       limits: { create: planLimitData(formData) },
     },
   });
@@ -99,6 +113,7 @@ async function savePlan(formData: FormData) {
       currency: str(formData, "currency") || "USD",
       billingInterval: str(formData, "billingInterval") || "monthly",
       status: planStatus(formData),
+      ...planTrialData(formData),
     },
   });
   await prisma.planLimit.upsert({
@@ -141,6 +156,31 @@ function LimitInputs({ limits }: { limits?: {
   );
 }
 
+function TrialInputs({ plan }: { plan?: {
+  description?: string | null;
+  hasTrial?: boolean;
+  trialPriceCents?: number | null;
+  trialDays?: number | null;
+  trialRequiresPaymentMethod?: boolean;
+} | null }) {
+  return (
+    <fieldset style={{ border: "1px solid var(--border)", borderRadius: 9, padding: "10px 14px 14px", marginTop: 14 }}>
+      <legend className="small" style={{ fontWeight: 700 }}>Trial pricing</legend>
+      <label className="check"><input type="checkbox" name="hasTrial" defaultChecked={plan?.hasTrial ?? false} /> Offer a trial</label>
+      <div className="grid compact" style={{ marginTop: 8 }}>
+        <div><label>Trial price cents</label><input name="trialPriceCents" defaultValue={plan?.trialPriceCents ?? 0} placeholder="0 = free trial" /></div>
+        <div><label>Trial days</label><input name="trialDays" defaultValue={plan?.trialDays ?? ""} placeholder="e.g. 30 or 180" /></div>
+      </div>
+      <label className="check" style={{ marginTop: 8 }}>
+        <input type="checkbox" name="trialRequiresPaymentMethod" defaultChecked={plan?.trialRequiresPaymentMethod ?? false} /> Require a payment method to start the trial
+      </label>
+      <p className="small" style={{ margin: "8px 0 0" }}>
+        Billing reverts to the regular monthly price above once the trial ends.
+      </p>
+    </fieldset>
+  );
+}
+
 function FeatureChecks({ enabled }: { enabled: Set<string> }) {
   return (
     <div className="check-grid">
@@ -171,7 +211,7 @@ export default async function PlansPage() {
       </div>
 
       <Table
-        columns={["Plan", "Price", "Status", "Core limits", "Features", "Subscriptions", "Actions"]}
+        columns={["Plan", "Price", "Trial", "Status", "Core limits", "Features", "Subs", "Actions"]}
         rows={plans.map((p) => {
           const enabled = new Set(p.features.filter((f) => f.enabled).map((f) => f.featureKey));
           const featureCount = enabled.size;
@@ -181,6 +221,9 @@ export default async function PlansPage() {
               <div className="small">{p.slug}</div>
             </div>,
             `${p.currency} ${(p.priceCents / 100).toFixed(2)} / ${p.billingInterval}`,
+            p.hasTrial
+              ? <span key="t" className="small">{p.trialPriceCents === 0 ? "free" : `$${((p.trialPriceCents ?? 0) / 100).toFixed(2)}`} · {p.trialDays}d</span>
+              : <span key="t" className="muted">—</span>,
             <Badge key="status" status={p.status} />,
             <div key="limits" className="small">
               {p.limits?.maxProjects ?? "∞"} projects · {p.limits?.maxDatabases ?? "∞"} DBs<br />
@@ -211,6 +254,11 @@ export default async function PlansPage() {
                   </select>
                 </div>
               </div>
+              <div style={{ marginTop: 10 }}>
+                <label>Description</label>
+                <input name="description" placeholder="One-line plan summary shown to customers" />
+              </div>
+              <TrialInputs />
               <LimitInputs />
               <FeatureChecks enabled={new Set(FEATURE_KEYS)} />
               <div className="row" style={{ marginTop: 14 }}><button className="btn">Create plan</button><a href="#" className="btn secondary">Cancel</a></div>
@@ -241,6 +289,11 @@ export default async function PlansPage() {
                 </select>
               </div>
             </div>
+            <div style={{ marginTop: 10 }}>
+              <label>Description</label>
+              <input name="description" defaultValue={p.description ?? ""} />
+            </div>
+            <TrialInputs plan={p} />
             <LimitInputs limits={p.limits} />
             <FeatureChecks enabled={enabled} />
                   <div className="row" style={{ marginTop: 14 }}><button className="btn">Save plan</button><a href="#" className="btn secondary">Cancel</a></div>
