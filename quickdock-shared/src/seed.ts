@@ -7,10 +7,19 @@ import { hashPassword, encryptSecret } from "./crypto.js";
 import { PLAN_PRESETS, NODE_ROLES } from "./constants.js";
 
 async function seedPlan(preset: (typeof PLAN_PRESETS)["starter"]) {
+  const planFields = {
+    name: preset.name,
+    priceCents: preset.priceCents,
+    description: preset.description,
+    hasTrial: preset.hasTrial,
+    trialPriceCents: preset.trialPriceCents,
+    trialDays: preset.trialDays,
+    trialRequiresPaymentMethod: preset.trialRequiresPaymentMethod,
+  };
   const plan = await prisma.plan.upsert({
     where: { slug: preset.slug },
-    update: { name: preset.name, priceCents: preset.priceCents },
-    create: { name: preset.name, slug: preset.slug, priceCents: preset.priceCents },
+    update: planFields,
+    create: { slug: preset.slug, ...planFields },
   });
 
   await prisma.planLimit.upsert({

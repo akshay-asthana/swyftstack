@@ -10,3 +10,7 @@ coverage/
 quickdock-shared/src/generated/
 .backups-local/
 storage-local/
+
+backups-local/
+**/backups-local/
+**/storage-local/

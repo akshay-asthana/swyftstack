@@ -205,27 +205,130 @@ enum ActorType {
   node_agent
 }
 
+enum AuthProvider {
+  password
+  google
+  github
+  gitlab
+  microsoft
+}
+
+enum RollupPeriod {
+  hourly
+  daily
+  billing
+}
+
+enum DatabaseImportStatus {
+  queued
+  testing_connection
+  dumping
+  restoring
+  verifying
+  completed
+  failed
+}
+
+enum NodeDiscoveryStatus {
+  pending
+  running
+  succeeded
+  failed
+}
+
 // ---------------------------------------------------------------------------
 // Users / auth / orgs
 // ---------------------------------------------------------------------------
 
 model User {
-  id            String     @id @default(uuid()) @db.Uuid
-  email         String     @unique
+  id            String       @id @default(uuid()) @db.Uuid
+  email         String       @unique
   name          String?
-  passwordHash  String?    @map("password_hash")
-  isPlatformAdmin Boolean  @default(false) @map("is_platform_admin")
-  status        UserStatus @default(active)
-  emailVerified Boolean    @default(false) @map("email_verified")
-  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  passwordHash  String?      @map("password_hash")
+  isPlatformAdmin Boolean    @default(false) @map("is_platform_admin")
+  status        UserStatus   @default(active)
+  emailVerified Boolean      @default(false) @map("email_verified")
+  // Primary auth provider used to sign in (denormalised for fast list display).
+  authProvider  AuthProvider @default(password) @map("auth_provider")
+  // Whether email+password sign-in is permitted (OAuth-only users can disable it).
+  passwordLoginEnabled Boolean @default(true) @map("password_login_enabled")
+  failedLoginCount Int       @default(0) @map("failed_login_count")
+  lastLoginAt   DateTime?    @map("last_login_at") @db.Timestamptz
+  lastLoginIp   String?      @map("last_login_ip")
+  lastActivityAt DateTime?   @map("last_activity_at") @db.Timestamptz
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
   ownedOrganizations Organization[]       @relation("OrgOwner")
   orgMemberships     OrganizationMember[]
   projectMemberships ProjectMember[]
   auditLogs          AuditLog[]
+  authAccounts       UserAuthAccount[]
+  sessions           UserSession[]
+  loginEvents        LoginEvent[]
+  usageEvents        UsageEvent[]
 
   @@map("users")
+}
+
+// OAuth / external identity providers linked to a user. Password accounts are
+// represented by User.passwordHash; this table holds google/github/etc. links.
+model UserAuthAccount {
+  id                String       @id @default(uuid()) @db.Uuid
+  userId            String       @map("user_id") @db.Uuid
+  provider          AuthProvider
+  providerAccountId String       @map("provider_account_id")
+  email             String?
+  displayName       String?      @map("display_name")
+  metadata          Json         @default("{}")
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  lastUsedAt        DateTime?    @map("last_used_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("user_auth_accounts")
+}
+
+// Active/expired login sessions. Lets the admin see and revoke sessions.
+model UserSession {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String     @unique @map("token_hash")
+  ipAddress  String?    @map("ip_address")
+  userAgent  String?    @map("user_agent")
+  app        String     @default("userapp")
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  lastSeenAt DateTime   @default(now()) @map("last_seen_at") @db.Timestamptz
+  expiresAt  DateTime   @map("expires_at") @db.Timestamptz
+  revokedAt  DateTime?  @map("revoked_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("user_sessions")
+}
+
+// Append-only login attempt log (successful and failed). Powers the user
+// detail "Audit/security" section: IP history, failed attempts.
+model LoginEvent {
+  id        String       @id @default(uuid()) @db.Uuid
+  userId    String?      @map("user_id") @db.Uuid
+  email     String
+  provider  AuthProvider @default(password)
+  success   Boolean
+  reason    String?
+  ipAddress String?      @map("ip_address")
+  userAgent String?      @map("user_agent")
+  app       String       @default("userapp")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([email])
+  @@map("login_events")
 }
 
 model Organization {
@@ -272,9 +375,17 @@ model Plan {
   id              String     @id @default(uuid()) @db.Uuid
   name            String
   slug            String     @unique
+  // priceCents is the REGULAR recurring price charged after any trial ends.
   priceCents      Int        @default(0) @map("price_cents")
   currency        String     @default("USD")
   billingInterval String     @default("monthly") @map("billing_interval")
+  // Trial pricing. A trial can be free (trialPriceCents=0) or discounted, and
+  // can last any number of days. Billing reverts to priceCents after trialDays.
+  hasTrial                   Boolean @default(false) @map("has_trial")
+  trialPriceCents            Int?    @map("trial_price_cents")
+  trialDays                  Int?    @map("trial_days")
+  trialRequiresPaymentMethod Boolean @default(false) @map("trial_requires_payment_method")
+  description     String?
   status          PlanStatus @default(active)
   createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz
@@ -328,9 +439,17 @@ model Subscription {
   status                 SubscriptionStatus @default(active)
   provider               String?
   providerSubscriptionId String?            @map("provider_subscription_id")
+  providerCustomerId     String?            @map("provider_customer_id")
   currentPeriodStart     DateTime?          @map("current_period_start") @db.Timestamptz
   currentPeriodEnd       DateTime?          @map("current_period_end") @db.Timestamptz
   cancelAtPeriodEnd      Boolean            @default(false) @map("cancel_at_period_end")
+  // Billing phase: "trial" while inside the trial window, else "regular".
+  billingPhase           String             @default("regular") @map("billing_phase")
+  trialStartAt           DateTime?          @map("trial_start_at") @db.Timestamptz
+  trialEndAt             DateTime?          @map("trial_end_at") @db.Timestamptz
+  // Price snapshots taken at assignment time so plan edits don't rewrite history.
+  trialPriceCents        Int?               @map("trial_price_cents")
+  regularPriceCents      Int?               @map("regular_price_cents")
   createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz
   updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -403,10 +522,11 @@ model Project {
   buckets       StorageBucket[]
   domains       Domain[]
   invitations   Invitation[]
-  activityLogs  ProjectActivityLog[]
-  usageEvents   UsageEvent[]
-  usageRollups  UsageRollup[]
-  migrations    Migration[]
+  activityLogs    ProjectActivityLog[]
+  usageEvents     UsageEvent[]
+  usageRollups    UsageRollup[]
+  migrations      Migration[]
+  databaseImports DatabaseImport[]
 
   @@unique([organizationId, slug])
   @@index([organizationId])
@@ -473,41 +593,135 @@ model Node {
   region            String?
   status            NodeStatus @default(provisioning)
   roles             String[]   @default([])
+  // Capacity. cpuCores/ramBytes/diskBytes are auto-detected on discovery but
+  // the admin may override them. reserved* are admin-set scheduling reserves.
   cpuCores          Decimal    @map("cpu_cores") @db.Decimal(8, 2)
   ramBytes          BigInt     @map("ram_bytes")
   diskBytes         BigInt     @map("disk_bytes")
   reservedCpu       Decimal    @default(0) @map("reserved_cpu") @db.Decimal(8, 2)
   reservedRamBytes  BigInt     @default(0) @map("reserved_ram_bytes")
   reservedDiskBytes BigInt     @default(0) @map("reserved_disk_bytes")
+  // --- Auto-detected hardware (populated by node discovery; see ssh.ts) ---
+  cpuModel          String?    @map("cpu_model")
+  cpuThreads        Int?       @map("cpu_threads")
+  osName            String?    @map("os_name")
+  osVersion         String?    @map("os_version")
+  kernelVersion     String?    @map("kernel_version")
+  architecture      String?
+  dockerInstalled   Boolean    @default(false) @map("docker_installed")
+  dockerVersion     String?    @map("docker_version")
+  uptimeSeconds     BigInt?    @map("uptime_seconds")
+  hardwareDetectedAt DateTime? @map("hardware_detected_at") @db.Timestamptz
+  discoveryStatus   NodeDiscoveryStatus? @map("discovery_status")
+  discoveryError    String?    @map("discovery_error")
   agentVersion      String?    @map("agent_version")
   agentTokenHash    String?    @map("agent_token_hash")
   lastHeartbeatAt   DateTime?  @map("last_heartbeat_at") @db.Timestamptz
   createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime   @updatedAt @map("updated_at") @db.Timestamptz
 
-  metrics          NodeMetric[]
-  connectionLogs   NodeConnectionLog[]
-  apps             App[]
-  databases        Database[]
-  domains          Domain[]
-  buildDeployments Deployment[] @relation("BuildNode")
+  metrics            NodeMetric[]
+  connectionLogs     NodeConnectionLog[]
+  hardwareSnapshots  NodeHardwareSnapshot[]
+  networkInterfaces  NodeNetworkInterface[]
+  diskMounts         NodeDiskMount[]
+  apps               App[]
+  databases          Database[]
+  domains            Domain[]
+  buildDeployments   Deployment[] @relation("BuildNode")
   runtimeDeployments Deployment[] @relation("RuntimeNode")
-  sourceMigrations Migration[]  @relation("MigrationSource")
-  targetMigrations Migration[]  @relation("MigrationTarget")
-  usageEvents      UsageEvent[]
-  databaseClusters DatabaseCluster[]
+  sourceMigrations   Migration[]  @relation("MigrationSource")
+  targetMigrations   Migration[]  @relation("MigrationTarget")
+  usageEvents        UsageEvent[]
+  databaseClusters   DatabaseCluster[]
 
   @@map("nodes")
+}
+
+// Full hardware discovery run, kept as history so "refresh hardware info"
+// appends a snapshot rather than overwriting. `raw` holds the parsed probe.
+model NodeHardwareSnapshot {
+  id              String   @id @default(uuid()) @db.Uuid
+  nodeId          String   @map("node_id") @db.Uuid
+  cpuModel        String?  @map("cpu_model")
+  cpuCores        Int?     @map("cpu_cores")
+  cpuThreads      Int?     @map("cpu_threads")
+  ramBytes        BigInt?  @map("ram_bytes")
+  diskBytes       BigInt?  @map("disk_bytes")
+  osName          String?  @map("os_name")
+  osVersion       String?  @map("os_version")
+  kernelVersion   String?  @map("kernel_version")
+  architecture    String?
+  dockerInstalled Boolean  @default(false) @map("docker_installed")
+  dockerVersion   String?  @map("docker_version")
+  publicIp        String?  @map("public_ip")
+  privateIp       String?  @map("private_ip")
+  uptimeSeconds   BigInt?  @map("uptime_seconds")
+  raw             Json     @default("{}")
+  collectedAt     DateTime @default(now()) @map("collected_at") @db.Timestamptz
+
+  node Node @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@index([nodeId, collectedAt])
+  @@map("node_hardware_snapshots")
+}
+
+// Network interfaces on a node. Replaced wholesale on each discovery run.
+model NodeNetworkInterface {
+  id        String   @id @default(uuid()) @db.Uuid
+  nodeId    String   @map("node_id") @db.Uuid
+  name      String
+  macAddress String? @map("mac_address")
+  ipv4      String?
+  ipv6      String?
+  speedMbps Int?     @map("speed_mbps")
+  isPrimary Boolean  @default(false) @map("is_primary")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  node Node @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@index([nodeId])
+  @@map("node_network_interfaces")
+}
+
+// Disk mount points on a node. Replaced wholesale on each discovery run.
+model NodeDiskMount {
+  id         String   @id @default(uuid()) @db.Uuid
+  nodeId     String   @map("node_id") @db.Uuid
+  mountPoint String   @map("mount_point")
+  device     String?
+  fsType     String?  @map("fs_type")
+  totalBytes BigInt   @default(0) @map("total_bytes")
+  usedBytes  BigInt   @default(0) @map("used_bytes")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  node Node @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@index([nodeId])
+  @@map("node_disk_mounts")
 }
 
 model NodeMetric {
   id              String   @id @default(uuid()) @db.Uuid
   nodeId          String   @map("node_id") @db.Uuid
   cpuUsagePercent Decimal? @map("cpu_usage_percent") @db.Decimal(6, 2)
+  cpuLoad1        Decimal? @map("cpu_load1") @db.Decimal(8, 2)
+  cpuLoad5        Decimal? @map("cpu_load5") @db.Decimal(8, 2)
+  cpuLoad15       Decimal? @map("cpu_load15") @db.Decimal(8, 2)
+  ramTotalBytes   BigInt?  @map("ram_total_bytes")
   ramUsedBytes    BigInt?  @map("ram_used_bytes")
+  diskTotalBytes  BigInt?  @map("disk_total_bytes")
   diskUsedBytes   BigInt?  @map("disk_used_bytes")
+  diskIoReadBytes BigInt?  @map("disk_io_read_bytes")
+  diskIoWriteBytes BigInt? @map("disk_io_write_bytes")
   networkRxBytes  BigInt?  @map("network_rx_bytes")
   networkTxBytes  BigInt?  @map("network_tx_bytes")
+  uptimeSeconds   BigInt?  @map("uptime_seconds")
+  containersRunning Int?   @map("containers_running")
+  containersFailed Int?    @map("containers_failed")
+  dockerOk        Boolean? @map("docker_ok")
+  databaseOk      Boolean? @map("database_ok")
+  proxyOk         Boolean? @map("proxy_ok")
   collectedAt     DateTime @default(now()) @map("collected_at") @db.Timestamptz
 
   node Node @relation(fields: [nodeId], references: [id], onDelete: Cascade)
@@ -551,6 +765,9 @@ model App {
   memoryLimitBytes BigInt?  @map("memory_limit_bytes")
   diskLimitBytes  BigInt?   @map("disk_limit_bytes")
   defaultDomain   String?   @map("default_domain")
+  // Runtime tracking for app uptime + restart accounting.
+  lastStartedAt   DateTime? @map("last_started_at") @db.Timestamptz
+  restartCount    Int       @default(0) @map("restart_count")
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -560,11 +777,52 @@ model App {
   envVars     AppEnvVar[]
   domains     Domain[]
   usageEvents UsageEvent[]
+  metrics     AppMetric[]
 
   @@unique([projectId, name])
   @@index([projectId])
   @@index([nodeId])
   @@map("apps")
+}
+
+// Per-app runtime sample. cpuSeconds/network counters are interval deltas so
+// they can be summed into usage_events and metric_rollups.
+model AppMetric {
+  id              String   @id @default(uuid()) @db.Uuid
+  appId           String   @map("app_id") @db.Uuid
+  cpuSeconds      Decimal  @default(0) @map("cpu_seconds") @db.Decimal(14, 3)
+  memoryUsedBytes BigInt?  @map("memory_used_bytes")
+  containerStatus String?  @map("container_status")
+  restarts        Int      @default(0)
+  requestCount    BigInt?  @map("request_count")
+  errorCount      BigInt?  @map("error_count")
+  networkRxBytes  BigInt   @default(0) @map("network_rx_bytes")
+  networkTxBytes  BigInt   @default(0) @map("network_tx_bytes")
+  logBytes        BigInt?  @map("log_bytes")
+  uptimeSeconds   BigInt?  @map("uptime_seconds")
+  collectedAt     DateTime @default(now()) @map("collected_at") @db.Timestamptz
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@index([appId, collectedAt])
+  @@map("app_metrics")
+}
+
+// Per-deployment build metrics. One row per completed build/deployment.
+model BuildMetric {
+  id              String   @id @default(uuid()) @db.Uuid
+  deploymentId    String   @unique @map("deployment_id") @db.Uuid
+  durationSeconds Int?     @map("duration_seconds")
+  cpuSeconds      Decimal  @default(0) @map("cpu_seconds") @db.Decimal(14, 3)
+  memoryPeakBytes BigInt?  @map("memory_peak_bytes")
+  logBytes        BigInt?  @map("log_bytes")
+  status          DeploymentStatus
+  failureReason   String?  @map("failure_reason")
+  collectedAt     DateTime @default(now()) @map("collected_at") @db.Timestamptz
+
+  deployment Deployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+
+  @@map("build_metrics")
 }
 
 model Deployment {
@@ -589,6 +847,7 @@ model Deployment {
   app         App   @relation(fields: [appId], references: [id], onDelete: Cascade)
   buildNode   Node? @relation("BuildNode", fields: [buildNodeId], references: [id])
   runtimeNode Node? @relation("RuntimeNode", fields: [runtimeNodeId], references: [id])
+  buildMetric BuildMetric?
 
   @@index([appId])
   @@map("deployments")
@@ -647,6 +906,7 @@ model Database {
   storageLimitBytes BigInt         @map("storage_limit_bytes")
   currentSizeBytes  BigInt         @default(0) @map("current_size_bytes")
   connectionLimit   Int?           @default(10) @map("connection_limit")
+  sslMode           String         @default("prefer") @map("ssl_mode")
   databaseClusterId String?        @map("database_cluster_id") @db.Uuid
   createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz
@@ -656,12 +916,65 @@ model Database {
   cluster DatabaseCluster? @relation(fields: [databaseClusterId], references: [id])
   backups DatabaseBackup[]
   usageEvents UsageEvent[]
+  metrics DatabaseMetric[]
+  imports DatabaseImport[]
 
   @@unique([projectId, name])
   @@index([projectId])
   @@index([nodeId])
   @@index([databaseClusterId])
   @@map("databases")
+}
+
+// Per-database runtime sample. network counters are interval deltas.
+model DatabaseMetric {
+  id                String   @id @default(uuid()) @db.Uuid
+  databaseId        String   @map("database_id") @db.Uuid
+  sizeBytes         BigInt   @default(0) @map("size_bytes")
+  activeConnections Int?     @map("active_connections")
+  connectionLimit   Int?     @map("connection_limit")
+  networkRxBytes    BigInt   @default(0) @map("network_rx_bytes")
+  networkTxBytes    BigInt   @default(0) @map("network_tx_bytes")
+  // Placeholder for future slow-query metering.
+  slowQueryCount    Int?     @map("slow_query_count")
+  collectedAt       DateTime @default(now()) @map("collected_at") @db.Timestamptz
+
+  database Database @relation(fields: [databaseId], references: [id], onDelete: Cascade)
+
+  @@index([databaseId, collectedAt])
+  @@map("database_metrics")
+}
+
+// Database import / migration from an external source URL. The source URL is
+// stored encrypted and deleted after completion unless the user opts to keep it.
+model DatabaseImport {
+  id                    String               @id @default(uuid()) @db.Uuid
+  projectId             String               @map("project_id") @db.Uuid
+  databaseId            String?              @map("database_id") @db.Uuid
+  status                DatabaseImportStatus @default(queued)
+  sourceEngine          String               @default("postgres") @map("source_engine")
+  // Encrypted libpq URL of the source DB. Nulled out after the job finishes
+  // unless saveSourceCredentials is true.
+  sourceUrlEncrypted    String?              @map("source_url_encrypted")
+  saveSourceCredentials Boolean              @default(false) @map("save_source_credentials")
+  targetDbName          String               @map("target_db_name")
+  sizeBytes             BigInt?              @map("size_bytes")
+  // Credential-masked progress log.
+  logs                  String?
+  errorCode             String?              @map("error_code")
+  errorMessage          String?              @map("error_message")
+  startedAt             DateTime?            @map("started_at") @db.Timestamptz
+  completedAt           DateTime?            @map("completed_at") @db.Timestamptz
+  createdBy             String?              @map("created_by") @db.Uuid
+  createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  database Database? @relation(fields: [databaseId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([status])
+  @@map("database_imports")
 }
 
 model DatabaseBackup {
@@ -700,10 +1013,13 @@ model StorageBucket {
   prefix              String?
   region              String?
   status              BucketStatus @default(active)
+  isPublic            Boolean      @default(false) @map("is_public")
   storageLimitBytes   BigInt       @map("storage_limit_bytes")
   egressLimitBytes    BigInt       @map("egress_limit_bytes")
   currentStorageBytes BigInt       @default(0) @map("current_storage_bytes")
   currentEgressBytes  BigInt       @default(0) @map("current_egress_bytes")
+  objectCount         BigInt       @default(0) @map("object_count")
+  lastSyncedAt        DateTime?    @map("last_synced_at") @db.Timestamptz
   objectStorageProviderId String?  @map("object_storage_provider_id") @db.Uuid
   createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz
 
@@ -711,11 +1027,29 @@ model StorageBucket {
   storageProvider ObjectStorageProvider? @relation(fields: [objectStorageProviderId], references: [id])
   credentials StorageCredential[]
   usageEvents UsageEvent[]
+  metrics     StorageMetric[]
 
   @@unique([provider, bucketName, prefix])
   @@index([projectId])
   @@index([objectStorageProviderId])
   @@map("storage_buckets")
+}
+
+// Per-bucket usage sample. network/egress counters are interval deltas.
+model StorageMetric {
+  id             String   @id @default(uuid()) @db.Uuid
+  bucketId       String   @map("bucket_id") @db.Uuid
+  storageBytes   BigInt   @default(0) @map("storage_bytes")
+  objectCount    BigInt?  @map("object_count")
+  networkRxBytes BigInt   @default(0) @map("network_rx_bytes")
+  networkTxBytes BigInt   @default(0) @map("network_tx_bytes")
+  egressBytes    BigInt   @default(0) @map("egress_bytes")
+  collectedAt    DateTime @default(now()) @map("collected_at") @db.Timestamptz
+
+  bucket StorageBucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+
+  @@index([bucketId, collectedAt])
+  @@map("storage_metrics")
 }
 
 model StorageCredential {
@@ -757,10 +1091,12 @@ model UsagePeriod {
 model UsageEvent {
   id             String   @id @default(uuid()) @db.Uuid
   organizationId String   @map("organization_id") @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
   projectId      String?  @map("project_id") @db.Uuid
   appId          String?  @map("app_id") @db.Uuid
   databaseId     String?  @map("database_id") @db.Uuid
   bucketId       String?  @map("bucket_id") @db.Uuid
+  deploymentId   String?  @map("deployment_id") @db.Uuid
   usageType      String   @map("usage_type")
   quantity       BigInt
   unit           String
@@ -769,6 +1105,7 @@ model UsageEvent {
   recordedAt     DateTime @default(now()) @map("recorded_at") @db.Timestamptz
 
   organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   project      Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   app          App?           @relation(fields: [appId], references: [id], onDelete: SetNull)
   database     Database?      @relation(fields: [databaseId], references: [id], onDelete: SetNull)
@@ -776,8 +1113,54 @@ model UsageEvent {
   sourceNode   Node?          @relation(fields: [sourceNodeId], references: [id])
 
   @@index([organizationId, usageType, recordedAt])
+  @@index([userId, usageType, recordedAt])
   @@index([projectId])
+  @@index([usageType, recordedAt])
   @@map("usage_events")
+}
+
+// Granular pre-aggregated metric rollups for fast dashboards. One row per
+// (period, bucketStart, scope, metricType). scopeType is one of:
+// platform | node | organization | user | project | app | database | bucket |
+// backup | build. scopeId is null only for platform scope.
+model MetricRollup {
+  id          String       @id @default(uuid()) @db.Uuid
+  period      RollupPeriod
+  bucketStart DateTime     @map("bucket_start") @db.Timestamptz
+  scopeType   String       @map("scope_type")
+  scopeId     String?      @map("scope_id") @db.Uuid
+  metricType  String       @map("metric_type")
+  sum         BigInt       @default(0)
+  min         BigInt?
+  max         BigInt?
+  avg         Decimal?     @db.Decimal(20, 4)
+  samples     Int          @default(0)
+  unit        String       @default("count")
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([period, bucketStart, scopeType, scopeId, metricType])
+  @@index([scopeType, scopeId, metricType, bucketStart])
+  @@index([period, metricType, bucketStart])
+  @@map("metric_rollups")
+}
+
+// Admin help/documentation for configuring storage & backup providers.
+model ProviderHelpDoc {
+  id              String   @id @default(uuid()) @db.Uuid
+  slug            String   @unique
+  providerKey     String   @map("provider_key")
+  // category: object_storage | backup_storage | both
+  category        String   @default("object_storage")
+  title           String
+  summary         String?
+  // Structured guide content rendered by the admin Help page.
+  body            Json     @default("{}")
+  sortOrder       Int      @default(100) @map("sort_order")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([providerKey])
+  @@map("provider_help_docs")
 }
 
 model UsageRollup {
