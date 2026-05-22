@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { Icon, type IconName } from "./icons";
 
 const OK = ["active", "running", "live", "verified", "succeeded", "completed", "accepted", "ok", "online", "healthy"];
@@ -225,11 +226,212 @@ export function bytes(n: bigint | number | null | undefined): string {
   return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${u[i]}`;
 }
 
-export function timeAgo(d: Date | string): string {
+export function timeAgo(d: Date | string | null | undefined): string {
+  if (!d) return "—";
   const t = typeof d === "string" ? new Date(d) : d;
   const s = Math.max(1, Math.floor((Date.now() - t.getTime()) / 1000));
   if (s < 60) return `${s}s ago`;
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
   return `${Math.floor(s / 86400)}d ago`;
+}
+
+// ---------- Breadcrumbs ----------
+export function Breadcrumbs({ items }: { items: { label: string; href?: string }[] }) {
+  return (
+    <nav className="crumbs">
+      {items.map((it, i) => (
+        <React.Fragment key={i}>
+          {i > 0 && <span className="sep">/</span>}
+          {it.href ? (
+            <Link href={it.href}>{it.label}</Link>
+          ) : (
+            <span className="cur">{it.label}</span>
+          )}
+        </React.Fragment>
+      ))}
+    </nav>
+  );
+}
+
+// ---------- Modal (CSS :target — server-component friendly) ----------
+export function Modal({
+  id, title, children, wide,
+}: {
+  id: string; title: React.ReactNode; children: React.ReactNode; wide?: boolean;
+}) {
+  return (
+    <div id={id} className="modal-backdrop">
+      <div className="modal-card" style={wide ? { width: "min(960px, 100%)" } : undefined}>
+        <div className="modal-head">
+          <strong>{title}</strong>
+          <a href="#" className="modal-close" aria-label="Close">×</a>
+        </div>
+        <div className="modal-body">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Drawer (CSS :target side panel) ----------
+export function Drawer({
+  id, title, children,
+}: {
+  id: string; title: React.ReactNode; children: React.ReactNode;
+}) {
+  return (
+    <div id={id} className="drawer-backdrop">
+      <div className="drawer-card">
+        <div className="drawer-head">
+          <strong>{title}</strong>
+          <a href="#" className="modal-close" aria-label="Close">×</a>
+        </div>
+        <div className="drawer-body">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- EmptyState ----------
+export function EmptyState({
+  icon = "overview", title, hint, action,
+}: {
+  icon?: IconName; title: string; hint?: string; action?: React.ReactNode;
+}) {
+  return (
+    <div className="empty">
+      <div className="stat-icon violet" style={{ margin: "0 auto 10px" }}>
+        <Icon name={icon} size={18} />
+      </div>
+      <div style={{ fontWeight: 650, color: "var(--text)" }}>{title}</div>
+      {hint && <div className="small" style={{ marginTop: 4 }}>{hint}</div>}
+      {action && <div style={{ marginTop: 12 }}>{action}</div>}
+    </div>
+  );
+}
+
+// ---------- KeyValue ----------
+export function KeyValue({ rows }: { rows: [string, React.ReactNode][] }) {
+  return (
+    <dl className="kv">
+      {rows.map(([k, v], i) => (
+        <React.Fragment key={i}>
+          <dt>{k}</dt>
+          <dd>{v ?? "—"}</dd>
+        </React.Fragment>
+      ))}
+    </dl>
+  );
+}
+
+// ---------- Tag ----------
+export function Tag({ children, accent }: { children: React.ReactNode; accent?: boolean }) {
+  return <span className={`tag${accent ? " accent" : ""}`}>{children}</span>;
+}
+
+// ---------- ProgressBar ----------
+export function ProgressBar({
+  used, limit, label, format = (n) => String(Math.round(n)),
+}: {
+  used: number; limit: number | null; label?: string; format?: (n: number) => string;
+}) {
+  const pct = limit && limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+  const tone = pct >= 100 ? "bad" : pct >= 80 ? "warn" : "ok";
+  return (
+    <div style={{ marginBottom: 4 }}>
+      {label && (
+        <div className="row" style={{ justifyContent: "space-between", marginBottom: 4 }}>
+          <span className="small">{label}</span>
+          <span className="small">
+            {format(used)} {limit ? `/ ${format(limit)}` : "/ ∞"}
+          </span>
+        </div>
+      )}
+      <div className="progress">
+        <span className={tone} style={{ width: `${limit ? pct : 0}%` }} />
+      </div>
+    </div>
+  );
+}
+
+// ---------- MiniStat ----------
+export function MiniStat({ k, v }: { k: string; v: React.ReactNode }) {
+  return (
+    <div className="mini-stat">
+      <span className="ms-k">{k}</span>
+      <span className="ms-v">{v}</span>
+    </div>
+  );
+}
+
+// ---------- BarChart (horizontal) ----------
+export function BarChart({
+  items, color = "#6d5ef6", format = (n) => String(n),
+}: {
+  items: { name: string; value: number }[];
+  color?: string;
+  format?: (n: number) => string;
+}) {
+  const max = Math.max(1, ...items.map((i) => i.value));
+  if (items.length === 0) return <div className="small">No data.</div>;
+  return (
+    <div className="barchart">
+      {items.map((it, i) => (
+        <div className="bc-row" key={i}>
+          <span className="bc-name" title={it.name}>{it.name}</span>
+          <span className="bc-track">
+            <span className="bc-fill" style={{ width: `${(it.value / max) * 100}%`, background: color }} />
+          </span>
+          <span className="bc-val">{format(it.value)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------- LineChart (multi-series, pure SVG) ----------
+export function LineChart({
+  series, labels, height = 200,
+}: {
+  series: { name: string; points: number[]; color: string }[];
+  labels?: string[];
+  height?: number;
+}) {
+  const W = 760, H = height, padL = 44, padR = 12, padT = 14, padB = 26;
+  const all = series.flatMap((s) => s.points);
+  const max = Math.max(1, ...all);
+  const n = Math.max(...series.map((s) => s.points.length), 1);
+  const xAt = (i: number) => padL + (n <= 1 ? 0 : (i * (W - padL - padR)) / (n - 1));
+  const yAt = (v: number) => padT + (H - padT - padB) * (1 - v / max);
+  const gridY = [0, 0.25, 0.5, 0.75, 1].map((f) => padT + (H - padT - padB) * f);
+  return (
+    <div className="chart-wrap">
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="none" style={{ display: "block" }}>
+        {gridY.map((y, i) => (
+          <line key={i} x1={padL} y1={y} x2={W - padR} y2={y} stroke="#e9eaef" strokeWidth="1" />
+        ))}
+        {[0, 0.5, 1].map((f, i) => (
+          <text key={i} x={padL - 8} y={padT + (H - padT - padB) * (1 - f) + 4}
+            fontSize="10" fill="#9aa0ad" textAnchor="end">{Math.round(max * f)}</text>
+        ))}
+        {series.map((s, si) => {
+          const line = s.points
+            .map((v, i) => `${i === 0 ? "M" : "L"}${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`)
+            .join(" ");
+          return (
+            <path key={si} d={line} fill="none" stroke={s.color} strokeWidth="2.4"
+              strokeLinejoin="round" strokeLinecap="round" />
+          );
+        })}
+        {labels?.map((l, i) => (
+          <text key={i} x={xAt(i)} y={H - 8} fontSize="10" fill="#9aa0ad" textAnchor="middle">{l}</text>
+        ))}
+      </svg>
+      <div className="chart-legend">
+        {series.map((s) => (
+          <span key={s.name}><span className="dot" style={{ background: s.color }} />{s.name}</span>
+        ))}
+      </div>
+    </div>
+  );
 }
