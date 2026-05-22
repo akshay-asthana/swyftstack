@@ -1132,6 +1132,8 @@ model UsageEvent {
   @@index([organizationId, usageType, recordedAt])
   @@index([userId, usageType, recordedAt])
   @@index([projectId])
+  @@index([projectId, usageType, recordedAt])
+  @@index([appId, usageType, recordedAt])
   @@index([usageType, recordedAt])
   @@map("usage_events")
 }

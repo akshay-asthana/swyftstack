@@ -116,12 +116,20 @@ async function targetOptions(kind: ProvisioningTargetType): Promise<{ id: string
 // ---- section --------------------------------------------------------------
 
 export async function ProvisioningSection() {
-  const policies = await prisma.provisioningPolicy.findMany();
-  const byType = new Map(policies.map((p) => [p.resourceType, p]));
-
   const kinds = [...new Set(Object.values(RESOURCE_TARGET_KIND))] as ProvisioningTargetType[];
-  const optionsByKind = new Map<ProvisioningTargetType, { id: string; label: string }[]>();
-  for (const k of kinds) optionsByKind.set(k, await targetOptions(k));
+  const [policies, optionEntries, decisions] = await Promise.all([
+    prisma.provisioningPolicy.findMany(),
+    Promise.all(kinds.map(async (k) => [k, await targetOptions(k)] as const)),
+    Promise.all(
+      PROVISIONING_RESOURCE_TYPES.map(async (resourceType) => [
+        resourceType,
+        await provisioningPolicyService.selectTarget(resourceType as ProvisioningResourceType),
+      ] as const),
+    ),
+  ]);
+  const byType = new Map(policies.map((p) => [p.resourceType, p]));
+  const optionsByKind = new Map<ProvisioningTargetType, { id: string; label: string }[]>(optionEntries);
+  const decisionByType = new Map(decisions);
 
   const cards: React.ReactNode[] = [];
   for (const resourceType of PROVISIONING_RESOURCE_TYPES) {
@@ -141,7 +149,7 @@ export async function ProvisioningSection() {
       continue;
     }
 
-    const decision = await provisioningPolicyService.selectTarget(resourceType as ProvisioningResourceType);
+    const decision = decisionByType.get(resourceType)!;
     const used = new Set(decision.candidates.map((c) => c.targetId));
     const available = (optionsByKind.get(kind) ?? []).filter((o) => !used.has(o.id));
 
@@ -156,7 +164,7 @@ export async function ProvisioningSection() {
         }
         action={<Badge status={decision.chosen ? "active" : decision.policyEnabled ? "warning" : "disabled"} />}
       >
-        <form action={savePolicy} className="row" style={{ gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+        <form action={savePolicy} className="provisioning-policy-bar">
           <input type="hidden" name="policyId" value={policy.id} />
           <div>
             <label className="small">Strategy</label>
@@ -166,34 +174,39 @@ export async function ProvisioningSection() {
               ))}
             </select>
           </div>
-          <label className="check" style={{ alignSelf: "end" }}>
+          <label className="check" style={{ margin: 0 }}>
             <input type="checkbox" name="enabled" defaultChecked={policy.enabled} /> Policy enabled
           </label>
-          <button className="btn secondary" style={{ alignSelf: "end" }}>Save policy</button>
+          <span />
+          <button className="btn secondary">Save policy</button>
         </form>
+
+        <div className="provisioning-decision">
+          <span className="small">Decision preview: {decision.reason}</span>
+          {decision.chosen && <span className="tag accent">would pick {decision.chosen.name}</span>}
+        </div>
 
         {decision.candidates.length === 0 ? (
           <p className="small">No targets yet — add one below.</p>
         ) : (
-          <div>
-            <div className="row small" style={{ fontWeight: 700, padding: "0 4px 4px", gap: 8 }}>
-              <span style={{ flex: 2 }}>Target</span>
-              <span style={{ width: 56 }}>Prio</span>
-              <span style={{ width: 64 }}>Weight</span>
-              <span style={{ width: 64 }}>Max %</span>
-              <span style={{ width: 56 }}>On</span>
-              <span style={{ width: 72 }}>Health</span>
-              <span style={{ flex: 1 }} />
+          <div className="prov-targets">
+            <div className="prov-target-head">
+              <span>Target</span>
+              <span>Priority</span>
+              <span>Weight</span>
+              <span>Max usage</span>
+              <span>On</span>
+              <span>Health</span>
+              <span />
             </div>
             {decision.candidates.map((t) => (
               <form
                 key={t.id}
                 action={saveTarget}
-                className="row"
-                style={{ gap: 8, alignItems: "center", padding: "8px 4px", borderTop: "1px solid var(--border)" }}
+                className="prov-target-row"
               >
                 <input type="hidden" name="targetId" value={t.id} />
-                <span style={{ flex: 2 }}>
+                <span className="prov-target-name">
                   <strong>{t.name}</strong>
                   {decision.chosen?.targetId === t.targetId && (
                     <span className="tag accent" style={{ marginLeft: 6 }}>would pick</span>
@@ -202,14 +215,14 @@ export async function ProvisioningSection() {
                     usage {t.usagePercent === null ? "not reported" : `${t.usagePercent.toFixed(0)}%`} · {t.note}
                   </div>
                 </span>
-                <input name="priority" defaultValue={t.priority} style={{ width: 56 }} />
-                <input name="weight" defaultValue={t.weight} style={{ width: 64 }} />
-                <input name="maxUsagePercent" defaultValue={t.maxUsagePercent ?? ""} placeholder="—" style={{ width: 64 }} />
-                <span style={{ width: 56 }}>
-                  <input type="checkbox" name="enabled" defaultChecked={t.enabled} style={{ width: "auto" }} />
-                </span>
-                <span style={{ width: 72 }}><Badge status={t.healthy ? "active" : "degraded"} /></span>
-                <span className="row" style={{ flex: 1, gap: 6, justifyContent: "flex-end" }}>
+                <input name="priority" type="number" min={1} defaultValue={t.priority} aria-label={`${t.name} priority`} />
+                <input name="weight" type="number" min={0} defaultValue={t.weight} aria-label={`${t.name} weight`} />
+                <input name="maxUsagePercent" type="number" min={1} max={100} defaultValue={t.maxUsagePercent ?? ""} placeholder="—" aria-label={`${t.name} max usage percent`} />
+                <label className="check prov-target-enabled" title="Target enabled">
+                  <input type="checkbox" name="enabled" defaultChecked={t.enabled} />
+                </label>
+                <span><Badge status={t.healthy ? "active" : "degraded"} /></span>
+                <span className="prov-target-actions">
                   <button className="btn sm secondary" type="submit">Save</button>
                   <button className="btn sm danger" type="submit" formAction={removeTarget}>Remove</button>
                 </span>
@@ -218,12 +231,8 @@ export async function ProvisioningSection() {
           </div>
         )}
 
-        <p className="small" style={{ margin: "10px 0 6px" }}>
-          Decision preview: {decision.reason}
-        </p>
-
         {available.length > 0 ? (
-          <form action={addTarget} className="row" style={{ gap: 8 }}>
+          <form action={addTarget} className="provisioning-add">
             <input type="hidden" name="policyId" value={policy.id} />
             <input type="hidden" name="targetType" value={kind} />
             <select name="targetId" defaultValue="">
@@ -248,7 +257,7 @@ export async function ProvisioningSection() {
         healthy target with its strategy; priority and weight tune the choice.
         The <strong>would pick</strong> tag previews the live decision.
       </p>
-      <div className="split-even">{cards}</div>
+      <div className="provisioning-stack">{cards}</div>
     </>
   );
 }

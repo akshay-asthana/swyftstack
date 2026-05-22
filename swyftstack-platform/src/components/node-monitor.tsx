@@ -4,13 +4,14 @@
 // seconds, redraws the charts, shows a "last updated" timestamp and a stale
 // warning when metrics stop flowing.
 import { useState, useEffect, useCallback } from "react";
-import { AreaChart, LineChart } from "./ui";
+import { AreaChart, bytes, LineChart, StatCard } from "./ui";
 
 interface Metric {
   collectedAt: string;
   cpuUsagePercent: number | null;
   cpuLoad1: number | null;
   ramUsedBytes: number;
+  ramTotalBytes: number;
   diskUsedBytes: number;
   networkRxBytes: number;
   networkTxBytes: number;
@@ -24,7 +25,9 @@ export interface MonitorData {
 }
 
 const POLL_MS = 8_000;
+const SUMMARY_POLL_MS = 30_000;
 const STALE_MS = 60_000;
+const BACKGROUND_FETCH_HEADERS = { "x-swyftstack-background": "1" };
 
 function fmtAgo(s: number): string {
   if (s < 60) return `${s}s ago`;
@@ -40,7 +43,10 @@ export function NodeMonitor({ nodeId, initial }: { nodeId: string; initial: Moni
 
   const poll = useCallback(async () => {
     try {
-      const res = await fetch(`/api/admin/nodes/${nodeId}/metrics`, { cache: "no-store" });
+      const res = await fetch(`/api/admin/nodes/${nodeId}/metrics`, {
+        cache: "no-store",
+        headers: BACKGROUND_FETCH_HEADERS,
+      });
       if (!res.ok) {
         setError(true);
         return;
@@ -144,5 +150,44 @@ export function NodeMonitor({ nodeId, initial }: { nodeId: string; initial: Moni
         </div>
       </div>
     </>
+  );
+}
+
+export function NodeMetricCards({ nodeId, initial }: { nodeId: string; initial: MonitorData }) {
+  const [data, setData] = useState(initial);
+
+  const poll = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/admin/nodes/${nodeId}/metrics`, {
+        cache: "no-store",
+        headers: BACKGROUND_FETCH_HEADERS,
+      });
+      if (res.ok) setData((await res.json()) as MonitorData);
+    } catch {
+      // Keep the last known values on transient poll failures.
+    }
+  }, [nodeId]);
+
+  useEffect(() => {
+    const iv = setInterval(poll, SUMMARY_POLL_MS);
+    return () => clearInterval(iv);
+  }, [poll]);
+
+  const latest = data.metrics[data.metrics.length - 1];
+
+  return (
+    <div className="grid compact" style={{ marginBottom: 16 }}>
+      <StatCard
+        icon="cpu"
+        tone="violet"
+        label="CPU"
+        value={latest?.cpuUsagePercent != null ? `${Number(latest.cpuUsagePercent).toFixed(0)}%` : "—"}
+        deltaNote={`updates every ${SUMMARY_POLL_MS / 1000}s`}
+      />
+      <StatCard icon="infra" tone="blue" label="RAM used" value={latest ? bytes(latest.ramUsedBytes) : "—"} />
+      <StatCard icon="storage" tone="green" label="Disk used" value={latest ? bytes(latest.diskUsedBytes) : "—"} />
+      <StatCard icon="apps" tone="amber" label="Containers" value={latest?.containersRunning ?? "—"} />
+      <StatCard icon="alert" tone="rose" label="Failed containers" value={latest?.containersFailed ?? "—"} />
+    </div>
   );
 }

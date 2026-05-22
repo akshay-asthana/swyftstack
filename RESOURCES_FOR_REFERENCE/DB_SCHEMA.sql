@@ -443,6 +443,8 @@ CREATE TABLE usage_events (
 );
 CREATE INDEX ON usage_events(organization_id, usage_type, recorded_at);
 CREATE INDEX ON usage_events(project_id);
+CREATE INDEX ON usage_events(project_id, usage_type, recorded_at);
+CREATE INDEX ON usage_events(app_id, usage_type, recorded_at);
 
 CREATE TABLE usage_rollups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

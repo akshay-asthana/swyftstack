@@ -84,15 +84,133 @@ export function Table({
   );
 }
 
+// ---------- Skeletons ----------
+export function SkeletonBlock({
+  className = "",
+  style,
+}: {
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  return <span className={`skeleton ${className}`} style={style} aria-hidden="true" />;
+}
+
+export function StatCardSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <div className="grid compact skeleton-grid">
+      {Array.from({ length: count }, (_, i) => (
+        <div className="statcard skeleton-card" key={i}>
+          <div className="stat-top">
+            <SkeletonBlock className="sk-icon" />
+            <SkeletonBlock style={{ width: 96, height: 12 }} />
+          </div>
+          <SkeletonBlock style={{ width: "62%", height: 30 }} />
+          <SkeletonBlock style={{ width: "44%", height: 11 }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function ChartSkeleton({ title = true }: { title?: boolean }) {
+  return (
+    <div className="panel skeleton-panel">
+      {title && (
+        <div className="panel-head">
+          <SkeletonBlock style={{ width: 150, height: 15 }} />
+          <SkeletonBlock style={{ width: 76, height: 12 }} />
+        </div>
+      )}
+      <div className="panel-body">
+        <SkeletonBlock className="sk-chart" />
+      </div>
+    </div>
+  );
+}
+
+export function TableSkeleton({
+  columns = 5,
+  rows = 8,
+}: {
+  columns?: number;
+  rows?: number;
+}) {
+  return (
+    <div className="panel skeleton-panel">
+      <div className="panel-head">
+        <SkeletonBlock style={{ width: 140, height: 15 }} />
+        <SkeletonBlock style={{ width: 92, height: 30 }} />
+      </div>
+      <div className="panel-body flush">
+        <table className="skeleton-table" aria-hidden="true">
+          <thead>
+            <tr>
+              {Array.from({ length: columns }, (_, i) => (
+                <th key={i}><SkeletonBlock style={{ width: i === 0 ? 120 : 72, height: 10 }} /></th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: rows }, (_, r) => (
+              <tr key={r}>
+                {Array.from({ length: columns }, (_, c) => (
+                  <td key={c}>
+                    <SkeletonBlock style={{ width: c === 0 ? "72%" : "54%", height: 12 }} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export function PageSkeleton({
+  title = true,
+  cards = 6,
+  charts = 2,
+  tables = 1,
+}: {
+  title?: boolean;
+  cards?: number;
+  charts?: number;
+  tables?: number;
+}) {
+  return (
+    <div className="page-skeleton" aria-busy="true" aria-label="Loading">
+      {title && (
+        <div className="page-head">
+          <div>
+            <SkeletonBlock style={{ width: 190, height: 24, marginBottom: 8 }} />
+            <SkeletonBlock style={{ width: 360, maxWidth: "70vw", height: 13 }} />
+          </div>
+          <SkeletonBlock style={{ width: 118, height: 36 }} />
+        </div>
+      )}
+      {cards > 0 && <StatCardSkeleton count={cards} />}
+      {charts > 0 && (
+        <div className="split-even skeleton-split">
+          {Array.from({ length: charts }, (_, i) => <ChartSkeleton key={i} />)}
+        </div>
+      )}
+      {Array.from({ length: tables }, (_, i) => <TableSkeleton key={i} columns={i === 0 ? 6 : 5} rows={i === 0 ? 8 : 5} />)}
+    </div>
+  );
+}
+
 // ---------- Area chart (pure SVG, deterministic) ----------
 export function AreaChart({
-  points, labels, height = 200, color = "#6d5ef6",
+  points, labels, height = 200, color = "#6d5ef6", maxXTicks = 8,
 }: {
-  points: number[]; labels?: string[]; height?: number; color?: string;
+  points: number[]; labels?: string[]; height?: number; color?: string; maxXTicks?: number;
 }) {
   const W = 760, H = height, padL = 36, padR = 12, padT = 14, padB = 26;
   const max = Math.max(1, ...points);
   const n = points.length;
+  const gradientId = `area-${color.replace(/[^a-zA-Z0-9]/g, "")}-${height}`;
+  const labelIndexes = tickIndexes(n, maxXTicks);
   const xAt = (i: number) => padL + (n <= 1 ? 0 : (i * (W - padL - padR)) / (n - 1));
   const yAt = (v: number) => padT + (H - padT - padB) * (1 - v / max);
   const line = points.map((v, i) => `${i === 0 ? "M" : "L"}${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(" ");
@@ -102,7 +220,7 @@ export function AreaChart({
     <div className="chart-wrap">
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" preserveAspectRatio="none" style={{ display: "block" }}>
         <defs>
-          <linearGradient id="qd-area" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={color} stopOpacity="0.28" />
             <stop offset="100%" stopColor={color} stopOpacity="0.01" />
           </linearGradient>
@@ -114,12 +232,12 @@ export function AreaChart({
           <text key={i} x={padL - 8} y={padT + (H - padT - padB) * (1 - f) + 4}
             fontSize="10" fill="#9aa0ad" textAnchor="end">{Math.round(max * f)}</text>
         ))}
-        <path d={area} fill="url(#qd-area)" />
+        <path d={area} fill={`url(#${gradientId})`} />
         <path d={line} fill="none" stroke={color} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />
         {points.map((v, i) => (
           <circle key={i} cx={xAt(i)} cy={yAt(v)} r="2.6" fill="#fff" stroke={color} strokeWidth="2" />
         ))}
-        {labels?.map((l, i) => (
+        {labels?.map((l, i) => labelIndexes.has(i) && (
           <text key={i} x={xAt(i)} y={H - 8} fontSize="10" fill="#9aa0ad" textAnchor="middle">{l}</text>
         ))}
       </svg>
@@ -391,16 +509,18 @@ export function BarChart({
 
 // ---------- LineChart (multi-series, pure SVG) ----------
 export function LineChart({
-  series, labels, height = 200,
+  series, labels, height = 200, maxXTicks = 8,
 }: {
   series: { name: string; points: number[]; color: string }[];
   labels?: string[];
   height?: number;
+  maxXTicks?: number;
 }) {
   const W = 760, H = height, padL = 44, padR = 12, padT = 14, padB = 26;
   const all = series.flatMap((s) => s.points);
   const max = Math.max(1, ...all);
   const n = Math.max(...series.map((s) => s.points.length), 1);
+  const labelIndexes = tickIndexes(n, maxXTicks);
   const xAt = (i: number) => padL + (n <= 1 ? 0 : (i * (W - padL - padR)) / (n - 1));
   const yAt = (v: number) => padT + (H - padT - padB) * (1 - v / max);
   const gridY = [0, 0.25, 0.5, 0.75, 1].map((f) => padT + (H - padT - padB) * f);
@@ -423,7 +543,7 @@ export function LineChart({
               strokeLinejoin="round" strokeLinecap="round" />
           );
         })}
-        {labels?.map((l, i) => (
+        {labels?.map((l, i) => labelIndexes.has(i) && (
           <text key={i} x={xAt(i)} y={H - 8} fontSize="10" fill="#9aa0ad" textAnchor="middle">{l}</text>
         ))}
       </svg>
@@ -434,4 +554,15 @@ export function LineChart({
       </div>
     </div>
   );
+}
+
+function tickIndexes(count: number, maxTicks: number): Set<number> {
+  if (count <= 0) return new Set();
+  const limit = Math.max(2, maxTicks);
+  if (count <= limit) return new Set(Array.from({ length: count }, (_, i) => i));
+  const step = Math.ceil((count - 1) / (limit - 1));
+  const indexes = new Set<number>();
+  for (let i = 0; i < count; i += step) indexes.add(i);
+  indexes.add(count - 1);
+  return indexes;
 }

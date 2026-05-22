@@ -32,6 +32,23 @@ export interface ProvisioningDecision {
   reason: string;
 }
 
+type PolicyTargetRow = {
+  id: string;
+  targetType: string;
+  targetId: string;
+  priority: number;
+  weight: number;
+  enabled: boolean;
+  maxUsagePercent: number | null;
+};
+
+type PolicyWithTargets = {
+  resourceType: string;
+  strategy: string;
+  enabled: boolean;
+  targets: PolicyTargetRow[];
+};
+
 /** Inspect the live health + usage of a single provisioning target. */
 async function inspectTarget(
   targetType: ProvisioningTargetType,
@@ -86,6 +103,35 @@ async function inspectTarget(
   return { name: p.name, healthy: p.status === "active", usagePercent: null, note: `status ${p.status}` };
 }
 
+async function resolvePolicyTargets(policy: PolicyWithTargets | null): Promise<ResolvedTarget[]> {
+  if (!policy) return [];
+  const inspected = await Promise.all(
+    policy.targets.map(async (t) => ({
+      target: t,
+      info: await inspectTarget(t.targetType as ProvisioningTargetType, t.targetId),
+    })),
+  );
+  return inspected.map(({ target: t, info }) => {
+    const overCapacity =
+      info.usagePercent !== null &&
+      t.maxUsagePercent !== null &&
+      info.usagePercent >= t.maxUsagePercent;
+    return {
+      id: t.id,
+      targetType: t.targetType as ProvisioningTargetType,
+      targetId: t.targetId,
+      name: info.name,
+      priority: t.priority,
+      weight: t.weight,
+      enabled: t.enabled,
+      healthy: info.healthy && t.enabled && !overCapacity,
+      usagePercent: info.usagePercent,
+      maxUsagePercent: t.maxUsagePercent,
+      note: overCapacity ? `${info.note} · over ${t.maxUsagePercent}% cap` : info.note,
+    };
+  });
+}
+
 /** Pick one target from the healthy candidates using the policy's strategy. */
 function applyStrategy(strategy: string, healthy: ResolvedTarget[]): ResolvedTarget | null {
   if (healthy.length === 0) return null;
@@ -132,29 +178,7 @@ export const provisioningPolicyService = {
   /** Resolve every configured target with live health + usage. */
   async resolveTargets(resourceType: ProvisioningResourceType): Promise<ResolvedTarget[]> {
     const policy = await this.getPolicy(resourceType);
-    if (!policy) return [];
-    const resolved: ResolvedTarget[] = [];
-    for (const t of policy.targets) {
-      const info = await inspectTarget(t.targetType as ProvisioningTargetType, t.targetId);
-      const overCapacity =
-        info.usagePercent !== null &&
-        t.maxUsagePercent !== null &&
-        info.usagePercent >= t.maxUsagePercent;
-      resolved.push({
-        id: t.id,
-        targetType: t.targetType as ProvisioningTargetType,
-        targetId: t.targetId,
-        name: info.name,
-        priority: t.priority,
-        weight: t.weight,
-        enabled: t.enabled,
-        healthy: info.healthy && t.enabled && !overCapacity,
-        usagePercent: info.usagePercent,
-        maxUsagePercent: t.maxUsagePercent,
-        note: overCapacity ? `${info.note} · over ${t.maxUsagePercent}% cap` : info.note,
-      });
-    }
-    return resolved;
+    return resolvePolicyTargets(policy);
   },
 
   /** Health of one resolved target — used by the admin UI capacity column. */
@@ -172,7 +196,7 @@ export const provisioningPolicyService = {
     resourceType: ProvisioningResourceType,
   ): Promise<ProvisioningDecision> {
     const policy = await this.getPolicy(resourceType);
-    const candidates = await this.resolveTargets(resourceType);
+    const candidates = await resolvePolicyTargets(policy);
     if (!policy) {
       return {
         resourceType,

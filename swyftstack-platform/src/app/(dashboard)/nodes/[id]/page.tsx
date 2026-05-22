@@ -13,11 +13,11 @@ import {
   sshNodeService,
 } from "swyftstack-shared";
 import {
-  Badge, bytes, Panel, KeyValue, Table, StatCard,
+  Badge, bytes, Panel, KeyValue, Table,
   Breadcrumbs, ProgressBar, timeAgo,
 } from "@/components/ui";
 import { Tabs, ConfirmButton, NodeTerminal } from "@/components/client";
-import { NodeMonitor } from "@/components/node-monitor";
+import { NodeMetricCards, NodeMonitor, type MonitorData } from "@/components/node-monitor";
 
 export const dynamic = "force-dynamic";
 
@@ -238,6 +238,22 @@ export default async function NodeDetailPage({
   const onboarding = node.status === "provisioning" || node.discoveryStatus !== "succeeded";
   const isLocal = isLocalControlPlaneNode(node);
   const error = searchParams?.error ? DETAIL_ERRORS[searchParams.error] : null;
+  const initialMonitorData: MonitorData = {
+    status: node.status,
+    lastMetricAt: (node.lastMetricAt ?? node.lastHeartbeatAt)?.toISOString() ?? null,
+    metrics: metrics.map((m) => ({
+      collectedAt: m.collectedAt.toISOString(),
+      cpuUsagePercent: m.cpuUsagePercent === null ? null : Number(m.cpuUsagePercent),
+      cpuLoad1: m.cpuLoad1 === null ? null : Number(m.cpuLoad1),
+      ramUsedBytes: Number(m.ramUsedBytes ?? 0),
+      ramTotalBytes: Number(m.ramTotalBytes ?? 0),
+      diskUsedBytes: Number(m.diskUsedBytes ?? 0),
+      networkRxBytes: Number(m.networkRxBytes ?? 0),
+      networkTxBytes: Number(m.networkTxBytes ?? 0),
+      containersRunning: m.containersRunning ?? 0,
+      containersFailed: m.containersFailed ?? 0,
+    })),
+  };
 
   // capacity math
   const cpuCap = Number(node.cpuCores);
@@ -362,25 +378,7 @@ export default async function NodeDetailPage({
   // Live monitoring (§4): the client component polls /metrics every ~8s and
   // shows a stale warning if collection stops. SSR data renders immediately.
   const monitoringTab = (
-    <NodeMonitor
-      nodeId={node.id}
-      initial={{
-        status: node.status,
-        lastMetricAt: (node.lastMetricAt ?? node.lastHeartbeatAt)?.toISOString() ?? null,
-        metrics: metrics.map((m) => ({
-          collectedAt: m.collectedAt.toISOString(),
-          cpuUsagePercent: m.cpuUsagePercent === null ? null : Number(m.cpuUsagePercent),
-          cpuLoad1: m.cpuLoad1 === null ? null : Number(m.cpuLoad1),
-          ramUsedBytes: Number(m.ramUsedBytes ?? 0),
-          ramTotalBytes: Number(m.ramTotalBytes ?? 0),
-          diskUsedBytes: Number(m.diskUsedBytes ?? 0),
-          networkRxBytes: Number(m.networkRxBytes ?? 0),
-          networkTxBytes: Number(m.networkTxBytes ?? 0),
-          containersRunning: m.containersRunning ?? 0,
-          containersFailed: m.containersFailed ?? 0,
-        })),
-      }}
-    />
+    <NodeMonitor nodeId={node.id} initial={initialMonitorData} />
   );
 
   const workloadsTab = (
@@ -571,18 +569,7 @@ export default async function NodeDetailPage({
 
       {error && <div className="err" style={{ marginBottom: 14 }}>{error}</div>}
 
-      <div className="grid compact" style={{ marginBottom: 16 }}>
-        <StatCard icon="cpu" tone="violet" label="CPU"
-          value={latest?.cpuUsagePercent != null ? `${Number(latest.cpuUsagePercent).toFixed(0)}%` : "—"} />
-        <StatCard icon="infra" tone="blue" label="RAM used"
-          value={latest ? bytes(latest.ramUsedBytes) : "—"} />
-        <StatCard icon="storage" tone="green" label="Disk used"
-          value={latest ? bytes(latest.diskUsedBytes) : "—"} />
-        <StatCard icon="apps" tone="amber" label="Containers"
-          value={latest?.containersRunning ?? "—"} />
-        <StatCard icon="alert" tone="rose" label="Failed containers"
-          value={latest?.containersFailed ?? "—"} />
-      </div>
+      <NodeMetricCards nodeId={node.id} initial={initialMonitorData} />
 
       {onboardingPanel}
 

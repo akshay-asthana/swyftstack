@@ -33,7 +33,7 @@ export async function OverviewSection() {
   const [
     nodes, runningApps, failedApps, databases, buckets, backups, failedJobs,
     objectProviders, backupProviders, clusters,
-    recentIncidents, platformRollups, bwByUser, bwByProject, cpuByApp, topDbs,
+    recentIncidents, platformRollups, bwByUser, bwByProject, cpuByApp, topDbs, bwAgg,
   ] = await Promise.all([
     prisma.node.findMany({
       include: { metrics: { orderBy: { collectedAt: "desc" }, take: 1 }, _count: { select: { apps: true, databases: true } } },
@@ -85,6 +85,11 @@ export async function OverviewSection() {
       take: 8,
       select: { id: true, name: true, currentSizeBytes: true },
     }),
+    prisma.usageEvent.groupBy({
+      by: ["usageType"],
+      where: { recordedAt: { gte: since }, usageType: { in: BW_TYPES } },
+      _sum: { quantity: true },
+    }),
   ]);
 
   // Node aggregates — scheduling nodes only (exclude archived).
@@ -106,11 +111,6 @@ export async function OverviewSection() {
       : 0;
 
   // Platform bandwidth (this month) from usage events.
-  const bwAgg = await prisma.usageEvent.groupBy({
-    by: ["usageType"],
-    where: { recordedAt: { gte: since }, usageType: { in: BW_TYPES } },
-    _sum: { quantity: true },
-  });
   const bwIn = bwAgg
     .filter((r) => (BANDWIDTH_IN_TYPES as readonly string[]).includes(r.usageType))
     .reduce((s, r) => s + Number(r._sum.quantity ?? 0), 0);

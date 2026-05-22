@@ -3,8 +3,124 @@
 // Interactive admin UI kit (§15). Server pages pass plain data + pre-rendered
 // cells; these components handle search/sort/filter, menus, tabs and clipboard.
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Icon, type IconName } from "./icons";
+
+const BACKGROUND_FETCH_HEADER = "x-swyftstack-background";
+
+// ------------------------------------------------------------- TopLoadingBar
+export function TopLoadingBar() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [visible, setVisible] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const activeFetches = useRef(0);
+  const hideTimer = useRef<number | null>(null);
+
+  function begin() {
+    if (hideTimer.current) window.clearTimeout(hideTimer.current);
+    setVisible(true);
+    setProgress((p) => (p > 0 && p < 1 ? p : 0.08));
+  }
+
+  function complete() {
+    if (hideTimer.current) window.clearTimeout(hideTimer.current);
+    setProgress(1);
+    hideTimer.current = window.setTimeout(() => {
+      setVisible(false);
+      setProgress(0);
+    }, 180);
+  }
+
+  useEffect(() => {
+    if (!visible) return;
+    const iv = window.setInterval(() => {
+      setProgress((p) => {
+        if (p >= 0.94) return p;
+        return p + Math.max(0.012, (0.94 - p) * 0.16);
+      });
+    }, 180);
+    return () => window.clearInterval(iv);
+  }, [visible]);
+
+  useEffect(() => {
+    complete();
+  }, [pathname, searchParams]);
+
+  useEffect(() => {
+    const originalFetch = window.fetch.bind(window);
+
+    window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const background = isBackgroundFetch(input, init);
+      if (!background) {
+        activeFetches.current += 1;
+        begin();
+      }
+      try {
+        return await originalFetch(input, init);
+      } finally {
+        if (!background) {
+          activeFetches.current = Math.max(0, activeFetches.current - 1);
+          if (activeFetches.current === 0) complete();
+        }
+      }
+    }) as typeof window.fetch;
+
+    const onClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = (event.target as HTMLElement | null)?.closest<HTMLAnchorElement>("a[href]");
+      if (!link || link.target || link.hasAttribute("download")) return;
+      const url = new URL(link.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      const current = `${window.location.pathname}${window.location.search}`;
+      const next = `${url.pathname}${url.search}`;
+      if (current === next) return;
+      begin();
+    };
+
+    const onSubmit = () => {
+      begin();
+      window.setTimeout(() => {
+        if (activeFetches.current === 0) complete();
+      }, 900);
+    };
+
+    document.addEventListener("click", onClick, true);
+    document.addEventListener("submit", onSubmit, true);
+
+    return () => {
+      window.fetch = originalFetch;
+      document.removeEventListener("click", onClick, true);
+      document.removeEventListener("submit", onSubmit, true);
+      if (hideTimer.current) window.clearTimeout(hideTimer.current);
+    };
+  }, []);
+
+  return (
+    <div className={`top-loading-line${visible ? " active" : ""}`} aria-hidden="true">
+      <span style={{ transform: `scaleX(${progress})` }} />
+    </div>
+  );
+}
+
+function isBackgroundFetch(input: RequestInfo | URL, init?: RequestInit): boolean {
+  const initHeader = headerValue(init?.headers, BACKGROUND_FETCH_HEADER);
+  const requestHeader = input instanceof Request ? input.headers.get(BACKGROUND_FETCH_HEADER) : null;
+  if (initHeader === "1" || requestHeader === "1") return true;
+
+  const rawUrl = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+  const url = new URL(rawUrl, window.location.href);
+  return /^\/api\/admin\/nodes\/[^/]+\/metrics$/.test(url.pathname);
+}
+
+function headerValue(headers: HeadersInit | undefined, name: string): string | null {
+  if (!headers) return null;
+  try {
+    return new Headers(headers).get(name);
+  } catch {
+    return null;
+  }
+}
 
 // ---------------------------------------------------------------- DataTable
 export interface DTColumn {
@@ -340,7 +456,7 @@ export function NodeTerminal({
     try {
       const res = await fetch(`/api/admin/nodes/${nodeId}/command`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", [BACKGROUND_FETCH_HEADER]: "1" },
         body: JSON.stringify({ command: cmd, stream: true }),
         signal: abort.signal,
       });
