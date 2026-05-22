@@ -6,6 +6,7 @@ import {
   SignupEmailExistsError,
 } from "quickdock-shared";
 import { currentUser, setUserSession } from "@/lib/auth";
+import { Icon } from "@/components/icons";
 
 const ERRORS: Record<string, string> = {
   exists: "An account with that email already exists.",
@@ -56,8 +57,14 @@ export default async function SignupPage({
   return (
     <div className="login-wrap">
       <form className="login signup" action={doSignup}>
-        <div className="brand">Quickdock</div>
-        <p className="sub">Create your workspace</p>
+        <div className="brand-row">
+          <div className="brand-mark"><Icon name="rocket" size={18} /></div>
+          <div>
+            <div className="brand-name">Quickdock</div>
+            <div className="brand-sub">Cloud Platform</div>
+          </div>
+        </div>
+        <p className="sub" style={{ margin: "8px 0 16px" }}>Create your workspace.</p>
         <a className="btn google" href={googleUrl.toString()}>Continue with Google</a>
         <div className="divider"><span>or</span></div>
         <label>Name</label>
@@ -69,7 +76,7 @@ export default async function SignupPage({
         <label>Password</label>
         <input name="password" type="password" minLength={8} required autoComplete="new-password" />
         <div style={{ marginTop: 18 }}>
-          <button className="btn" type="submit">Create account</button>
+          <button className="btn" type="submit" style={{ width: "100%" }}>Create account</button>
         </div>
         {error && <div className="err">{error}</div>}
         <p className="small auth-foot">

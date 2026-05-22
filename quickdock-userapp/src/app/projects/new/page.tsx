@@ -1,15 +1,14 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { prisma } from "quickdock-shared";
 import { requireUser } from "@/lib/auth";
+import { UserShell } from "@/components/user-shell";
+import { Icon } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
 function slugify(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 async function loadWorkspace(userId: string) {
@@ -18,9 +17,7 @@ async function loadWorkspace(userId: string) {
     orderBy: { createdAt: "asc" },
     include: {
       subscriptions: {
-        where: { status: "active" },
-        orderBy: { createdAt: "desc" },
-        take: 1,
+        where: { status: "active" }, orderBy: { createdAt: "desc" }, take: 1,
         include: { plan: { include: { limits: true } } },
       },
       _count: { select: { projects: true } },
@@ -53,11 +50,7 @@ async function createProject(formData: FormData) {
 
   const project = await prisma.project.create({
     data: {
-      organizationId: workspace.id,
-      name,
-      slug,
-      region,
-      createdBy: user.id,
+      organizationId: workspace.id, name, slug, region, createdBy: user.id,
       members: { create: { userId: user.id, role: "owner" } },
     },
   });
@@ -70,20 +63,46 @@ export default async function NewProjectPage() {
   const subscription = workspace?.subscriptions[0];
   if (!workspace || !subscription) redirect("/pricing?next=/projects/new");
 
+  const limit = subscription.plan.limits?.maxProjects;
+  const remaining = limit == null ? "Unlimited" : Math.max(0, limit - workspace._count.projects);
+
   return (
-    <>
-      <div className="topbar"><span className="brand">Quickdock</span></div>
-      <div className="wrap">
-        <h1 className="h1">Create project</h1>
-        <p className="sub">Plan: {subscription.plan.name}</p>
-        <form action={createProject} className="card" style={{ maxWidth: 520 }}>
-          <label>Project name</label>
-          <input name="name" required autoFocus placeholder="Production API" />
-          <label>Region</label>
-          <input name="region" defaultValue="local" />
-          <div style={{ marginTop: 16 }}><button className="btn">Create project</button></div>
-        </form>
+    <UserShell user={user} workspace={workspace.name}>
+      <div className="page-head">
+        <div>
+          <h1 className="h1">Create a project</h1>
+          <p className="sub" style={{ marginBottom: 0 }}>
+            A project groups your apps, databases and storage. <Link href="/projects">Back to projects</Link>
+          </p>
+        </div>
       </div>
-    </>
+
+      <div className="split">
+        <div className="card">
+          <form action={createProject}>
+            <label>Project name</label>
+            <input name="name" required autoFocus placeholder="Production API" />
+            <label>Region</label>
+            <select name="region" defaultValue="local">
+              <option value="local">local — control-plane node</option>
+              <option value="fsn1">fsn1 — Falkenstein</option>
+              <option value="gra">gra — Gravelines</option>
+              <option value="bhs">bhs — Beauharnois</option>
+            </select>
+            <div style={{ marginTop: 18 }}>
+              <button className="btn"><Icon name="plus" size={15} /> Create project</button>
+            </div>
+          </form>
+        </div>
+        <div className="card">
+          <div className="panel-title" style={{ marginBottom: 10 }}>Current plan</div>
+          <div className="stat-value" style={{ fontSize: 20 }}>{subscription.plan.name}</div>
+          <p className="small" style={{ margin: "6px 0 0" }}>
+            {workspace._count.projects} of {limit ?? "∞"} projects used · {remaining} remaining
+          </p>
+          <p className="small">Need more? <Link href="/pricing?next=/projects/new">Upgrade your plan</Link>.</p>
+        </div>
+      </div>
+    </UserShell>
   );
 }

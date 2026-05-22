@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { login, currentUser } from "@/lib/auth";
 import { env } from "quickdock-shared";
+import { Icon } from "@/components/icons";
 
 const ERRORS: Record<string, string> = {
   "1": "Invalid credentials.",
@@ -30,8 +31,14 @@ export default async function LoginPage({ searchParams }: { searchParams: { erro
   return (
     <div className="login-wrap">
       <form className="login" action={doLogin}>
-        <div className="brand">Quickdock</div>
-        <p className="sub">Sign in to your workspace</p>
+        <div className="brand-row">
+          <div className="brand-mark"><Icon name="rocket" size={18} /></div>
+          <div>
+            <div className="brand-name">Quickdock</div>
+            <div className="brand-sub">Cloud Platform</div>
+          </div>
+        </div>
+        <p className="sub" style={{ margin: "8px 0 16px" }}>Sign in to your workspace.</p>
         <a className="btn google" href={googleUrl.toString()}>Continue with Google</a>
         <div className="divider"><span>or</span></div>
         <label>Email</label>
@@ -39,7 +46,7 @@ export default async function LoginPage({ searchParams }: { searchParams: { erro
         <label>Password</label>
         <input name="password" type="password" required />
         <div style={{ marginTop: 18 }}>
-          <button className="btn" type="submit">Sign in</button>
+          <button className="btn" type="submit" style={{ width: "100%" }}>Sign in</button>
         </div>
         {error && <div className="err">{error}</div>}
         <p className="small auth-foot">

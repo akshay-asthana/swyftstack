@@ -8,45 +8,18 @@ type Item = [href: string, label: string, icon: IconName];
 
 const NAV: { title: string; items: Item[] }[] = [
   {
-    title: "Operate",
+    title: "Workspace",
     items: [
-      ["/", "Overview", "overview"],
-      ["/nodes", "Nodes", "nodes"],
-      ["/jobs", "Jobs", "jobs"],
-      ["/migrations", "Migrations", "migrations"],
-    ],
-  },
-  {
-    title: "Customers",
-    items: [
-      ["/users", "Users", "users"],
-      ["/organizations", "Organizations", "org"],
+      ["/", "Dashboard", "overview"],
       ["/projects", "Projects", "projects"],
-    ],
-  },
-  {
-    title: "Resources",
-    items: [
-      ["/apps", "Apps", "apps"],
-      ["/databases", "Databases", "database"],
-      ["/buckets", "Storage", "storage"],
-      ["/backups", "Backups", "backups"],
-    ],
-  },
-  {
-    title: "Commercial",
-    items: [
-      ["/plans", "Plans & Limits", "plans"],
       ["/usage", "Usage & Billing", "usage"],
-      ["/audit-logs", "Logs & Audit", "audit"],
     ],
   },
   {
-    title: "System",
+    title: "Account",
     items: [
-      ["/infrastructure", "Infrastructure", "infra"],
-      ["/help", "Help & Guides", "help"],
       ["/settings", "Settings", "settings"],
+      ["/help", "Help & Support", "help"],
     ],
   },
 ];
@@ -56,7 +29,7 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function SidebarNav() {
+export function UserNav() {
   const pathname = usePathname();
   return (
     <nav className="nav">

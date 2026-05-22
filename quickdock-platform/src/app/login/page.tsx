@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { login, currentAdmin } from "@/lib/auth";
+import { Icon } from "@/components/icons";
 
 export default async function LoginPage({
   searchParams,
@@ -20,16 +21,22 @@ export default async function LoginPage({
   return (
     <div className="login-wrap">
       <form className="login" action={doLogin}>
-        <div className="brand">Quickdock</div>
-        <p className="sub">Infra Control Plane — admin sign in</p>
+        <div className="brand-row">
+          <div className="brand-mark"><Icon name="rocket" size={18} /></div>
+          <div>
+            <div className="brand-name">Quickdock</div>
+            <div className="brand-sub">Infra Control Panel</div>
+          </div>
+        </div>
+        <p className="sub" style={{ margin: "8px 0 16px" }}>Sign in to the admin control plane.</p>
         <label>Email</label>
         <input name="email" type="email" required autoFocus />
         <label>Password</label>
         <input name="password" type="password" required />
         <div style={{ marginTop: 18 }}>
-          <button className="btn" type="submit">Sign in</button>
+          <button className="btn" type="submit" style={{ width: "100%" }}>Sign in</button>
         </div>
-        {searchParams.error && <div className="err">Invalid credentials or not an admin.</div>}
+        {searchParams.error && <div className="err" style={{ marginTop: 12 }}>Invalid credentials or not an admin.</div>}
       </form>
     </div>
   );
