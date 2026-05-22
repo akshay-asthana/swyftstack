@@ -9,4 +9,4 @@ npm run db:seed
 
 
 Run dev apps-
-npm run dev:admin & npm run dev:user & npm run dev:worker & wait
+npm run dev:admin & npm run dev:user & npm run dev:worker

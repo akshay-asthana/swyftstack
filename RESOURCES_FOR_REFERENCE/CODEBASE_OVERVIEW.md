@@ -49,6 +49,10 @@ Quickdock/
     Replaces `BACKUP_*`.
   - `worker-config.ts` — `workerConfigService` (DB config + env fallback,
     30s cache). Replaces global `WORKER_*` (now `DEFAULT_WORKER_*` fallback).
+  - `ssh.ts` — `sshNodeService` uses local execution for `connection_mode=local`
+    and the system `ssh` binary with encrypted pasted private keys for remote
+    VPS connectivity tests, metric probes, running-service snapshots and logs,
+    recording results in `node_connection_logs`.
   `database.ts`/`backup.ts`/`storage.ts` resolve their target from these
   services; `jobs/worker.ts` is driven by `workerConfigService`.
 - `jobs/` — `index.ts` (enqueue/claim/complete/fail/retry/cancel),
@@ -72,10 +76,13 @@ Pure modules never import `db.ts`, so the test suite runs without Postgres or
   projects, apps, databases, buckets, plans, usage, jobs, backups, audit-logs,
   migrations, settings. Server components query Prisma directly; mutations use
   server actions.
+- `src/app/(dashboard)/nodes/[id]/page.tsx` — tabbed per-node overview,
+  monitoring, logs, SSH command history/settings and workloads.
 - `src/app/(dashboard)/infrastructure/page.tsx` — tabs: Database Clusters,
   Object Storage, Backup Storage, Worker Configs, Node Defaults
   (create/disable/test/make-default via server actions).
-- `src/app/api/admin/*` — REST endpoints (overview, nodes[+drain+agent script],
+- `src/app/api/admin/*` — REST endpoints (overview, nodes[+drain+agent script,
+  SSH test/probe/logs/services/command],
   plans, users, projects[+suspend/unsuspend/databases/apps], databases
   [+backup/restore], migrations, jobs[+retry], usage, audit-logs) and
   `infrastructure/{database-clusters,object-storage,backup-storage,worker-configs}`
@@ -91,6 +98,9 @@ Pure modules never import `db.ts`, so the test suite runs without Postgres or
 
 - `src/lib/auth.ts` — user session (email + optional password).
 - `src/app/login` / `src/app/page.tsx` — sign-in + project list (membership).
+- `src/app/pricing/page.tsx` — plan selection gate for free users.
+- `src/app/projects/new/page.tsx` — project creation; redirects to pricing if
+  the workspace has no active plan or has reached plan limits.
 - `src/app/projects/[id]/page.tsx` — project detail gated by `project_members`,
   shows apps/databases/activity and the user's resolved permissions.
 

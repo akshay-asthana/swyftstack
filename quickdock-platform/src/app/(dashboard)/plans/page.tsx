@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { audit, FEATURE_KEYS, prisma } from "quickdock-shared";
-import { Badge } from "@/components/ui";
+import { Badge, bytes, Table } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -162,40 +162,72 @@ export default async function PlansPage() {
 
   return (
     <>
-      <h1 className="h1">Plans</h1>
-      <p className="sub">Create and tune commercial plans, limits, and feature availability.</p>
+      <div className="actionbar">
+        <div>
+          <h1 className="h1">Plans</h1>
+          <p className="sub">Commercial plan catalog with editable limits and feature gates.</p>
+        </div>
+        <a className="btn" href="#new-plan">New plan</a>
+      </div>
 
-      <form action={createPlan} className="card" style={{ marginBottom: 16 }}>
-        <div className="panel-title">Create Plan</div>
-        <div className="form-grid">
-          <div><label>Name</label><input name="name" required /></div>
-          <div><label>Slug</label><input name="slug" placeholder="growth" /></div>
-          <div><label>Price cents</label><input name="priceCents" defaultValue="0" /></div>
-          <div><label>Currency</label><input name="currency" defaultValue="USD" /></div>
-          <div><label>Billing interval</label><input name="billingInterval" defaultValue="monthly" /></div>
-          <div><label>Status</label>
-            <select name="status" defaultValue="active">
-              <option value="active">active</option>
-              <option value="archived">archived</option>
-            </select>
+      <Table
+        columns={["Plan", "Price", "Status", "Core limits", "Features", "Subscriptions", "Actions"]}
+        rows={plans.map((p) => {
+          const enabled = new Set(p.features.filter((f) => f.enabled).map((f) => f.featureKey));
+          const featureCount = enabled.size;
+          return [
+            <div key="plan">
+              <strong>{p.name}</strong>
+              <div className="small">{p.slug}</div>
+            </div>,
+            `${p.currency} ${(p.priceCents / 100).toFixed(2)} / ${p.billingInterval}`,
+            <Badge key="status" status={p.status} />,
+            <div key="limits" className="small">
+              {p.limits?.maxProjects ?? "∞"} projects · {p.limits?.maxDatabases ?? "∞"} DBs<br />
+              {bytes(p.limits?.maxDatabaseStorageBytes)} DB · {bytes(p.limits?.maxObjectStorageBytes)} object
+            </div>,
+            `${featureCount}/${FEATURE_KEYS.length} enabled`,
+            p._count.subscriptions,
+            <a key="edit" className="btn secondary" href={`#edit-plan-${p.id}`}>Edit</a>,
+          ];
+        })}
+      />
+
+      <div id="new-plan" className="modal-backdrop">
+        <div className="modal-card">
+          <div className="modal-head"><strong>New plan</strong><a href="#" className="modal-close">x</a></div>
+          <div className="modal-body">
+            <form action={createPlan}>
+              <div className="form-grid">
+                <div><label>Name</label><input name="name" required /></div>
+                <div><label>Slug</label><input name="slug" placeholder="growth" /></div>
+                <div><label>Price cents</label><input name="priceCents" defaultValue="0" /></div>
+                <div><label>Currency</label><input name="currency" defaultValue="USD" /></div>
+                <div><label>Billing interval</label><input name="billingInterval" defaultValue="monthly" /></div>
+                <div><label>Status</label>
+                  <select name="status" defaultValue="active">
+                    <option value="active">active</option>
+                    <option value="archived">archived</option>
+                  </select>
+                </div>
+              </div>
+              <LimitInputs />
+              <FeatureChecks enabled={new Set(FEATURE_KEYS)} />
+              <div className="row" style={{ marginTop: 14 }}><button className="btn">Create plan</button><a href="#" className="btn secondary">Cancel</a></div>
+            </form>
           </div>
         </div>
-        <LimitInputs />
-        <FeatureChecks enabled={new Set(FEATURE_KEYS)} />
-        <div style={{ marginTop: 14 }}><button className="btn">Create plan</button></div>
-      </form>
+      </div>
 
       {plans.map((p) => {
         const enabled = new Set(p.features.filter((f) => f.enabled).map((f) => f.featureKey));
         return (
-          <form key={p.id} action={savePlan} className="card" style={{ marginBottom: 16 }}>
-            <input type="hidden" name="planId" value={p.id} />
-            <div className="row">
-              <strong style={{ fontSize: 16 }}>{p.name}</strong>
-              <Badge status={p.status} />
-              <span className="small">{p._count.subscriptions} subscriptions</span>
-              <span className="right small">{p.slug}</span>
-            </div>
+          <div id={`edit-plan-${p.id}`} className="modal-backdrop" key={p.id}>
+            <div className="modal-card">
+              <div className="modal-head"><strong>Edit {p.name}</strong><a href="#" className="modal-close">x</a></div>
+              <div className="modal-body">
+                <form action={savePlan}>
+                  <input type="hidden" name="planId" value={p.id} />
             <div className="form-grid">
               <div><label>Name</label><input name="name" defaultValue={p.name} required /></div>
               <div><label>Slug</label><input name="slug" defaultValue={p.slug} required /></div>
@@ -211,8 +243,11 @@ export default async function PlansPage() {
             </div>
             <LimitInputs limits={p.limits} />
             <FeatureChecks enabled={enabled} />
-            <div style={{ marginTop: 14 }}><button className="btn">Save plan</button></div>
-          </form>
+                  <div className="row" style={{ marginTop: 14 }}><button className="btn">Save plan</button><a href="#" className="btn secondary">Cancel</a></div>
+                </form>
+              </div>
+            </div>
+          </div>
         );
       })}
     </>

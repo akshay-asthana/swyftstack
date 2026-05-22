@@ -2,7 +2,7 @@
 // and applies missed-heartbeat health rules. A remote node-agent would later
 // implement the same interface over HTTPS/mTLS.
 import os from "node:os";
-import { prisma } from "../db.js";
+import { prisma, type Node } from "../db.js";
 import { audit } from "../audit.js";
 import type { NodeService, NodeMetricsSample } from "./types.js";
 
@@ -21,6 +21,25 @@ function localSample(): NodeMetricsSample {
     networkRxBytes: 0,
     networkTxBytes: 0,
   };
+}
+
+export class ProtectedLocalNodeError extends Error {
+  constructor(action: "disable" | "delete") {
+    super(`The local control-plane node cannot be ${action === "disable" ? "disabled" : "deleted"}.`);
+    this.name = "ProtectedLocalNodeError";
+  }
+}
+
+export function isLocalControlPlaneNode(node: Pick<Node, "connectionMode" | "provider">): boolean {
+  return node.connectionMode === "local" || node.provider === "local";
+}
+
+async function assertNodeCanBeDisabled(nodeId: string) {
+  const node = await prisma.node.findUniqueOrThrow({
+    where: { id: nodeId },
+    select: { connectionMode: true, provider: true },
+  });
+  if (isLocalControlPlaneNode(node)) throw new ProtectedLocalNodeError("disable");
 }
 
 export const localNodeService: NodeService = {
@@ -84,6 +103,7 @@ export const localNodeService: NodeService = {
   },
 
   async disable(nodeId: string) {
+    await assertNodeCanBeDisabled(nodeId);
     await prisma.node.update({ where: { id: nodeId }, data: { status: "disabled" } });
     await audit({ actorType: "admin", action: "node.disable", targetType: "node", targetId: nodeId });
   },

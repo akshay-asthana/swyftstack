@@ -64,12 +64,22 @@ async function main() {
 
   const node = await prisma.node.upsert({
     where: { name: "node-001" },
-    update: {},
-    create: {
-      name: "node-001",
-      provider: "custom",
+    update: {
+      provider: "local",
       publicIp: "127.0.0.1",
       privateIp: "127.0.0.1",
+      connectionMode: "local",
+      sshHost: null,
+      sshUser: null,
+      sshPrivateKeyEncrypted: null,
+      status: "active",
+    },
+    create: {
+      name: "node-001",
+      provider: "local",
+      publicIp: "127.0.0.1",
+      privateIp: "127.0.0.1",
+      connectionMode: "local",
       region: "local",
       status: "active",
       roles: [...NODE_ROLES],

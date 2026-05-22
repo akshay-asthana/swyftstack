@@ -4,6 +4,7 @@ body{background:var(--bg);color:var(--text);font:14px/1.5 ui-sans-serif,system-u
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .wrap{max-width:960px;margin:0 auto;padding:28px}
 .topbar{display:flex;align-items:center;gap:16px;border-bottom:1px solid var(--border);padding:14px 28px}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .brand{font-weight:700}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px}
 .h1{font-size:20px;font-weight:650;margin:0 0 4px}
@@ -29,3 +30,6 @@ label{display:block;font-size:12px;color:var(--muted);margin:12px 0 5px}
 .muted{color:var(--muted)}
 .auth-foot{margin:16px 0 0;text-align:center}
 .right{margin-left:auto}
+.price-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.price-card{display:flex;flex-direction:column;gap:10px}
+.price{font-size:30px;font-weight:750}.price span{font-size:13px;color:var(--muted);font-weight:500}

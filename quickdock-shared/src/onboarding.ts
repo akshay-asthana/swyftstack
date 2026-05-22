@@ -73,10 +73,6 @@ export async function findOrCreateOAuthCustomerAccount(input: CustomerAccountInp
 async function createCustomerAccount(
   input: CustomerAccountInput & { email: string; passwordHash: string | null },
 ) {
-  const now = new Date();
-  const periodEnd = new Date(now);
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
-
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
@@ -100,36 +96,6 @@ async function createCustomerAccount(
       },
     });
 
-    const starter = await tx.plan.findUnique({ where: { slug: "starter" } });
-    if (starter) {
-      await tx.subscription.create({
-        data: {
-          organizationId: organization.id,
-          planId: starter.id,
-          status: "active",
-          provider: "internal",
-          currentPeriodStart: now,
-          currentPeriodEnd: periodEnd,
-        },
-      });
-    }
-
-    const project = await tx.project.create({
-      data: {
-        organizationId: organization.id,
-        name: "Default project",
-        slug: "default",
-        region: "local",
-        createdBy: user.id,
-        members: {
-          create: {
-            userId: user.id,
-            role: "owner",
-          },
-        },
-      },
-    });
-
-    return { user, organization, project };
+    return { user, organization };
   });
 }

@@ -460,6 +460,15 @@ model Node {
   providerInstanceId String?   @map("provider_instance_id")
   publicIp          String?    @map("public_ip")
   privateIp         String?    @map("private_ip")
+  connectionMode    String     @default("ssh") @map("connection_mode")
+  sshHost           String?    @map("ssh_host")
+  sshPort           Int        @default(22) @map("ssh_port")
+  sshUser           String?    @map("ssh_user")
+  sshKeyPath        String?    @map("ssh_key_path")
+  sshPrivateKeyEncrypted String? @map("ssh_private_key_encrypted")
+  lastConnectionStatus String? @map("last_connection_status")
+  lastConnectionError  String? @map("last_connection_error")
+  lastConnectionAt     DateTime? @map("last_connection_at") @db.Timestamptz
   region            String?
   status            NodeStatus @default(provisioning)
   roles             String[]   @default([])
@@ -476,6 +485,7 @@ model Node {
   updatedAt         DateTime   @updatedAt @map("updated_at") @db.Timestamptz
 
   metrics          NodeMetric[]
+  connectionLogs   NodeConnectionLog[]
   apps             App[]
   databases        Database[]
   domains          Domain[]
@@ -503,6 +513,24 @@ model NodeMetric {
 
   @@index([nodeId, collectedAt])
   @@map("node_metrics")
+}
+
+model NodeConnectionLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  nodeId     String   @map("node_id") @db.Uuid
+  action     String
+  status     String
+  exitCode   Int?     @map("exit_code")
+  command    String?
+  output     String?
+  error      String?
+  durationMs Int      @map("duration_ms")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  node Node @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@index([nodeId, createdAt])
+  @@map("node_connection_logs")
 }
 
 // ---------------------------------------------------------------------------

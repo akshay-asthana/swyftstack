@@ -215,6 +215,15 @@ CREATE TABLE nodes (
   provider_instance_id TEXT,
   public_ip TEXT,
   private_ip TEXT,
+  connection_mode TEXT NOT NULL DEFAULT 'ssh',
+  ssh_host TEXT,
+  ssh_port INTEGER NOT NULL DEFAULT 22,
+  ssh_user TEXT,
+  ssh_key_path TEXT,
+  ssh_private_key_encrypted TEXT,
+  last_connection_status TEXT,
+  last_connection_error TEXT,
+  last_connection_at TIMESTAMPTZ,
   region TEXT,
   status node_status NOT NULL DEFAULT 'provisioning',
   roles TEXT[] NOT NULL DEFAULT '{}',
@@ -242,6 +251,20 @@ CREATE TABLE node_metrics (
   collected_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX ON node_metrics(node_id, collected_at);
+
+CREATE TABLE node_connection_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  node_id UUID NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+  action TEXT NOT NULL,
+  status TEXT NOT NULL,
+  exit_code INTEGER,
+  command TEXT,
+  output TEXT,
+  error TEXT,
+  duration_ms INTEGER NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX ON node_connection_logs(node_id, created_at);
 
 -- ---------------------------------------------------------------------------
 -- Apps / deployments / env / domains

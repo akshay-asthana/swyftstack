@@ -1,4 +1,4 @@
-import { prisma, audit, NODE_ROLES } from "quickdock-shared";
+import { prisma, audit, encryptSecret, NODE_ROLES } from "quickdock-shared";
 import { z } from "zod";
 import { authorize, json } from "@/lib/api";
 
@@ -13,11 +13,22 @@ const CreateNode = z.object({
   provider: z.string().min(1),
   publicIp: z.string().optional(),
   privateIp: z.string().optional(),
+  connectionMode: z.enum(["local", "ssh"]).default("ssh"),
+  sshHost: z.string().optional(),
+  sshPort: z.number().int().min(1).max(65535).default(22),
+  sshUser: z.string().optional(),
+  sshPrivateKey: z.string().optional(),
   region: z.string().optional(),
-  roles: z.array(z.enum(NODE_ROLES)).default([]),
+  roles: z.array(z.enum(NODE_ROLES)).min(1),
   cpuCores: z.number().positive(),
   ramBytes: z.number().positive(),
   diskBytes: z.number().positive(),
+}).superRefine((data, ctx) => {
+  if (data.connectionMode === "ssh") {
+    if (!data.sshHost) ctx.addIssue({ code: "custom", path: ["sshHost"], message: "required for SSH nodes" });
+    if (!data.sshUser) ctx.addIssue({ code: "custom", path: ["sshUser"], message: "required for SSH nodes" });
+    if (!data.sshPrivateKey) ctx.addIssue({ code: "custom", path: ["sshPrivateKey"], message: "required for SSH nodes" });
+  }
 });
 
 export async function POST(req: Request) {
@@ -26,12 +37,20 @@ export async function POST(req: Request) {
   const parsed = CreateNode.safeParse(await req.json());
   if (!parsed.success) return json({ error: parsed.error.flatten() }, { status: 400 });
   const d = parsed.data;
+  const existing = await prisma.node.findUnique({ where: { name: d.name }, select: { id: true } });
+  if (existing) return json({ error: "node name already exists" }, { status: 409 });
   const node = await prisma.node.create({
     data: {
       name: d.name,
       provider: d.provider,
-      publicIp: d.publicIp,
+      publicIp: d.publicIp ?? (d.connectionMode === "ssh" ? d.sshHost : undefined),
       privateIp: d.privateIp,
+      connectionMode: d.connectionMode,
+      sshHost: d.connectionMode === "ssh" ? d.sshHost : undefined,
+      sshPort: d.connectionMode === "ssh" ? d.sshPort : 22,
+      sshUser: d.connectionMode === "ssh" ? d.sshUser : undefined,
+      sshPrivateKeyEncrypted: d.connectionMode === "ssh" && d.sshPrivateKey ? encryptSecret(d.sshPrivateKey) : undefined,
+      lastConnectionStatus: "untested",
       region: d.region,
       roles: d.roles,
       cpuCores: d.cpuCores,

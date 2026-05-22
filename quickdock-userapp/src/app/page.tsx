@@ -19,6 +19,12 @@ export default async function Home() {
       },
     },
   });
+  const ownedOrg = await prisma.organization.findFirst({
+    where: { ownerUserId: user.id },
+    include: { subscriptions: { where: { status: "active" }, include: { plan: true }, take: 1 } },
+    orderBy: { createdAt: "asc" },
+  });
+  const activePlan = ownedOrg?.subscriptions[0]?.plan;
 
   async function doLogout() {
     "use server";
@@ -36,8 +42,18 @@ export default async function Home() {
         </form>
       </div>
       <div className="wrap">
-        <h1 className="h1">Your projects</h1>
-        <p className="sub">Projects you collaborate on. Roles control what you can do.</p>
+        <div className="row" style={{ marginBottom: 12 }}>
+          <div>
+            <h1 className="h1">Your projects</h1>
+            <p className="sub">Projects you collaborate on. Roles control what you can do.</p>
+          </div>
+          <Link className="btn right" href="/projects/new">Create project</Link>
+        </div>
+        {!activePlan && (
+          <div className="card small">
+            Choose a plan before creating projects. <Link href="/pricing?next=/projects/new">View pricing</Link>
+          </div>
+        )}
         {memberships.length === 0 && (
           <div className="card small">
             You are not a member of any project yet. Ask an admin to invite you.
