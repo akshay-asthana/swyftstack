@@ -64,6 +64,12 @@ export default async function Dashboard() {
 
   const rollupSum = (type: string) =>
     rollups.filter((r) => r.usageType === type).reduce((s, r) => s + r.quantity, 0n);
+  const bandwidthIn =
+    rollupSum("node_network_in_bytes") + rollupSum("app_network_in_bytes") +
+    rollupSum("storage_network_in_bytes") + rollupSum("database_network_in_bytes");
+  const bandwidthOut =
+    rollupSum("node_network_out_bytes") + rollupSum("app_network_out_bytes") +
+    rollupSum("storage_network_out_bytes") + rollupSum("database_network_out_bytes");
   const vcpuSeconds = rollupSum("app_runtime_vcpu_seconds") + rollupSum("build_vcpu_seconds");
   const vcpuHours = Number(vcpuSeconds) / 3600;
   const vcpuLimit = limits?.maxVcpuSeconds ? Number(limits.maxVcpuSeconds) / 3600 : null;
@@ -119,6 +125,8 @@ export default async function Dashboard() {
           <MetricRow name="Database storage" value={`${bytes(dbBytes)} / ${limits?.maxDatabaseStorageBytes ? bytes(limits.maxDatabaseStorageBytes) : "∞"}`} percent={pct(dbBytes, limits?.maxDatabaseStorageBytes)} />
           <MetricRow name="Object storage" value={`${bytes(objBytes)} / ${limits?.maxObjectStorageBytes ? bytes(limits.maxObjectStorageBytes) : "∞"}`} percent={pct(objBytes, limits?.maxObjectStorageBytes)} />
           <MetricRow name="Egress bandwidth" value={`${bytes(egressBytes)} / ${limits?.maxEgressBytes ? bytes(limits.maxEgressBytes) : "∞"}`} percent={pct(egressBytes, limits?.maxEgressBytes)} />
+          <MetricRow name="Bandwidth in (this month)" value={bytes(bandwidthIn)} percent={0} />
+          <MetricRow name="Bandwidth out (this month)" value={bytes(bandwidthOut)} percent={0} />
         </Panel>
 
         <Panel title="Recent activity">

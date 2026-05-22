@@ -250,3 +250,30 @@ code { background: var(--surface-3); color: var(--accent-ink); border: 1px solid
   .topbar { padding: 10px 16px; }
   .grid.cols-5, .grid.cols-4, .grid.cols-3 { grid-template-columns: 1fr; }
 }
+
+/* ===== v2: connection URLs, copy buttons, tabs ===== */
+.copybtn { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border-strong, #dcdee5);
+  background: var(--surface, #fff); font-size: 11.5px; font-weight: 600; color: var(--text-2, #3c4150); }
+.copybtn:hover { background: var(--surface-3, #f3f4f7); }
+.copybtn.ok { color: var(--ok, #16a34a); border-color: var(--ok, #16a34a); }
+.secret { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.secret code { font-size: 12px; max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conn-box { background: #14161c; color: #d6dbe6; border-radius: 9px; padding: 12px 14px; margin: 6px 0;
+  font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; overflow: auto;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.conn-box code { background: none; border: none; color: #d6dbe6; }
+.ctabs { display: flex; gap: 3px; flex-wrap: wrap; border-bottom: 1px solid var(--border, #e9eaef); margin-bottom: 16px; }
+.ctab { all: unset; cursor: pointer; padding: 9px 13px; color: var(--muted, #79808f);
+  border-bottom: 2px solid transparent; font-weight: 600; font-size: 13px; }
+.ctab:hover { color: var(--text, #14161c); }
+.ctab.active { color: var(--accent-ink, #4a3fd6); border-bottom-color: var(--accent, #6d5ef6); }
+.kv { display: grid; grid-template-columns: 160px 1fr; gap: 6px 14px; font-size: 13px; margin: 0; }
+.kv dt { color: var(--muted, #79808f); }
+.kv dd { margin: 0; font-weight: 550; }
+.import-steps { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.import-step { font-size: 11px; padding: 3px 9px; border-radius: 999px; background: var(--surface-3, #f3f4f7);
+  color: var(--muted, #79808f); font-weight: 600; }
+.import-step.done { background: var(--ok-soft, #e7f7ed); color: var(--ok, #16a34a); }
+.import-step.active { background: var(--accent-soft, #efeefe); color: var(--accent-ink, #4a3fd6); }
+.import-step.failed { background: var(--bad-soft, #fdeceb); color: var(--bad, #dc2626); }
