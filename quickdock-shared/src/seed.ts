@@ -5,6 +5,7 @@ import { prisma } from "./db.js";
 import { env } from "./env.js";
 import { hashPassword, encryptSecret } from "./crypto.js";
 import { PLAN_PRESETS, NODE_ROLES } from "./constants.js";
+import { PROVIDER_HELP_DOCS } from "./provider-help.js";
 
 async function seedPlan(preset: (typeof PLAN_PRESETS)["starter"]) {
   const planFields = {
@@ -180,8 +181,33 @@ async function main() {
     },
   });
 
+  // --- Storage/backup provider help docs (§14) ---
+  for (const doc of PROVIDER_HELP_DOCS) {
+    await prisma.providerHelpDoc.upsert({
+      where: { slug: doc.slug },
+      update: {
+        providerKey: doc.providerKey,
+        category: doc.category,
+        title: doc.title,
+        summary: doc.summary,
+        sortOrder: doc.sortOrder,
+        body: doc.body as object,
+      },
+      create: {
+        slug: doc.slug,
+        providerKey: doc.providerKey,
+        category: doc.category,
+        title: doc.title,
+        summary: doc.summary,
+        sortOrder: doc.sortOrder,
+        body: doc.body as object,
+      },
+    });
+  }
+
   console.log("Seed complete:");
   console.log("  admin:", admin.email);
+  console.log("  help docs         :", PROVIDER_HELP_DOCS.length, "provider guides");
   console.log("  plans:", starter.slug, pro.slug);
   console.log("  node :", node.name, node.roles.join(","));
   console.log("  db cluster        :", cluster.name);

@@ -9,6 +9,7 @@ export * from "./backup-state.js";
 export * from "./session.js";
 export * from "./onboarding.js";
 export * from "./node-discovery.js";
+export * from "./provider-help.js";
 export { env } from "./env.js";
 export {
   encryptSecret,
