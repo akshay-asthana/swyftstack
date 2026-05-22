@@ -8,7 +8,7 @@ import { decryptSecret } from "../crypto.js";
 const MAX_LOG_CHARS = 12_000;
 const SSH_TIMEOUT_MS = 15_000;
 
-type SshResult = {
+export type SshResult = {
   ok: boolean;
   exitCode: number | null;
   output: string;
@@ -131,7 +131,13 @@ async function runSsh(node: Node, command: string): Promise<SshResult> {
   });
 }
 
-async function recordLog(nodeId: string, action: string, command: string, result: SshResult) {
+async function recordLog(
+  nodeId: string,
+  action: string,
+  command: string,
+  result: SshResult,
+  opts: { updateStatus?: boolean } = {},
+) {
   await prisma.nodeConnectionLog.create({
     data: {
       nodeId,
@@ -144,6 +150,8 @@ async function recordLog(nodeId: string, action: string, command: string, result
       durationMs: result.durationMs,
     },
   });
+  // Discovery/onboarding probes leave node.status untouched (the onboarding
+  // flow owns the transition to `active`); everything else updates health.
   await prisma.node.update({
     where: { id: nodeId },
     data: {
@@ -151,9 +159,26 @@ async function recordLog(nodeId: string, action: string, command: string, result
       lastConnectionError: result.ok ? null : result.error || "SSH command failed.",
       lastConnectionAt: new Date(),
       lastHeartbeatAt: result.ok ? new Date() : undefined,
-      status: result.ok ? "active" : "degraded",
+      ...(opts.updateStatus === false ? {} : { status: result.ok ? "active" : "degraded" }),
     },
   });
+}
+
+/**
+ * Run an arbitrary probe command on a node, record it in node_connection_logs,
+ * and return the raw result. Used by the discovery + metrics collectors.
+ * `updateStatus: false` keeps node.status unchanged (onboarding probes).
+ */
+export async function runNodeProbe(
+  nodeId: string,
+  action: string,
+  command: string,
+  opts: { updateStatus?: boolean } = {},
+): Promise<SshResult> {
+  const node = await prisma.node.findUniqueOrThrow({ where: { id: nodeId } });
+  const result = await runSsh(node, command);
+  await recordLog(node.id, action, command, result, opts);
+  return result;
 }
 
 function numberAfter(prefix: string, output: string): number | null {

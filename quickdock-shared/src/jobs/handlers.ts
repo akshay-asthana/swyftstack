@@ -8,7 +8,11 @@ import { backupService } from "../services/backup.js";
 import { migrationService } from "../services/migration.js";
 import { storageProviderFor } from "../services/storage.js";
 import { objectStorageProviderService } from "../services/object-storage-provider.js";
+import { discoveryService } from "../services/discovery.js";
+import { metricsService } from "../services/metrics.js";
+import { databaseImportService } from "../services/database-import.js";
 import { rollUpUsage, enforceLimits } from "../usage-engine.js";
+import { rollUpMetrics } from "../metrics-rollup.js";
 
 type Handler = (payload: Record<string, unknown>) => Promise<unknown>;
 
@@ -48,17 +52,46 @@ export const JOB_HANDLERS: Record<string, Handler> = {
 
   async collect_node_metrics() {
     const nodes = await prisma.node.findMany({ where: { status: { in: ["active", "draining", "degraded"] } } });
-    for (const n of nodes) await localNodeService.collectMetrics(n.id);
+    for (const n of nodes) await localNodeService.collectMetrics(n.id).catch(() => undefined);
     await localNodeService.reconcileHealth();
     return { count: nodes.length };
+  },
+
+  async discover_node_hardware(p) {
+    const nodeId = String(p.nodeId);
+    const hw = await discoveryService.discoverNode(nodeId);
+    return { nodeId, cpuCores: hw.cpuCores, ramBytes: String(hw.ramBytes ?? "") };
+  },
+
+  async collect_app_metrics() {
+    return metricsService.collectAppMetrics();
+  },
+
+  async collect_database_metrics() {
+    return metricsService.collectDatabaseMetrics();
+  },
+
+  async collect_storage_metrics() {
+    return metricsService.collectStorageMetrics();
   },
 
   async collect_usage() {
     return rollUpUsage();
   },
 
+  async rollup_metrics() {
+    const r = await rollUpMetrics();
+    return { hourly: r.hourly.toISOString(), daily: r.daily.toISOString() };
+  },
+
   async enforce_limits() {
     return enforceLimits();
+  },
+
+  async import_database_from_url(p) {
+    const importId = String(p.importId);
+    await databaseImportService.runImport(importId);
+    return { importId };
   },
 
   async sync_storage_usage() {
