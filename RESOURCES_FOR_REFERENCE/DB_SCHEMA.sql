@@ -1,7 +1,7 @@
--- Quickdock control-plane schema (PostgreSQL).
--- Source of truth is quickdock-shared/prisma/schema.prisma. Keep this file in
+-- Swyftstack control-plane schema (PostgreSQL).
+-- Source of truth is swyftstack-shared/prisma/schema.prisma. Keep this file in
 -- sync whenever the Prisma schema changes. You can also generate the canonical
--- DDL with: `npm -w quickdock-shared exec prisma migrate diff \
+-- DDL with: `npm -w swyftstack-shared exec prisma migrate diff \
 --   --from-empty --to-schema-datamodel prisma/schema.prisma --script`.
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";

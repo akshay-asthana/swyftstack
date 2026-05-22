@@ -1,0 +1,13 @@
+import { prisma } from "swyftstack-shared";
+import { authorize, json } from "@/lib/api";
+
+export async function GET(req: Request) {
+  const a = await authorize(req);
+  if (!a.ok) return a.res;
+  return json(
+    await prisma.project.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { organization: { select: { name: true } } },
+    }),
+  );
+}

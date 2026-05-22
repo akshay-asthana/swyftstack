@@ -1,4 +1,4 @@
-# Quickdock — Infra Control Plane
+# Swyftstack — Infra Control Plane
 
 Admin-first orchestration platform for a small PaaS/DBaaS. Manages VPS worker
 nodes and allocates app hosting, PostgreSQL databases, object storage, usage
@@ -10,21 +10,21 @@ code map (`CODEBASE_OVERVIEW.md`).
 ## Architecture overview
 
 ```
-quickdock-shared/   Prisma schema, services, job runtime, pure business logic
-quickdock-platform/ Admin control plane (Next.js, :3000) + control API
-quickdock-workers/  Long-running job worker + periodic scheduler
-quickdock-userapp/  Customer-facing app (Next.js, :3001)
+swyftstack-shared/   Prisma schema, services, job runtime, pure business logic
+swyftstack-platform/ Admin control plane (Next.js, :3000) + control API
+swyftstack-workers/  Long-running job worker + periodic scheduler
+swyftstack-userapp/  Customer-facing app (Next.js, :3001)
 ```
 
-- **Control plane** (`quickdock-platform`) — admins manage nodes, users,
+- **Control plane** (`swyftstack-platform`) — admins manage nodes, users,
   organizations, projects, plans, infrastructure providers and monitoring.
   Server components read Prisma directly; mutations are server actions.
-- **Customer app** (`quickdock-userapp`) — customers manage projects, apps,
+- **Customer app** (`swyftstack-userapp`) — customers manage projects, apps,
   databases (create + import), object storage and view their own usage.
-- **Worker** (`quickdock-workers`) — claims jobs from a Postgres-backed queue
+- **Worker** (`swyftstack-workers`) — claims jobs from a Postgres-backed queue
   (race-safe `updateMany` lock, exponential-backoff retry) and runs every
   long task: deploys, backups, metric collection, rollups and DB imports.
-- **Shared** (`quickdock-shared`) — one Prisma schema, one set of services,
+- **Shared** (`swyftstack-shared`) — one Prisma schema, one set of services,
   one job handler registry, imported by the platform, worker and user app.
 - **Multi-node ready** — every app/database/bucket carries a `node_id` and is
   movable via `migrations`. Customer database clusters, object storage and
@@ -135,13 +135,18 @@ hardware-discovery parser.
 3. Review the detected CPU/RAM/disk/OS/Docker summary.
 4. Confirm roles → **Activate**. The node is now schedulable.
 
-To register a remote VPS, generate a key and add the public half to the box:
+To register a remote VPS, generate a key and add the public half to the server:
 
 ```bash
-ssh-keygen -t ed25519 -C "quickdock-node" -f ~/.ssh/quickdock_node
-ssh-copy-id -i ~/.ssh/quickdock_node.pub root@<VPS_IP>
-# paste the PRIVATE key (~/.ssh/quickdock_node) into the Add-node form
+ssh-keygen -t ed25519 -C "swyftstack-node" -f ~/.ssh/swyftstack_node
+ssh-copy-id -i ~/.ssh/swyftstack_node.pub root@<VPS_IP>
+# paste the PRIVATE key (~/.ssh/swyftstack_node) into the Add-node form
 ```
+
+If SSH says `invalid format`, the saved value is not a usable private key. Use
+the node **Configuration** tab to paste the full private key again; Swyftstack
+accepts normal multiline keys and values containing escaped `\n` line breaks,
+but it rejects `.pub` public keys.
 
 ### Add a database cluster
 

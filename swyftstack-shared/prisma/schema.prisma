@@ -1,0 +1,1432 @@
+// Swyftstack control-plane schema.
+// Multi-node by design: every app/db/bucket/static site maps to a node and is movable.
+// Keep RESOURCES_FOR_REFERENCE/DB_SCHEMA.sql in sync with any change here.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserStatus {
+  active
+  suspended
+  deleted
+}
+
+enum OrgStatus {
+  active
+  suspended
+  deleted
+}
+
+enum MemberRole {
+  owner
+  admin
+  developer
+  billing
+  viewer
+}
+
+enum PlanStatus {
+  active
+  archived
+}
+
+enum SubscriptionStatus {
+  active
+  past_due
+  cancelled
+  trialing
+}
+
+enum ScopeType {
+  organization
+  user
+  project
+  service
+}
+
+enum ProjectStatus {
+  active
+  suspended
+  over_limit
+  deleted
+}
+
+enum InvitationStatus {
+  pending
+  accepted
+  expired
+  revoked
+}
+
+enum NodeStatus {
+  provisioning
+  active
+  draining
+  degraded
+  offline
+  disabled
+}
+
+enum AppType {
+  nextjs
+  static
+  node
+  python
+  serverless_api
+}
+
+enum AppStatus {
+  created
+  building
+  running
+  stopped
+  failed
+  suspended
+}
+
+enum DeploymentStatus {
+  queued
+  building
+  deploying
+  live
+  failed
+  rolled_back
+}
+
+enum DeploymentSource {
+  github
+  git
+  upload
+  cli
+}
+
+enum DomainType {
+  platform_subdomain
+  custom
+}
+
+enum DomainStatus {
+  pending
+  verified
+  active
+  failed
+}
+
+enum DatabaseStatus {
+  provisioning
+  active
+  suspended
+  restoring
+  failed
+  deleted
+}
+
+enum BackupStatus {
+  pending
+  running
+  uploading
+  verified
+  failed
+  expired
+}
+
+enum BackupType {
+  logical
+  physical
+  pitr
+}
+
+enum StorageProvider {
+  b2
+  r2
+  hetzner
+  local_dev
+}
+
+enum BucketStatus {
+  active
+  suspended
+  deleted
+}
+
+enum UsagePeriodStatus {
+  open
+  closed
+}
+
+enum MigrationStatus {
+  pending
+  running
+  verifying
+  completed
+  failed
+  rolled_back
+}
+
+enum MigrationStrategy {
+  redeploy
+  rsync
+  pg_dump_restore
+  replication
+}
+
+enum MigrationResource {
+  app
+  database
+  static
+  full_project
+}
+
+enum JobStatus {
+  queued
+  running
+  succeeded
+  failed
+  retrying
+  cancelled
+}
+
+enum ActorType {
+  user
+  admin
+  system
+  node_agent
+}
+
+enum AuthProvider {
+  password
+  google
+  github
+  gitlab
+  microsoft
+}
+
+enum RollupPeriod {
+  hourly
+  daily
+  billing
+}
+
+enum DatabaseImportStatus {
+  queued
+  testing_connection
+  dumping
+  restoring
+  verifying
+  completed
+  failed
+}
+
+enum NodeDiscoveryStatus {
+  pending
+  running
+  succeeded
+  failed
+}
+
+// ---------------------------------------------------------------------------
+// Users / auth / orgs
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String       @id @default(uuid()) @db.Uuid
+  email         String       @unique
+  name          String?
+  passwordHash  String?      @map("password_hash")
+  isPlatformAdmin Boolean    @default(false) @map("is_platform_admin")
+  status        UserStatus   @default(active)
+  emailVerified Boolean      @default(false) @map("email_verified")
+  // Primary auth provider used to sign in (denormalised for fast list display).
+  authProvider  AuthProvider @default(password) @map("auth_provider")
+  // Whether email+password sign-in is permitted (OAuth-only users can disable it).
+  passwordLoginEnabled Boolean @default(true) @map("password_login_enabled")
+  failedLoginCount Int       @default(0) @map("failed_login_count")
+  lastLoginAt   DateTime?    @map("last_login_at") @db.Timestamptz
+  lastLoginIp   String?      @map("last_login_ip")
+  lastActivityAt DateTime?   @map("last_activity_at") @db.Timestamptz
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  ownedOrganizations Organization[]       @relation("OrgOwner")
+  orgMemberships     OrganizationMember[]
+  projectMemberships ProjectMember[]
+  auditLogs          AuditLog[]
+  authAccounts       UserAuthAccount[]
+  sessions           UserSession[]
+  loginEvents        LoginEvent[]
+  usageEvents        UsageEvent[]
+
+  @@map("users")
+}
+
+// OAuth / external identity providers linked to a user. Password accounts are
+// represented by User.passwordHash; this table holds google/github/etc. links.
+model UserAuthAccount {
+  id                String       @id @default(uuid()) @db.Uuid
+  userId            String       @map("user_id") @db.Uuid
+  provider          AuthProvider
+  providerAccountId String       @map("provider_account_id")
+  email             String?
+  displayName       String?      @map("display_name")
+  metadata          Json         @default("{}")
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  lastUsedAt        DateTime?    @map("last_used_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("user_auth_accounts")
+}
+
+// Active/expired login sessions. Lets the admin see and revoke sessions.
+model UserSession {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String     @unique @map("token_hash")
+  ipAddress  String?    @map("ip_address")
+  userAgent  String?    @map("user_agent")
+  app        String     @default("userapp")
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  lastSeenAt DateTime   @default(now()) @map("last_seen_at") @db.Timestamptz
+  expiresAt  DateTime   @map("expires_at") @db.Timestamptz
+  revokedAt  DateTime?  @map("revoked_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("user_sessions")
+}
+
+// Append-only login attempt log (successful and failed). Powers the user
+// detail "Audit/security" section: IP history, failed attempts.
+model LoginEvent {
+  id        String       @id @default(uuid()) @db.Uuid
+  userId    String?      @map("user_id") @db.Uuid
+  email     String
+  provider  AuthProvider @default(password)
+  success   Boolean
+  reason    String?
+  ipAddress String?      @map("ip_address")
+  userAgent String?      @map("user_agent")
+  app       String       @default("userapp")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([email])
+  @@map("login_events")
+}
+
+model Organization {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String
+  ownerUserId String?   @map("owner_user_id") @db.Uuid
+  status      OrgStatus @default(active)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  owner         User?                @relation("OrgOwner", fields: [ownerUserId], references: [id])
+  members       OrganizationMember[]
+  projects      Project[]
+  subscriptions Subscription[]
+  usagePeriods  UsagePeriod[]
+  usageEvents   UsageEvent[]
+  usageRollups  UsageRollup[]
+  invitations   Invitation[]
+
+  @@index([ownerUserId])
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String     @id @default(uuid()) @db.Uuid
+  organizationId String     @map("organization_id") @db.Uuid
+  userId         String     @map("user_id") @db.Uuid
+  role           MemberRole
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("organization_members")
+}
+
+// ---------------------------------------------------------------------------
+// Plans / limits / features / subscriptions
+// ---------------------------------------------------------------------------
+
+model Plan {
+  id              String     @id @default(uuid()) @db.Uuid
+  name            String
+  slug            String     @unique
+  // priceCents is the REGULAR recurring price charged after any trial ends.
+  priceCents      Int        @default(0) @map("price_cents")
+  currency        String     @default("USD")
+  billingInterval String     @default("monthly") @map("billing_interval")
+  // Trial pricing. A trial can be free (trialPriceCents=0) or discounted, and
+  // can last any number of days. Billing reverts to priceCents after trialDays.
+  hasTrial                   Boolean @default(false) @map("has_trial")
+  trialPriceCents            Int?    @map("trial_price_cents")
+  trialDays                  Int?    @map("trial_days")
+  trialRequiresPaymentMethod Boolean @default(false) @map("trial_requires_payment_method")
+  description     String?
+  status          PlanStatus @default(active)
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  limits        PlanLimit?
+  features      PlanFeature[]
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model PlanLimit {
+  id                      String   @id @default(uuid()) @db.Uuid
+  planId                  String   @unique @map("plan_id") @db.Uuid
+  maxProjects             Int?     @map("max_projects")
+  maxDatabases            Int?     @map("max_databases")
+  maxDatabaseStorageBytes BigInt?  @map("max_database_storage_bytes")
+  maxObjectStorageBytes   BigInt?  @map("max_object_storage_bytes")
+  maxEgressBytes          BigInt?  @map("max_egress_bytes")
+  maxVcpuSeconds          BigInt?  @map("max_vcpu_seconds")
+  maxBuildVcpuSeconds     BigInt?  @map("max_build_vcpu_seconds")
+  dailyDbBackups          Int?     @map("daily_db_backups")
+  backupRetentionHours    Int?     @map("backup_retention_hours")
+  maxTeamMembers          Int?     @map("max_team_members")
+  maxCustomDomains        Int?     @map("max_custom_domains")
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@map("plan_limits")
+}
+
+model PlanFeature {
+  id         String  @id @default(uuid()) @db.Uuid
+  planId     String  @map("plan_id") @db.Uuid
+  featureKey String  @map("feature_key")
+  enabled    Boolean @default(true)
+  config     Json    @default("{}")
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, featureKey])
+  @@map("plan_features")
+}
+
+model Subscription {
+  id                     String             @id @default(uuid()) @db.Uuid
+  organizationId         String             @map("organization_id") @db.Uuid
+  planId                 String             @map("plan_id") @db.Uuid
+  status                 SubscriptionStatus @default(active)
+  provider               String?
+  providerSubscriptionId String?            @map("provider_subscription_id")
+  providerCustomerId     String?            @map("provider_customer_id")
+  currentPeriodStart     DateTime?          @map("current_period_start") @db.Timestamptz
+  currentPeriodEnd       DateTime?          @map("current_period_end") @db.Timestamptz
+  cancelAtPeriodEnd      Boolean            @default(false) @map("cancel_at_period_end")
+  // Billing phase: "trial" while inside the trial window, else "regular".
+  billingPhase           String             @default("regular") @map("billing_phase")
+  trialStartAt           DateTime?          @map("trial_start_at") @db.Timestamptz
+  trialEndAt             DateTime?          @map("trial_end_at") @db.Timestamptz
+  // Price snapshots taken at assignment time so plan edits don't rewrite history.
+  trialPriceCents        Int?               @map("trial_price_cents")
+  regularPriceCents      Int?               @map("regular_price_cents")
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         Plan          @relation(fields: [planId], references: [id])
+  usagePeriods UsagePeriod[]
+
+  @@index([organizationId])
+  @@index([planId])
+  @@map("subscriptions")
+}
+
+// ---------------------------------------------------------------------------
+// Overrides
+// ---------------------------------------------------------------------------
+
+model LimitOverride {
+  id         String    @id @default(uuid()) @db.Uuid
+  scopeType  ScopeType  @map("scope_type")
+  scopeId    String     @map("scope_id") @db.Uuid
+  limitKey   String     @map("limit_key")
+  limitValue BigInt?    @map("limit_value")
+  enabled    Boolean?
+  reason     String?
+  createdBy  String?    @map("created_by") @db.Uuid
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  expiresAt  DateTime?  @map("expires_at") @db.Timestamptz
+
+  @@unique([scopeType, scopeId, limitKey])
+  @@index([scopeType, scopeId])
+  @@map("limit_overrides")
+}
+
+model FeatureOverride {
+  id         String    @id @default(uuid()) @db.Uuid
+  scopeType  ScopeType  @map("scope_type")
+  scopeId    String     @map("scope_id") @db.Uuid
+  featureKey String     @map("feature_key")
+  enabled    Boolean
+  config     Json       @default("{}")
+  reason     String?
+  createdBy  String?    @map("created_by") @db.Uuid
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  expiresAt  DateTime?  @map("expires_at") @db.Timestamptz
+
+  @@unique([scopeType, scopeId, featureKey])
+  @@index([scopeType, scopeId])
+  @@map("feature_overrides")
+}
+
+// ---------------------------------------------------------------------------
+// Projects / members / invitations
+// ---------------------------------------------------------------------------
+
+model Project {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String        @map("organization_id") @db.Uuid
+  name           String
+  slug           String
+  status         ProjectStatus @default(active)
+  region         String?
+  createdBy      String?       @map("created_by") @db.Uuid
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization  Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members       ProjectMember[]
+  apps          App[]
+  databases     Database[]
+  buckets       StorageBucket[]
+  domains       Domain[]
+  invitations   Invitation[]
+  activityLogs    ProjectActivityLog[]
+  usageEvents     UsageEvent[]
+  usageRollups    UsageRollup[]
+  migrations      Migration[]
+  databaseImports DatabaseImport[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        String     @id @default(uuid()) @db.Uuid
+  projectId String     @map("project_id") @db.Uuid
+  userId    String     @map("user_id") @db.Uuid
+  role      MemberRole
+  invitedBy String?    @map("invited_by") @db.Uuid
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@map("project_members")
+}
+
+model Invitation {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String?          @map("organization_id") @db.Uuid
+  projectId      String?          @map("project_id") @db.Uuid
+  email          String
+  role           MemberRole
+  tokenHash      String           @map("token_hash")
+  status         InvitationStatus @default(pending)
+  invitedBy      String?          @map("invited_by") @db.Uuid
+  expiresAt      DateTime         @map("expires_at") @db.Timestamptz
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([email])
+  @@map("invitations")
+}
+
+// ---------------------------------------------------------------------------
+// Nodes
+// ---------------------------------------------------------------------------
+
+model Node {
+  id                String     @id @default(uuid()) @db.Uuid
+  name              String     @unique
+  provider          String
+  providerInstanceId String?   @map("provider_instance_id")
+  publicIp          String?    @map("public_ip")
+  privateIp         String?    @map("private_ip")
+  connectionMode    String     @default("ssh") @map("connection_mode")
+  sshHost           String?    @map("ssh_host")
+  sshPort           Int        @default(22) @map("ssh_port")
+  sshUser           String?    @map("ssh_user")
+  sshKeyPath        String?    @map("ssh_key_path")
+  sshPrivateKeyEncrypted String? @map("ssh_private_key_encrypted")
+  lastConnectionStatus String? @map("last_connection_status")
+  lastConnectionError  String? @map("last_connection_error")
+  lastConnectionAt     DateTime? @map("last_connection_at") @db.Timestamptz
+  region            String?
+  status            NodeStatus @default(provisioning)
+  roles             String[]   @default([])
+  // Capacity. cpuCores/ramBytes/diskBytes are auto-detected on discovery but
+  // the admin may override them. reserved* are admin-set scheduling reserves.
+  cpuCores          Decimal    @map("cpu_cores") @db.Decimal(8, 2)
+  ramBytes          BigInt     @map("ram_bytes")
+  diskBytes         BigInt     @map("disk_bytes")
+  reservedCpu       Decimal    @default(0) @map("reserved_cpu") @db.Decimal(8, 2)
+  reservedRamBytes  BigInt     @default(0) @map("reserved_ram_bytes")
+  reservedDiskBytes BigInt     @default(0) @map("reserved_disk_bytes")
+  // --- Auto-detected hardware (populated by node discovery; see ssh.ts) ---
+  cpuModel          String?    @map("cpu_model")
+  cpuThreads        Int?       @map("cpu_threads")
+  osName            String?    @map("os_name")
+  osVersion         String?    @map("os_version")
+  kernelVersion     String?    @map("kernel_version")
+  architecture      String?
+  dockerInstalled   Boolean    @default(false) @map("docker_installed")
+  dockerVersion     String?    @map("docker_version")
+  uptimeSeconds     BigInt?    @map("uptime_seconds")
+  hardwareDetectedAt DateTime? @map("hardware_detected_at") @db.Timestamptz
+  discoveryStatus   NodeDiscoveryStatus? @map("discovery_status")
+  discoveryError    String?    @map("discovery_error")
+  agentVersion      String?    @map("agent_version")
+  agentTokenHash    String?    @map("agent_token_hash")
+  lastHeartbeatAt   DateTime?  @map("last_heartbeat_at") @db.Timestamptz
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  metrics            NodeMetric[]
+  connectionLogs     NodeConnectionLog[]
+  hardwareSnapshots  NodeHardwareSnapshot[]
+  networkInterfaces  NodeNetworkInterface[]
+  diskMounts         NodeDiskMount[]
+  apps               App[]
+  databases          Database[]
+  domains            Domain[]
+  buildDeployments   Deployment[] @relation("BuildNode")
+  runtimeDeployments Deployment[] @relation("RuntimeNode")
+  sourceMigrations   Migration[]  @relation("MigrationSource")
+  targetMigrations   Migration[]  @relation("MigrationTarget")
+  usageEvents        UsageEvent[]
+  databaseClusters   DatabaseCluster[]
+
+  @@map("nodes")
+}
+
+// Full hardware discovery run, kept as history so "refresh hardware info"
+// appends a snapshot rather than overwriting. `raw` holds the parsed probe.
+model NodeHardwareSnapshot {
+  id              String   @id @default(uuid()) @db.Uuid
+  nodeId          String   @map("node_id") @db.Uuid
+  cpuModel        String?  @map("cpu_model")
+  cpuCores        Int?     @map("cpu_cores")
+  cpuThreads      Int?     @map("cpu_threads")
+  ramBytes        BigInt?  @map("ram_bytes")
+  diskBytes       BigInt?  @map("disk_bytes")
+  osName          String?  @map("os_name")
+  osVersion       String?  @map("os_version")
+  kernelVersion   String?  @map("kernel_version")
+  architecture    String?
+  dockerInstalled Boolean  @default(false) @map("docker_installed")
+  dockerVersion   String?  @map("docker_version")
+  publicIp        String?  @map("public_ip")
+  privateIp       String?  @map("private_ip")
+  uptimeSeconds   BigInt?  @map("uptime_seconds")
+  raw             Json     @default("{}")
+  collectedAt     DateTime @default(now()) @map("collected_at") @db.Timestamptz
+
+  node Node @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@index([nodeId, collectedAt])
+  @@map("node_hardware_snapshots")
+}
+
+// Network interfaces on a node. Replaced wholesale on each discovery run.
+model NodeNetworkInterface {
+  id        String   @id @default(uuid()) @db.Uuid
+  nodeId    String   @map("node_id") @db.Uuid
+  name      String
+  macAddress String? @map("mac_address")
+  ipv4      String?
+  ipv6      String?
+  speedMbps Int?     @map("speed_mbps")
+  isPrimary Boolean  @default(false) @map("is_primary")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  node Node @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@index([nodeId])
+  @@map("node_network_interfaces")
+}
+
+// Disk mount points on a node. Replaced wholesale on each discovery run.
+model NodeDiskMount {
+  id         String   @id @default(uuid()) @db.Uuid
+  nodeId     String   @map("node_id") @db.Uuid
+  mountPoint String   @map("mount_point")
+  device     String?
+  fsType     String?  @map("fs_type")
+  totalBytes BigInt   @default(0) @map("total_bytes")
+  usedBytes  BigInt   @default(0) @map("used_bytes")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  node Node @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@index([nodeId])
+  @@map("node_disk_mounts")
+}
+
+model NodeMetric {
+  id              String   @id @default(uuid()) @db.Uuid
+  nodeId          String   @map("node_id") @db.Uuid
+  cpuUsagePercent Decimal? @map("cpu_usage_percent") @db.Decimal(6, 2)
+  cpuLoad1        Decimal? @map("cpu_load1") @db.Decimal(8, 2)
+  cpuLoad5        Decimal? @map("cpu_load5") @db.Decimal(8, 2)
+  cpuLoad15       Decimal? @map("cpu_load15") @db.Decimal(8, 2)
+  ramTotalBytes   BigInt?  @map("ram_total_bytes")
+  ramUsedBytes    BigInt?  @map("ram_used_bytes")
+  diskTotalBytes  BigInt?  @map("disk_total_bytes")
+  diskUsedBytes   BigInt?  @map("disk_used_bytes")
+  diskIoReadBytes BigInt?  @map("disk_io_read_bytes")
+  diskIoWriteBytes BigInt? @map("disk_io_write_bytes")
+  networkRxBytes  BigInt?  @map("network_rx_bytes")
+  networkTxBytes  BigInt?  @map("network_tx_bytes")
+  uptimeSeconds   BigInt?  @map("uptime_seconds")
+  containersRunning Int?   @map("containers_running")
+  containersFailed Int?    @map("containers_failed")
+  dockerOk        Boolean? @map("docker_ok")
+  databaseOk      Boolean? @map("database_ok")
+  proxyOk         Boolean? @map("proxy_ok")
+  collectedAt     DateTime @default(now()) @map("collected_at") @db.Timestamptz
+
+  node Node @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@index([nodeId, collectedAt])
+  @@map("node_metrics")
+}
+
+model NodeConnectionLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  nodeId     String   @map("node_id") @db.Uuid
+  action     String
+  status     String
+  exitCode   Int?     @map("exit_code")
+  command    String?
+  output     String?
+  error      String?
+  durationMs Int      @map("duration_ms")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  node Node @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@index([nodeId, createdAt])
+  @@map("node_connection_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Apps / deployments / env / domains
+// ---------------------------------------------------------------------------
+
+model App {
+  id              String    @id @default(uuid()) @db.Uuid
+  projectId       String    @map("project_id") @db.Uuid
+  nodeId          String?   @map("node_id") @db.Uuid
+  name            String
+  type            AppType
+  status          AppStatus @default(created)
+  containerName   String?   @map("container_name")
+  imageRef        String?   @map("image_ref")
+  cpuLimit        Decimal?  @map("cpu_limit") @db.Decimal(6, 2)
+  memoryLimitBytes BigInt?  @map("memory_limit_bytes")
+  diskLimitBytes  BigInt?   @map("disk_limit_bytes")
+  defaultDomain   String?   @map("default_domain")
+  // Runtime tracking for app uptime + restart accounting.
+  lastStartedAt   DateTime? @map("last_started_at") @db.Timestamptz
+  restartCount    Int       @default(0) @map("restart_count")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  node        Node?        @relation(fields: [nodeId], references: [id])
+  deployments Deployment[]
+  envVars     AppEnvVar[]
+  domains     Domain[]
+  usageEvents UsageEvent[]
+  metrics     AppMetric[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+  @@index([nodeId])
+  @@map("apps")
+}
+
+// Per-app runtime sample. cpuSeconds/network counters are interval deltas so
+// they can be summed into usage_events and metric_rollups.
+model AppMetric {
+  id              String   @id @default(uuid()) @db.Uuid
+  appId           String   @map("app_id") @db.Uuid
+  cpuSeconds      Decimal  @default(0) @map("cpu_seconds") @db.Decimal(14, 3)
+  memoryUsedBytes BigInt?  @map("memory_used_bytes")
+  containerStatus String?  @map("container_status")
+  restarts        Int      @default(0)
+  requestCount    BigInt?  @map("request_count")
+  errorCount      BigInt?  @map("error_count")
+  networkRxBytes  BigInt   @default(0) @map("network_rx_bytes")
+  networkTxBytes  BigInt   @default(0) @map("network_tx_bytes")
+  logBytes        BigInt?  @map("log_bytes")
+  uptimeSeconds   BigInt?  @map("uptime_seconds")
+  collectedAt     DateTime @default(now()) @map("collected_at") @db.Timestamptz
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@index([appId, collectedAt])
+  @@map("app_metrics")
+}
+
+// Per-deployment build metrics. One row per completed build/deployment.
+model BuildMetric {
+  id              String   @id @default(uuid()) @db.Uuid
+  deploymentId    String   @unique @map("deployment_id") @db.Uuid
+  durationSeconds Int?     @map("duration_seconds")
+  cpuSeconds      Decimal  @default(0) @map("cpu_seconds") @db.Decimal(14, 3)
+  memoryPeakBytes BigInt?  @map("memory_peak_bytes")
+  logBytes        BigInt?  @map("log_bytes")
+  status          DeploymentStatus
+  failureReason   String?  @map("failure_reason")
+  collectedAt     DateTime @default(now()) @map("collected_at") @db.Timestamptz
+
+  deployment Deployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade)
+
+  @@map("build_metrics")
+}
+
+model Deployment {
+  id            String           @id @default(uuid()) @db.Uuid
+  appId         String           @map("app_id") @db.Uuid
+  status        DeploymentStatus @default(queued)
+  sourceType    DeploymentSource @map("source_type")
+  repoUrl       String?          @map("repo_url")
+  branch        String?
+  commitSha     String?          @map("commit_sha")
+  buildCommand  String?          @map("build_command")
+  startCommand  String?          @map("start_command")
+  outputDir     String?          @map("output_dir")
+  buildNodeId   String?          @map("build_node_id") @db.Uuid
+  runtimeNodeId String?          @map("runtime_node_id") @db.Uuid
+  imageRef      String?          @map("image_ref")
+  errorMessage  String?          @map("error_message")
+  startedAt     DateTime?        @map("started_at") @db.Timestamptz
+  finishedAt    DateTime?        @map("finished_at") @db.Timestamptz
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  app         App   @relation(fields: [appId], references: [id], onDelete: Cascade)
+  buildNode   Node? @relation("BuildNode", fields: [buildNodeId], references: [id])
+  runtimeNode Node? @relation("RuntimeNode", fields: [runtimeNodeId], references: [id])
+  buildMetric BuildMetric?
+
+  @@index([appId])
+  @@map("deployments")
+}
+
+model AppEnvVar {
+  id             String   @id @default(uuid()) @db.Uuid
+  appId          String   @map("app_id") @db.Uuid
+  key            String
+  encryptedValue String   @map("encrypted_value")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@unique([appId, key])
+  @@map("app_env_vars")
+}
+
+model Domain {
+  id                String       @id @default(uuid()) @db.Uuid
+  projectId         String       @map("project_id") @db.Uuid
+  appId             String?      @map("app_id") @db.Uuid
+  domain            String       @unique
+  type              DomainType
+  status            DomainStatus @default(pending)
+  verificationToken String?      @map("verification_token")
+  sslStatus         String?      @default("pending") @map("ssl_status")
+  targetNodeId      String?      @map("target_node_id") @db.Uuid
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  app        App?    @relation(fields: [appId], references: [id], onDelete: Cascade)
+  targetNode Node?   @relation(fields: [targetNodeId], references: [id])
+
+  @@index([projectId])
+  @@index([appId])
+  @@map("domains")
+}
+
+// ---------------------------------------------------------------------------
+// Databases / backups
+// ---------------------------------------------------------------------------
+
+model Database {
+  id                String         @id @default(uuid()) @db.Uuid
+  projectId         String         @map("project_id") @db.Uuid
+  nodeId            String?        @map("node_id") @db.Uuid
+  name              String
+  engine            String         @default("postgres")
+  engineVersion     String?        @map("engine_version")
+  status            DatabaseStatus @default(provisioning)
+  dbName            String         @unique @map("db_name")
+  dbUser            String         @unique @map("db_user")
+  encryptedPassword String         @map("encrypted_password")
+  storageLimitBytes BigInt         @map("storage_limit_bytes")
+  currentSizeBytes  BigInt         @default(0) @map("current_size_bytes")
+  connectionLimit   Int?           @default(10) @map("connection_limit")
+  sslMode           String         @default("prefer") @map("ssl_mode")
+  databaseClusterId String?        @map("database_cluster_id") @db.Uuid
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+
+  project Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  node    Node?            @relation(fields: [nodeId], references: [id])
+  cluster DatabaseCluster? @relation(fields: [databaseClusterId], references: [id])
+  backups DatabaseBackup[]
+  usageEvents UsageEvent[]
+  metrics DatabaseMetric[]
+  imports DatabaseImport[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+  @@index([nodeId])
+  @@index([databaseClusterId])
+  @@map("databases")
+}
+
+// Per-database runtime sample. network counters are interval deltas.
+model DatabaseMetric {
+  id                String   @id @default(uuid()) @db.Uuid
+  databaseId        String   @map("database_id") @db.Uuid
+  sizeBytes         BigInt   @default(0) @map("size_bytes")
+  activeConnections Int?     @map("active_connections")
+  connectionLimit   Int?     @map("connection_limit")
+  networkRxBytes    BigInt   @default(0) @map("network_rx_bytes")
+  networkTxBytes    BigInt   @default(0) @map("network_tx_bytes")
+  // Placeholder for future slow-query metering.
+  slowQueryCount    Int?     @map("slow_query_count")
+  collectedAt       DateTime @default(now()) @map("collected_at") @db.Timestamptz
+
+  database Database @relation(fields: [databaseId], references: [id], onDelete: Cascade)
+
+  @@index([databaseId, collectedAt])
+  @@map("database_metrics")
+}
+
+// Database import / migration from an external source URL. The source URL is
+// stored encrypted and deleted after completion unless the user opts to keep it.
+model DatabaseImport {
+  id                    String               @id @default(uuid()) @db.Uuid
+  projectId             String               @map("project_id") @db.Uuid
+  databaseId            String?              @map("database_id") @db.Uuid
+  status                DatabaseImportStatus @default(queued)
+  sourceEngine          String               @default("postgres") @map("source_engine")
+  // Encrypted libpq URL of the source DB. Nulled out after the job finishes
+  // unless saveSourceCredentials is true.
+  sourceUrlEncrypted    String?              @map("source_url_encrypted")
+  saveSourceCredentials Boolean              @default(false) @map("save_source_credentials")
+  targetDbName          String               @map("target_db_name")
+  sizeBytes             BigInt?              @map("size_bytes")
+  // Credential-masked progress log.
+  logs                  String?
+  errorCode             String?              @map("error_code")
+  errorMessage          String?              @map("error_message")
+  startedAt             DateTime?            @map("started_at") @db.Timestamptz
+  completedAt           DateTime?            @map("completed_at") @db.Timestamptz
+  createdBy             String?              @map("created_by") @db.Uuid
+  createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  database Database? @relation(fields: [databaseId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([status])
+  @@map("database_imports")
+}
+
+model DatabaseBackup {
+  id              String       @id @default(uuid()) @db.Uuid
+  databaseId      String       @map("database_id") @db.Uuid
+  status          BackupStatus @default(pending)
+  backupType      BackupType   @default(logical) @map("backup_type")
+  storageProvider String       @map("storage_provider")
+  backupStorageProviderId String? @map("backup_storage_provider_id") @db.Uuid
+  storagePath     String       @map("storage_path")
+  sizeBytes       BigInt?      @map("size_bytes")
+  checksum        String?
+  errorMessage    String?      @map("error_message")
+  startedAt       DateTime?    @map("started_at") @db.Timestamptz
+  completedAt     DateTime?    @map("completed_at") @db.Timestamptz
+  expiresAt       DateTime?    @map("expires_at") @db.Timestamptz
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  database       Database               @relation(fields: [databaseId], references: [id], onDelete: Cascade)
+  backupProvider BackupStorageProvider? @relation(fields: [backupStorageProviderId], references: [id])
+
+  @@index([databaseId])
+  @@index([backupStorageProviderId])
+  @@map("database_backups")
+}
+
+// ---------------------------------------------------------------------------
+// Object storage
+// ---------------------------------------------------------------------------
+
+model StorageBucket {
+  id                  String       @id @default(uuid()) @db.Uuid
+  projectId           String       @map("project_id") @db.Uuid
+  provider            String
+  bucketName          String       @map("bucket_name")
+  prefix              String?
+  region              String?
+  status              BucketStatus @default(active)
+  isPublic            Boolean      @default(false) @map("is_public")
+  storageLimitBytes   BigInt       @map("storage_limit_bytes")
+  egressLimitBytes    BigInt       @map("egress_limit_bytes")
+  currentStorageBytes BigInt       @default(0) @map("current_storage_bytes")
+  currentEgressBytes  BigInt       @default(0) @map("current_egress_bytes")
+  objectCount         BigInt       @default(0) @map("object_count")
+  lastSyncedAt        DateTime?    @map("last_synced_at") @db.Timestamptz
+  objectStorageProviderId String?  @map("object_storage_provider_id") @db.Uuid
+  createdAt           DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  project     Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  storageProvider ObjectStorageProvider? @relation(fields: [objectStorageProviderId], references: [id])
+  credentials StorageCredential[]
+  usageEvents UsageEvent[]
+  metrics     StorageMetric[]
+
+  @@unique([provider, bucketName, prefix])
+  @@index([projectId])
+  @@index([objectStorageProviderId])
+  @@map("storage_buckets")
+}
+
+// Per-bucket usage sample. network/egress counters are interval deltas.
+model StorageMetric {
+  id             String   @id @default(uuid()) @db.Uuid
+  bucketId       String   @map("bucket_id") @db.Uuid
+  storageBytes   BigInt   @default(0) @map("storage_bytes")
+  objectCount    BigInt?  @map("object_count")
+  networkRxBytes BigInt   @default(0) @map("network_rx_bytes")
+  networkTxBytes BigInt   @default(0) @map("network_tx_bytes")
+  egressBytes    BigInt   @default(0) @map("egress_bytes")
+  collectedAt    DateTime @default(now()) @map("collected_at") @db.Timestamptz
+
+  bucket StorageBucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+
+  @@index([bucketId, collectedAt])
+  @@map("storage_metrics")
+}
+
+model StorageCredential {
+  id                 String   @id @default(uuid()) @db.Uuid
+  bucketId           String   @map("bucket_id") @db.Uuid
+  accessKey          String   @map("access_key")
+  encryptedSecretKey String   @map("encrypted_secret_key")
+  status             String   @default("active")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  rotatedAt          DateTime? @map("rotated_at") @db.Timestamptz
+
+  bucket StorageBucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+
+  @@index([bucketId])
+  @@map("storage_credentials")
+}
+
+// ---------------------------------------------------------------------------
+// Usage metering
+// ---------------------------------------------------------------------------
+
+model UsagePeriod {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @map("organization_id") @db.Uuid
+  subscriptionId String?           @map("subscription_id") @db.Uuid
+  periodStart    DateTime          @map("period_start") @db.Timestamptz
+  periodEnd      DateTime          @map("period_end") @db.Timestamptz
+  status         UsagePeriodStatus @default(open)
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+  rollups      UsageRollup[]
+
+  @@index([organizationId])
+  @@map("usage_periods")
+}
+
+model UsageEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+  projectId      String?  @map("project_id") @db.Uuid
+  appId          String?  @map("app_id") @db.Uuid
+  databaseId     String?  @map("database_id") @db.Uuid
+  bucketId       String?  @map("bucket_id") @db.Uuid
+  deploymentId   String?  @map("deployment_id") @db.Uuid
+  usageType      String   @map("usage_type")
+  quantity       BigInt
+  unit           String
+  sourceNodeId   String?  @map("source_node_id") @db.Uuid
+  metadata       Json     @default("{}")
+  recordedAt     DateTime @default(now()) @map("recorded_at") @db.Timestamptz
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  project      Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  app          App?           @relation(fields: [appId], references: [id], onDelete: SetNull)
+  database     Database?      @relation(fields: [databaseId], references: [id], onDelete: SetNull)
+  bucket       StorageBucket? @relation(fields: [bucketId], references: [id], onDelete: SetNull)
+  sourceNode   Node?          @relation(fields: [sourceNodeId], references: [id])
+
+  @@index([organizationId, usageType, recordedAt])
+  @@index([userId, usageType, recordedAt])
+  @@index([projectId])
+  @@index([usageType, recordedAt])
+  @@map("usage_events")
+}
+
+// Granular pre-aggregated metric rollups for fast dashboards. One row per
+// (period, bucketStart, scope, metricType). scopeType is one of:
+// platform | node | organization | user | project | app | database | bucket |
+// backup | build. scopeId is null only for platform scope.
+model MetricRollup {
+  id          String       @id @default(uuid()) @db.Uuid
+  period      RollupPeriod
+  bucketStart DateTime     @map("bucket_start") @db.Timestamptz
+  scopeType   String       @map("scope_type")
+  // Platform-scope rows use the all-zero sentinel UUID (PLATFORM_SCOPE_ID).
+  // A nullable column cannot participate in an upsert compound unique key.
+  scopeId     String       @default("00000000-0000-0000-0000-000000000000") @map("scope_id") @db.Uuid
+  metricType  String       @map("metric_type")
+  sum         BigInt       @default(0)
+  min         BigInt?
+  max         BigInt?
+  avg         Decimal?     @db.Decimal(20, 4)
+  samples     Int          @default(0)
+  unit        String       @default("count")
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([period, bucketStart, scopeType, scopeId, metricType])
+  @@index([scopeType, scopeId, metricType, bucketStart])
+  @@index([period, metricType, bucketStart])
+  @@map("metric_rollups")
+}
+
+// Admin help/documentation for configuring storage & backup providers.
+model ProviderHelpDoc {
+  id              String   @id @default(uuid()) @db.Uuid
+  slug            String   @unique
+  providerKey     String   @map("provider_key")
+  // category: object_storage | backup_storage | both
+  category        String   @default("object_storage")
+  title           String
+  summary         String?
+  // Structured guide content rendered by the admin Help page.
+  body            Json     @default("{}")
+  sortOrder       Int      @default(100) @map("sort_order")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([providerKey])
+  @@map("provider_help_docs")
+}
+
+model UsageRollup {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  projectId      String?  @map("project_id") @db.Uuid
+  usagePeriodId  String   @map("usage_period_id") @db.Uuid
+  usageType      String   @map("usage_type")
+  quantity       BigInt
+  unit           String
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project      Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  usagePeriod  UsagePeriod  @relation(fields: [usagePeriodId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, projectId, usagePeriodId, usageType])
+  @@index([organizationId])
+  @@map("usage_rollups")
+}
+
+// ---------------------------------------------------------------------------
+// Logs / audit
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id          String    @id @default(uuid()) @db.Uuid
+  actorUserId String?   @map("actor_user_id") @db.Uuid
+  actorType   ActorType @map("actor_type")
+  action      String
+  targetType  String?   @map("target_type")
+  targetId    String?   @map("target_id") @db.Uuid
+  ipAddress   String?   @map("ip_address")
+  userAgent   String?   @map("user_agent")
+  metadata    Json      @default("{}")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  actor User? @relation(fields: [actorUserId], references: [id])
+
+  @@index([actorUserId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model ProjectActivityLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  action      String
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@map("project_activity_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Migrations (workload moves between nodes)
+// ---------------------------------------------------------------------------
+
+model Migration {
+  id           String            @id @default(uuid()) @db.Uuid
+  projectId    String?           @map("project_id") @db.Uuid
+  resourceType MigrationResource @map("resource_type")
+  resourceId   String?           @map("resource_id") @db.Uuid
+  sourceNodeId String?           @map("source_node_id") @db.Uuid
+  targetNodeId String?           @map("target_node_id") @db.Uuid
+  status       MigrationStatus   @default(pending)
+  strategy     MigrationStrategy
+  errorMessage String?           @map("error_message")
+  startedAt    DateTime?         @map("started_at") @db.Timestamptz
+  completedAt  DateTime?         @map("completed_at") @db.Timestamptz
+  createdBy    String?           @map("created_by") @db.Uuid
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  project    Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceNode Node?    @relation("MigrationSource", fields: [sourceNodeId], references: [id])
+  targetNode Node?    @relation("MigrationTarget", fields: [targetNodeId], references: [id])
+
+  @@index([projectId])
+  @@map("migrations")
+}
+
+// ---------------------------------------------------------------------------
+// Background jobs (Postgres-backed queue)
+// ---------------------------------------------------------------------------
+
+model Job {
+  id           String    @id @default(uuid()) @db.Uuid
+  type         String
+  status       JobStatus @default(queued)
+  priority     Int       @default(100)
+  queue        String    @default("default")
+  requiredWorkerType String? @map("required_worker_type")
+  payload      Json      @default("{}")
+  attempts     Int       @default(0)
+  maxAttempts  Int       @default(5) @map("max_attempts")
+  lockedBy     String?   @map("locked_by")
+  lockedAt     DateTime? @map("locked_at") @db.Timestamptz
+  runAfter     DateTime  @default(now()) @map("run_after") @db.Timestamptz
+  errorMessage String?   @map("error_message")
+  result       Json?
+  startedAt    DateTime? @map("started_at") @db.Timestamptz
+  finishedAt   DateTime? @map("finished_at") @db.Timestamptz
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([status, runAfter, priority])
+  @@index([type])
+  @@index([queue, requiredWorkerType])
+  @@map("jobs")
+}
+
+// ---------------------------------------------------------------------------
+// Control-plane DB backups (every 6h)
+// ---------------------------------------------------------------------------
+
+model ControlPlaneBackup {
+  id              String       @id @default(uuid()) @db.Uuid
+  status          BackupStatus @default(pending)
+  storageProvider String       @map("storage_provider")
+  backupStorageProviderId String? @map("backup_storage_provider_id") @db.Uuid
+  storagePath     String       @map("storage_path")
+  sizeBytes       BigInt?      @map("size_bytes")
+  checksum        String?
+  errorMessage    String?      @map("error_message")
+  startedAt       DateTime?    @map("started_at") @db.Timestamptz
+  completedAt     DateTime?    @map("completed_at") @db.Timestamptz
+  expiresAt       DateTime?    @map("expires_at") @db.Timestamptz
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  backupProvider BackupStorageProvider? @relation(fields: [backupStorageProviderId], references: [id])
+
+  @@index([createdAt])
+  @@index([backupStorageProviderId])
+  @@map("control_plane_backups")
+}
+
+// ---------------------------------------------------------------------------
+// DB-managed infrastructure providers (replaces customer infra env vars).
+// Credentials are encrypted with the same AES-256-GCM helper as other secrets.
+// ---------------------------------------------------------------------------
+
+model InfrastructureProvider {
+  id                   String   @id @default(uuid()) @db.Uuid
+  name                 String
+  // type: database | object_storage | backup_storage | compute_node | dns | email
+  type                 String
+  // provider: postgres | b2 | r2 | hetzner | local_dev | cloudflare | custom
+  provider             String
+  // status: active | disabled | degraded
+  status               String   @default("active")
+  region               String?
+  config               Json     @default("{}")
+  encryptedCredentials String?  @map("encrypted_credentials")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  databaseClusters DatabaseCluster[]
+
+  @@index([type, status])
+  @@map("infrastructure_providers")
+}
+
+model DatabaseCluster {
+  id                       String   @id @default(uuid()) @db.Uuid
+  name                     String   @unique
+  providerId               String?  @map("provider_id") @db.Uuid
+  nodeId                   String?  @map("node_id") @db.Uuid
+  engine                   String   @default("postgres")
+  engineVersion            String?  @map("engine_version")
+  // Encrypted libpq URL for the cluster admin role (NOT a global env var).
+  adminConnectionEncrypted String   @map("admin_connection_encrypted")
+  host                     String
+  port                     Int      @default(5432)
+  defaultDatabase          String   @default("postgres") @map("default_database")
+  sslRequired              Boolean  @default(false) @map("ssl_required")
+  maxDatabases             Int?     @map("max_databases")
+  maxStorageBytes          BigInt?  @map("max_storage_bytes")
+  currentDatabases         Int      @default(0) @map("current_databases")
+  currentStorageBytes      BigInt   @default(0) @map("current_storage_bytes")
+  // status: active | disabled | full | degraded
+  status                   String   @default("active")
+  region                   String?
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  provider  InfrastructureProvider? @relation(fields: [providerId], references: [id])
+  node      Node?                   @relation(fields: [nodeId], references: [id])
+  databases Database[]
+
+  @@index([status, region])
+  @@map("database_clusters")
+}
+
+model ObjectStorageProvider {
+  id                  String   @id @default(uuid()) @db.Uuid
+  name                String   @unique
+  // provider: b2 | r2 | hetzner | local_dev | custom
+  provider            String
+  endpoint            String?
+  region              String?
+  accessKeyEncrypted  String?  @map("access_key_encrypted")
+  secretKeyEncrypted  String?  @map("secret_key_encrypted")
+  defaultBucket       String?  @map("default_bucket")
+  pathStyle           Boolean  @default(true) @map("path_style")
+  publicBaseUrl       String?  @map("public_base_url")
+  // For local_dev provider only.
+  localPath           String?  @map("local_path")
+  maxStorageBytes     BigInt?  @map("max_storage_bytes")
+  currentStorageBytes BigInt   @default(0) @map("current_storage_bytes")
+  // status: active | disabled | degraded
+  status              String   @default("active")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  buckets StorageBucket[]
+
+  @@index([status])
+  @@map("object_storage_providers")
+}
+
+model BackupStorageProvider {
+  id                 String   @id @default(uuid()) @db.Uuid
+  name               String   @unique
+  // provider: b2 | r2 | hetzner | local_dev | custom
+  provider           String
+  endpoint           String?
+  region             String?
+  bucket             String?
+  prefix             String?
+  accessKeyEncrypted String?  @map("access_key_encrypted")
+  secretKeyEncrypted String?  @map("secret_key_encrypted")
+  localPath          String?  @map("local_path")
+  retentionPolicy    Json     @default("{}") @map("retention_policy")
+  // status: active | disabled | degraded
+  status             String   @default("active")
+  isDefault          Boolean  @default(false) @map("is_default")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  databaseBackups     DatabaseBackup[]
+  controlPlaneBackups ControlPlaneBackup[]
+
+  @@index([status])
+  @@map("backup_storage_providers")
+}
+
+model WorkerConfig {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  // worker_type: default | deploy | backup | metrics | migration | usage
+  workerType     String   @unique @map("worker_type")
+  enabled        Boolean  @default(true)
+  pollIntervalMs Int      @map("poll_interval_ms")
+  concurrency    Int
+  lockTimeoutMs  Int      @map("lock_timeout_ms")
+  queues         String[] @default([])
+  config         Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("worker_configs")
+}

@@ -1,4 +1,4 @@
-# Quickdock — Codebase Overview
+# Swyftstack — Codebase Overview
 
 > Keep this file updated when files/modules are added or moved. It exists so the
 > codebase can be understood without re-reading every file.
@@ -6,21 +6,21 @@
 ## Monorepo layout (npm workspaces)
 
 ```
-Quickdock/
+Swyftstack/
 ├── package.json              # workspace root + scripts (db:*, dev:*, test)
 ├── docker-compose.yml        # local Postgres (control + optional customer DB)
 ├── .env / .env.example       # configuration (secrets, DB, worker, storage)
-├── quickdock-shared/         # shared library: schema, services, jobs, logic
-├── quickdock-platform/       # admin control-plane (Next.js, port 3000)
-├── quickdock-workers/        # long-running worker + scheduler
-├── quickdock-userapp/        # customer-facing app (Next.js, port 3001)
+├── swyftstack-shared/         # shared library: schema, services, jobs, logic
+├── swyftstack-platform/       # admin control-plane (Next.js, port 3000)
+├── swyftstack-workers/        # long-running worker + scheduler
+├── swyftstack-userapp/        # customer-facing app (Next.js, port 3001)
 └── RESOURCES_FOR_REFERENCE/  # DB_SCHEMA.sql, *_OVERVIEW.md, architecture
 ```
 
-`quickdock-platform` and `quickdock-workers` both import `quickdock-shared`
+`swyftstack-platform` and `swyftstack-workers` both import `swyftstack-shared`
 (workspace dependency) so schema/services/business-logic live in exactly one place.
 
-## quickdock-shared (the core)
+## swyftstack-shared (the core)
 
 `src/`
 - `env.ts` — zod-validated `process.env` (safe defaults for dev).
@@ -42,6 +42,8 @@ Quickdock/
   events into `metric_rollups` (hourly/daily, 10 scopes) for fast dashboards.
 - `node-discovery.ts` — **pure** SSH discovery probe + parser (CPU/RAM/disk/
   OS/Docker/interfaces/mounts). Backs §2 node auto-detection.
+- `ssh-key.ts` — **pure** pasted private-key normalization/validation; fixes
+  escaped-newline pastes and rejects public keys before encryption.
 - `provider-help.ts` — **pure** storage/backup provider setup guides (B2, R2,
   Hetzner, OVH); seeded into `provider_help_docs`.
 - `services/` — `types.ts` (interfaces) + implementations:
@@ -57,7 +59,8 @@ Quickdock/
     30s cache). Replaces global `WORKER_*` (now `DEFAULT_WORKER_*` fallback).
   - `ssh.ts` — `sshNodeService` + `runNodeProbe` use local execution for
     `connection_mode=local` and the system `ssh` binary with encrypted pasted
-    private keys for remote VPS probes/logs, logged to `node_connection_logs`.
+    private keys for remote VPS probes/logs/streamed commands, logged to
+    `node_connection_logs`.
   - `discovery.ts` — `discoveryService.discoverNode` runs hardware discovery
     (local or SSH), persists `nodes` fields + `node_hardware_snapshots` +
     interfaces + mounts; failure leaves the node out of `active`.
@@ -78,7 +81,7 @@ Quickdock/
 Pure modules never import `db.ts`, so the test suite runs without Postgres or
 `prisma generate`.
 
-## quickdock-platform (admin, Next.js App Router)
+## swyftstack-platform (admin, Next.js App Router)
 
 - `src/lib/auth.ts` — signed-cookie admin session (`login/logout/currentAdmin/
   requireAdmin`); enforces `isPlatformAdmin`.
@@ -90,13 +93,16 @@ Pure modules never import `db.ts`, so the test suite runs without Postgres or
   `Breadcrumbs`, `Modal`, `Drawer`, `KeyValue`, `ProgressBar`, `AreaChart`,
   `LineChart`, `BarChart`, `Donut`, `bytes()`.
 - `src/components/client.tsx` — client kit: `DataTable` (search/sort/filter),
-  `RowMenu`, `CopyButton`, `SecretField`, `Tabs`, `ConfirmButton`.
+  `RowMenu`, `CopyButton`, `SecretField`, `Tabs`, `NodeTerminal`,
+  `ConfirmButton`.
 - `src/app/(dashboard)/*` — overview, infra-overview, nodes(+`[id]`),
   users(+`[id]`), organizations(+`[id]`), projects(+`[id]`), apps, databases,
   buckets, plans, usage, jobs, backups, audit-logs, migrations, infrastructure,
   help, settings. List pages use `DataTable`; detail pages use `Tabs`.
 - `nodes/[id]` — onboarding (test → discover → confirm roles → activate) then
-  tabbed overview/monitoring/workloads/capacity/logs/events.
+  tabbed overview/monitoring/workloads/capacity/configuration/logs/events.
+  Configuration updates VPS SSH details in place; Logs includes a streaming
+  terminal backed by `node_connection_logs`.
 - `users/[id]`, `organizations/[id]`, `projects/[id]` — comprehensive tabbed
   detail pages (usage, plan/trial, members, overrides, activity).
 - `infra-overview` — fleet capacity, health, bandwidth, top-N, incidents.
@@ -104,20 +110,20 @@ Pure modules never import `db.ts`, so the test suite runs without Postgres or
   Object Storage, Backup Storage, Worker Configs, Node Defaults
   (create/disable/test/make-default via server actions).
 - `src/app/api/admin/*` — REST endpoints (overview, nodes[+drain+agent script,
-  SSH test/probe/logs/services/command],
+  SSH test/probe/logs/services/command; command supports NDJSON streaming],
   plans, users, projects[+suspend/unsuspend/databases/apps], databases
   [+backup/restore], migrations, jobs[+retry], usage, audit-logs) and
   `infrastructure/{database-clusters,object-storage,backup-storage,worker-configs}`
   each with `[id]` (PATCH status / guarded DELETE) and `[id]/test`.
 
-## quickdock-workers
+## swyftstack-workers
 
 - `src/index.ts` — starts scheduler + `runWorker()` (from shared).
 - `src/scheduler.ts` — in-process interval scheduler enqueuing recurring jobs
   (node metrics 30s, app metrics 60s, db metrics 120s, storage metrics 300s,
   usage 60s, rollup_metrics 120s, enforce 120s, control backup 6h).
 
-## quickdock-userapp (customer baseline)
+## swyftstack-userapp (customer baseline)
 
 - `src/lib/auth.ts` — user session (email + optional password).
 - `src/app/login` / `src/app/page.tsx` — sign-in + project list (membership).
@@ -135,8 +141,8 @@ Pure modules never import `db.ts`, so the test suite runs without Postgres or
 ## Data flow
 
 1. Admin/API creates a record (`apps`, `databases`, …) → enqueues a `job`.
-2. `quickdock-workers` claims the job (race-safe `updateMany` lock), runs the
-   matching handler in `quickdock-shared/jobs/handlers.ts`.
+2. `swyftstack-workers` claims the job (race-safe `updateMany` lock), runs the
+   matching handler in `swyftstack-shared/jobs/handlers.ts`.
 3. Handlers call the local-dev service implementations (Docker/pg if present,
    otherwise simulated) and write `audit_logs` / `project_activity_logs`.
 4. Scheduler-driven jobs roll up usage and enforce limits (80/100/110).

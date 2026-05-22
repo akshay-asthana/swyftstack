@@ -7,7 +7,7 @@ out/
 .env.local
 .DS_Store
 coverage/
-quickdock-shared/src/generated/
+swyftstack-shared/src/generated/
 .backups-local/
 storage-local/
 

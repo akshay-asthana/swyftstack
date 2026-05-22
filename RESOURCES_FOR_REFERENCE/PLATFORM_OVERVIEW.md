@@ -1,4 +1,4 @@
-# Quickdock — Platform Overview
+# Swyftstack — Platform Overview
 
 > Architecture, features, workflows, and user flows. Keep updated as behaviour
 > changes. Companion to `Initial_Architecture.md` (the original spec) and
@@ -6,7 +6,7 @@
 
 ## 1. What it is
 
-Quickdock is an **admin-first control plane** for a small PaaS/DBaaS. It manages
+Swyftstack is an **admin-first control plane** for a small PaaS/DBaaS. It manages
 VPS worker nodes and allocates app hosting, PostgreSQL databases, object
 storage, usage limits, backups, logs, and migrations to users/projects. The VPS
 machines are worker nodes; the control plane is the product.
@@ -18,10 +18,10 @@ a node and is movable, so scaling out never requires a rewrite.
 
 | Component | Role |
 |---|---|
-| `quickdock-platform` | Admin dashboard + control API (auth, RBAC, plans, limits, resource actions). |
-| `quickdock-workers` | Job worker + scheduler. Runs deploys, backups, metrics, usage rollups, enforcement. |
-| `quickdock-userapp` | Customer view of their projects/apps/databases (role-gated). |
-| `quickdock-shared` | Schema, services, job runtime, and all business logic. |
+| `swyftstack-platform` | Admin dashboard + control API (auth, RBAC, plans, limits, resource actions). |
+| `swyftstack-workers` | Job worker + scheduler. Runs deploys, backups, metrics, usage rollups, enforcement. |
+| `swyftstack-userapp` | Customer view of their projects/apps/databases (role-gated). |
+| `swyftstack-shared` | Schema, services, job runtime, and all business logic. |
 | Postgres (control) | Source of truth for the whole platform. |
 | Postgres (customer) | Shared instance hosting isolated per-project databases. |
 | Object storage | `local_dev` filesystem in MVP; B2/R2/Hetzner via same interface. |

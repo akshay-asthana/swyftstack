@@ -1,0 +1,108 @@
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { prisma } from "swyftstack-shared";
+import { requireUser } from "@/lib/auth";
+import { UserShell } from "@/components/user-shell";
+import { Icon } from "@/components/icons";
+
+export const dynamic = "force-dynamic";
+
+function slugify(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+async function loadWorkspace(userId: string) {
+  return prisma.organization.findFirst({
+    where: { ownerUserId: userId },
+    orderBy: { createdAt: "asc" },
+    include: {
+      subscriptions: {
+        where: { status: "active" }, orderBy: { createdAt: "desc" }, take: 1,
+        include: { plan: { include: { limits: true } } },
+      },
+      _count: { select: { projects: true } },
+    },
+  });
+}
+
+async function createProject(formData: FormData) {
+  "use server";
+  const user = await requireUser();
+  const workspace = await loadWorkspace(user.id);
+  const subscription = workspace?.subscriptions[0];
+  if (!workspace || !subscription) redirect("/pricing?next=/projects/new");
+
+  const maxProjects = subscription.plan.limits?.maxProjects;
+  if (maxProjects !== null && maxProjects !== undefined && workspace._count.projects >= maxProjects) {
+    redirect("/pricing?next=/projects/new");
+  }
+
+  const name = String(formData.get("name") ?? "").trim();
+  const region = String(formData.get("region") ?? "").trim() || "local";
+  if (!name) redirect("/projects/new");
+
+  const baseSlug = slugify(name) || "project";
+  let slug = baseSlug;
+  let i = 2;
+  while (await prisma.project.findUnique({ where: { organizationId_slug: { organizationId: workspace.id, slug } } })) {
+    slug = `${baseSlug}-${i++}`;
+  }
+
+  const project = await prisma.project.create({
+    data: {
+      organizationId: workspace.id, name, slug, region, createdBy: user.id,
+      members: { create: { userId: user.id, role: "owner" } },
+    },
+  });
+  redirect(`/projects/${project.id}`);
+}
+
+export default async function NewProjectPage() {
+  const user = await requireUser();
+  const workspace = await loadWorkspace(user.id);
+  const subscription = workspace?.subscriptions[0];
+  if (!workspace || !subscription) redirect("/pricing?next=/projects/new");
+
+  const limit = subscription.plan.limits?.maxProjects;
+  const remaining = limit == null ? "Unlimited" : Math.max(0, limit - workspace._count.projects);
+
+  return (
+    <UserShell user={user} workspace={workspace.name}>
+      <div className="page-head">
+        <div>
+          <h1 className="h1">Create a project</h1>
+          <p className="sub" style={{ marginBottom: 0 }}>
+            A project groups your apps, databases and storage. <Link href="/projects">Back to projects</Link>
+          </p>
+        </div>
+      </div>
+
+      <div className="split">
+        <div className="card">
+          <form action={createProject}>
+            <label>Project name</label>
+            <input name="name" required autoFocus placeholder="Production API" />
+            <label>Region</label>
+            <select name="region" defaultValue="local">
+              <option value="local">local — control-plane node</option>
+              <option value="fsn1">fsn1 — Falkenstein</option>
+              <option value="gra">gra — Gravelines</option>
+              <option value="bhs">bhs — Beauharnois</option>
+            </select>
+            <div style={{ marginTop: 18 }}>
+              <button className="btn"><Icon name="plus" size={15} /> Create project</button>
+            </div>
+          </form>
+        </div>
+        <div className="card">
+          <div className="panel-title" style={{ marginBottom: 10 }}>Current plan</div>
+          <div className="stat-value" style={{ fontSize: 20 }}>{subscription.plan.name}</div>
+          <p className="small" style={{ margin: "6px 0 0" }}>
+            {workspace._count.projects} of {limit ?? "∞"} projects used · {remaining} remaining
+          </p>
+          <p className="small">Need more? <Link href="/pricing?next=/projects/new">Upgrade your plan</Link>.</p>
+        </div>
+      </div>
+    </UserShell>
+  );
+}
