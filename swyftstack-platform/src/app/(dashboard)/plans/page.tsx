@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { audit, FEATURE_KEYS, prisma } from "swyftstack-shared";
 import { Badge, bytes, Table } from "@/components/ui";
+import { PlanResourceEditor } from "@/components/plan-resource-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,8 @@ function planTrialData(formData: FormData) {
   };
 }
 
+// §9 — limit inputs gated by their resource toggle are `disabled` when the
+// resource is off, so they arrive absent here and resolve to null (unlimited).
 function planLimitData(formData: FormData) {
   return {
     maxProjects: intOrNull(formData, "maxProjects"),
@@ -126,35 +129,46 @@ async function savePlan(formData: FormData) {
   revalidatePath("/plans");
 }
 
-function LimitInputs({ limits }: { limits?: {
-  maxProjects?: number | null;
-  maxDatabases?: number | null;
-  maxDatabaseStorageBytes?: bigint | null;
-  maxObjectStorageBytes?: bigint | null;
-  maxEgressBytes?: bigint | null;
-  maxVcpuSeconds?: bigint | null;
-  maxBuildVcpuSeconds?: bigint | null;
-  dailyDbBackups?: number | null;
-  backupRetentionHours?: number | null;
-  maxTeamMembers?: number | null;
-  maxCustomDomains?: number | null;
-} | null }) {
-  return (
-    <div className="grid compact" style={{ marginTop: 12 }}>
-      <div><label>Max projects</label><input name="maxProjects" defaultValue={limits?.maxProjects ?? ""} /></div>
-      <div><label>Max databases</label><input name="maxDatabases" defaultValue={limits?.maxDatabases ?? ""} /></div>
-      <div><label>DB storage bytes</label><input name="maxDatabaseStorageBytes" defaultValue={String(limits?.maxDatabaseStorageBytes ?? "")} /></div>
-      <div><label>Object storage bytes</label><input name="maxObjectStorageBytes" defaultValue={String(limits?.maxObjectStorageBytes ?? "")} /></div>
-      <div><label>Egress bytes</label><input name="maxEgressBytes" defaultValue={String(limits?.maxEgressBytes ?? "")} /></div>
-      <div><label>Runtime vCPU-sec</label><input name="maxVcpuSeconds" defaultValue={String(limits?.maxVcpuSeconds ?? "")} /></div>
-      <div><label>Build vCPU-sec</label><input name="maxBuildVcpuSeconds" defaultValue={String(limits?.maxBuildVcpuSeconds ?? "")} /></div>
-      <div><label>Daily DB backups</label><input name="dailyDbBackups" defaultValue={limits?.dailyDbBackups ?? ""} /></div>
-      <div><label>Backup retention hours</label><input name="backupRetentionHours" defaultValue={limits?.backupRetentionHours ?? ""} /></div>
-      <div><label>Team members</label><input name="maxTeamMembers" defaultValue={limits?.maxTeamMembers ?? ""} /></div>
-      <div><label>Custom domains</label><input name="maxCustomDomains" defaultValue={limits?.maxCustomDomains ?? ""} /></div>
-    </div>
-  );
+type PlanLimits = {
+  maxProjects: number | null;
+  maxDatabases: number | null;
+  maxDatabaseStorageBytes: bigint | null;
+  maxObjectStorageBytes: bigint | null;
+  maxEgressBytes: bigint | null;
+  maxVcpuSeconds: bigint | null;
+  maxBuildVcpuSeconds: bigint | null;
+  dailyDbBackups: number | null;
+  backupRetentionHours: number | null;
+  maxTeamMembers: number | null;
+  maxCustomDomains: number | null;
+};
+
+const LIMIT_KEYS = [
+  "maxProjects", "maxDatabases", "maxDatabaseStorageBytes", "maxObjectStorageBytes",
+  "maxEgressBytes", "maxVcpuSeconds", "maxBuildVcpuSeconds", "dailyDbBackups",
+  "backupRetentionHours", "maxTeamMembers", "maxCustomDomains",
+] as const;
+
+/** Limit values as strings (RSC props must not carry BigInt). "" = unlimited. */
+function limitValues(limits: PlanLimits | null | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const k of LIMIT_KEYS) {
+    const v = limits ? limits[k] : null;
+    out[k] = v === null || v === undefined ? "" : String(v);
+  }
+  return out;
 }
+
+function featureValues(features: { featureKey: string; enabled: boolean }[]): Record<string, boolean> {
+  const on = new Set(features.filter((f) => f.enabled).map((f) => f.featureKey));
+  const out: Record<string, boolean> = {};
+  for (const k of FEATURE_KEYS) out[k] = on.has(k);
+  return out;
+}
+
+const ALL_FEATURES_ON: Record<string, boolean> = Object.fromEntries(
+  FEATURE_KEYS.map((k) => [k, true]),
+);
 
 function TrialInputs({ plan }: { plan?: {
   description?: string | null;
@@ -175,22 +189,9 @@ function TrialInputs({ plan }: { plan?: {
         <input type="checkbox" name="trialRequiresPaymentMethod" defaultChecked={plan?.trialRequiresPaymentMethod ?? false} /> Require a payment method to start the trial
       </label>
       <p className="small" style={{ margin: "8px 0 0" }}>
-        Billing reverts to the regular monthly price above once the trial ends.
+        Billing reverts to the regular price above once the trial ends.
       </p>
     </fieldset>
-  );
-}
-
-function FeatureChecks({ enabled }: { enabled: Set<string> }) {
-  return (
-    <div className="check-grid">
-      {FEATURE_KEYS.map((key) => (
-        <label className="check" key={key}>
-          <input type="checkbox" name={`feature:${key}`} defaultChecked={enabled.has(key)} />
-          {key.replaceAll("_", " ")}
-        </label>
-      ))}
-    </div>
   );
 }
 
@@ -204,17 +205,19 @@ export default async function PlansPage() {
     <>
       <div className="actionbar">
         <div>
-          <h1 className="h1">Plans</h1>
-          <p className="sub">Commercial plan catalog with editable limits and feature gates.</p>
+          <h1 className="h1">Plans &amp; Limits</h1>
+          <p className="sub">
+            Each plan picks which resources it includes and how much of each —
+            DB-only, static-only or full-stack are all valid.
+          </p>
         </div>
         <a className="btn" href="#new-plan">New plan</a>
       </div>
 
       <Table
-        columns={["Plan", "Price", "Trial", "Status", "Core limits", "Features", "Subs", "Actions"]}
+        columns={["Plan", "Price", "Trial", "Status", "Core limits", "Resources", "Subs", "Actions"]}
         rows={plans.map((p) => {
           const enabled = new Set(p.features.filter((f) => f.enabled).map((f) => f.featureKey));
-          const featureCount = enabled.size;
           return [
             <div key="plan">
               <strong>{p.name}</strong>
@@ -229,7 +232,7 @@ export default async function PlansPage() {
               {p.limits?.maxProjects ?? "∞"} projects · {p.limits?.maxDatabases ?? "∞"} DBs<br />
               {bytes(p.limits?.maxDatabaseStorageBytes)} DB · {bytes(p.limits?.maxObjectStorageBytes)} object
             </div>,
-            `${featureCount}/${FEATURE_KEYS.length} enabled`,
+            `${enabled.size}/${FEATURE_KEYS.length} enabled`,
             p._count.subscriptions,
             <a key="edit" className="btn secondary" href={`#edit-plan-${p.id}`}>Edit</a>,
           ];
@@ -259,50 +262,47 @@ export default async function PlansPage() {
                 <input name="description" placeholder="One-line plan summary shown to customers" />
               </div>
               <TrialInputs />
-              <LimitInputs />
-              <FeatureChecks enabled={new Set(FEATURE_KEYS)} />
+              <div className="section-title" style={{ marginTop: 14 }}>Resources &amp; limits</div>
+              <PlanResourceEditor features={ALL_FEATURES_ON} limits={{}} />
               <div className="row" style={{ marginTop: 14 }}><button className="btn">Create plan</button><a href="#" className="btn secondary">Cancel</a></div>
             </form>
           </div>
         </div>
       </div>
 
-      {plans.map((p) => {
-        const enabled = new Set(p.features.filter((f) => f.enabled).map((f) => f.featureKey));
-        return (
-          <div id={`edit-plan-${p.id}`} className="modal-backdrop" key={p.id}>
-            <div className="modal-card">
-              <div className="modal-head"><strong>Edit {p.name}</strong><a href="#" className="modal-close">x</a></div>
-              <div className="modal-body">
-                <form action={savePlan}>
-                  <input type="hidden" name="planId" value={p.id} />
-            <div className="form-grid">
-              <div><label>Name</label><input name="name" defaultValue={p.name} required /></div>
-              <div><label>Slug</label><input name="slug" defaultValue={p.slug} required /></div>
-              <div><label>Price cents</label><input name="priceCents" defaultValue={p.priceCents} /></div>
-              <div><label>Currency</label><input name="currency" defaultValue={p.currency} /></div>
-              <div><label>Billing interval</label><input name="billingInterval" defaultValue={p.billingInterval} /></div>
-              <div><label>Status</label>
-                <select name="status" defaultValue={p.status}>
-                  <option value="active">active</option>
-                  <option value="archived">archived</option>
-                </select>
-              </div>
-            </div>
-            <div style={{ marginTop: 10 }}>
-              <label>Description</label>
-              <input name="description" defaultValue={p.description ?? ""} />
-            </div>
-            <TrialInputs plan={p} />
-            <LimitInputs limits={p.limits} />
-            <FeatureChecks enabled={enabled} />
-                  <div className="row" style={{ marginTop: 14 }}><button className="btn">Save plan</button><a href="#" className="btn secondary">Cancel</a></div>
-                </form>
-              </div>
+      {plans.map((p) => (
+        <div id={`edit-plan-${p.id}`} className="modal-backdrop" key={p.id}>
+          <div className="modal-card">
+            <div className="modal-head"><strong>Edit {p.name}</strong><a href="#" className="modal-close">x</a></div>
+            <div className="modal-body">
+              <form action={savePlan}>
+                <input type="hidden" name="planId" value={p.id} />
+                <div className="form-grid">
+                  <div><label>Name</label><input name="name" defaultValue={p.name} required /></div>
+                  <div><label>Slug</label><input name="slug" defaultValue={p.slug} required /></div>
+                  <div><label>Price cents</label><input name="priceCents" defaultValue={p.priceCents} /></div>
+                  <div><label>Currency</label><input name="currency" defaultValue={p.currency} /></div>
+                  <div><label>Billing interval</label><input name="billingInterval" defaultValue={p.billingInterval} /></div>
+                  <div><label>Status</label>
+                    <select name="status" defaultValue={p.status}>
+                      <option value="active">active</option>
+                      <option value="archived">archived</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  <label>Description</label>
+                  <input name="description" defaultValue={p.description ?? ""} />
+                </div>
+                <TrialInputs plan={p} />
+                <div className="section-title" style={{ marginTop: 14 }}>Resources &amp; limits</div>
+                <PlanResourceEditor features={featureValues(p.features)} limits={limitValues(p.limits)} />
+                <div className="row" style={{ marginTop: 14 }}><button className="btn">Save plan</button><a href="#" className="btn secondary">Cancel</a></div>
+              </form>
             </div>
           </div>
-        );
-      })}
+        </div>
+      ))}
     </>
   );
 }

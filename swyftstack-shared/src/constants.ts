@@ -148,6 +148,58 @@ export const NODE_ROLES = [
 ] as const;
 export type NodeRole = (typeof NODE_ROLES)[number];
 
+/** Stable node key for the single local control-plane / dev node (§1). */
+export const LOCAL_NODE_KEY = "local-dev";
+
+/**
+ * A node is considered stale (status "degraded"/warning) when its last metric
+ * or heartbeat is older than this, and offline beyond OFFLINE (§4).
+ */
+export const NODE_STALE_MS = 60_000;
+export const NODE_OFFLINE_MS = 180_000;
+
+// --- Provisioning defaults (§7) -------------------------------------------
+
+/** Resource types that can have a provisioning policy. */
+export const PROVISIONING_RESOURCE_TYPES = [
+  "app",
+  "build",
+  "database",
+  "static",
+  "object_storage",
+  "backup",
+] as const;
+export type ProvisioningResourceType = (typeof PROVISIONING_RESOURCE_TYPES)[number];
+
+/** Load-balancing strategies a provisioning policy can use. */
+export const PROVISIONING_STRATEGIES = [
+  "least_used",
+  "weighted_round_robin",
+  "capacity_available",
+  "random_healthy",
+  "manual_priority",
+] as const;
+export type ProvisioningStrategy = (typeof PROVISIONING_STRATEGIES)[number];
+
+/** The kind of infrastructure a provisioning target points at. */
+export const PROVISIONING_TARGET_TYPES = [
+  "node",
+  "database_cluster",
+  "object_storage_provider",
+  "backup_storage_provider",
+] as const;
+export type ProvisioningTargetType = (typeof PROVISIONING_TARGET_TYPES)[number];
+
+/** Default target kind for each resource type. */
+export const RESOURCE_TARGET_KIND: Record<ProvisioningResourceType, ProvisioningTargetType> = {
+  app: "node",
+  build: "node",
+  static: "node",
+  database: "database_cluster",
+  object_storage: "object_storage_provider",
+  backup: "backup_storage_provider",
+};
+
 // Override precedence (most specific first). Mirrors architecture §15.
 export const SCOPE_PRECEDENCE = ["service", "project", "user", "organization"] as const;
 

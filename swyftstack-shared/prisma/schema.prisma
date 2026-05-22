@@ -77,6 +77,7 @@ enum NodeStatus {
   degraded
   offline
   disabled
+  archived
 }
 
 enum AppType {
@@ -617,6 +618,22 @@ model Node {
   agentVersion      String?    @map("agent_version")
   agentTokenHash    String?    @map("agent_token_hash")
   lastHeartbeatAt   DateTime?  @map("last_heartbeat_at") @db.Timestamptz
+  // --- Stable identity & lifecycle (§1/§2/§12) ---
+  // nodeKey is the canonical stable identity. The local control-plane node is
+  // always `local-dev`; remote nodes derive a stable key on discovery. Unique
+  // so re-running seed/discovery upserts the same row instead of duplicating.
+  nodeKey           String?    @unique @map("node_key")
+  // agentId / machineId let a remote node be re-identified across IP/name
+  // changes (machine_id from /etc/machine-id, agentId from the node-agent).
+  agentId           String?    @unique @map("agent_id")
+  machineId         String?    @map("machine_id")
+  hostname          String?
+  isLocal           Boolean    @default(false) @map("is_local")
+  // Protected nodes cannot be archived or normal-deleted (only force-deleted
+  // in dev). Set on the canonical local-dev control-plane node.
+  isProtected       Boolean    @default(false) @map("is_protected")
+  lastDiscoveredAt  DateTime?  @map("last_discovered_at") @db.Timestamptz
+  lastMetricAt      DateTime?  @map("last_metric_at") @db.Timestamptz
   createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime   @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -1429,4 +1446,49 @@ model WorkerConfig {
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("worker_configs")
+}
+
+// ---------------------------------------------------------------------------
+// Provisioning defaults (§7) — admin-configured placement policy that decides
+// which node/cluster/provider new customer resources land on. Replaces the
+// hardcoded "first active cluster / first app node" logic.
+// ---------------------------------------------------------------------------
+
+model ProvisioningPolicy {
+  id           String   @id @default(uuid()) @db.Uuid
+  // resource_type: app | build | database | static | object_storage | backup
+  resourceType String   @unique @map("resource_type")
+  name         String
+  // strategy: least_used | weighted_round_robin | capacity_available |
+  //           random_healthy | manual_priority
+  strategy     String   @default("least_used")
+  enabled      Boolean  @default(true)
+  config       Json     @default("{}")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  targets ProvisioningTarget[]
+
+  @@map("provisioning_policies")
+}
+
+model ProvisioningTarget {
+  id              String   @id @default(uuid()) @db.Uuid
+  policyId        String   @map("policy_id") @db.Uuid
+  // target_type: node | database_cluster | object_storage_provider |
+  //              backup_storage_provider
+  targetType      String   @map("target_type")
+  targetId        String   @map("target_id") @db.Uuid
+  priority        Int      @default(1)
+  weight          Int      @default(100)
+  enabled         Boolean  @default(true)
+  maxUsagePercent Int?     @map("max_usage_percent")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  policy ProvisioningPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@unique([policyId, targetType, targetId])
+  @@index([policyId])
+  @@map("provisioning_targets")
 }

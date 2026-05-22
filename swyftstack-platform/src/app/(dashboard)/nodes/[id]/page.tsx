@@ -13,10 +13,11 @@ import {
   sshNodeService,
 } from "swyftstack-shared";
 import {
-  Badge, bytes, Panel, KeyValue, Table, AreaChart, LineChart, StatCard,
-  Breadcrumbs, EmptyState, ProgressBar, timeAgo,
+  Badge, bytes, Panel, KeyValue, Table, StatCard,
+  Breadcrumbs, ProgressBar, timeAgo,
 } from "@/components/ui";
 import { Tabs, ConfirmButton, NodeTerminal } from "@/components/client";
+import { NodeMonitor } from "@/components/node-monitor";
 
 export const dynamic = "force-dynamic";
 
@@ -218,19 +219,11 @@ export default async function NodeDetailPage({
   });
   if (!node) notFound();
 
-  const [events, bandwidthRollups, buildDeployments] = await Promise.all([
+  const [events, buildDeployments] = await Promise.all([
     prisma.auditLog.findMany({
       where: { targetType: "node", targetId: node.id },
       orderBy: { createdAt: "desc" },
       take: 25,
-    }),
-    prisma.metricRollup.findMany({
-      where: {
-        scopeType: "node", scopeId: node.id, period: "hourly",
-        metricType: { in: ["network_in_bytes", "network_out_bytes"] },
-      },
-      orderBy: { bucketStart: "asc" },
-      take: 48,
     }),
     prisma.deployment.findMany({
       where: { buildNodeId: node.id },
@@ -366,59 +359,28 @@ export default async function NodeDetailPage({
     </div>
   );
 
-  const labels = metrics.map((m) => m.collectedAt.toISOString().slice(11, 16));
-  const monitoringTab = metrics.length === 0 ? (
-    <EmptyState icon="usage" title="No metrics collected yet"
-      hint="Run a metric probe to start charting CPU, RAM, disk and bandwidth." />
-  ) : (
-    <>
-      <div className="split-even">
-        <Panel title="CPU usage %">
-          <AreaChart points={metrics.map((m) => Number(m.cpuUsagePercent ?? 0))} labels={labels} color="#6d5ef6" />
-        </Panel>
-        <Panel title="RAM used (GB)">
-          <AreaChart points={metrics.map((m) => Number(m.ramUsedBytes ?? 0) / 1e9)} labels={labels} color="#2563eb" />
-        </Panel>
-        <Panel title="Disk used (GB)">
-          <AreaChart points={metrics.map((m) => Number(m.diskUsedBytes ?? 0) / 1e9)} labels={labels} color="#16a34a" />
-        </Panel>
-        <Panel title="Load average (1m)">
-          <AreaChart points={metrics.map((m) => Number(m.cpuLoad1 ?? 0))} labels={labels} color="#d98e04" />
-        </Panel>
-        <Panel title="Running containers">
-          <AreaChart points={metrics.map((m) => Number(m.containersRunning ?? 0))} labels={labels} color="#5847e8" />
-        </Panel>
-        <Panel title="Failed containers">
-          <AreaChart points={metrics.map((m) => Number(m.containersFailed ?? 0))} labels={labels} color="#dc2626" />
-        </Panel>
-      </div>
-      <Panel title="Bandwidth (hourly, in / out)">
-        {bandwidthRollups.length === 0 ? (
-          <div className="small">
-            No bandwidth rollups yet. Node-level bandwidth is metered from /proc/net/dev on
-            Linux nodes; the local control node reports 0.
-          </div>
-        ) : (
-          <LineChart
-            labels={bandwidthRollups
-              .filter((r) => r.metricType === "network_in_bytes")
-              .map((r) => r.bucketStart.toISOString().slice(5, 13))}
-            series={[
-              {
-                name: "Inbound",
-                color: "#16a34a",
-                points: bandwidthRollups.filter((r) => r.metricType === "network_in_bytes").map((r) => Number(r.sum) / 1e6),
-              },
-              {
-                name: "Outbound",
-                color: "#6d5ef6",
-                points: bandwidthRollups.filter((r) => r.metricType === "network_out_bytes").map((r) => Number(r.sum) / 1e6),
-              },
-            ]}
-          />
-        )}
-      </Panel>
-    </>
+  // Live monitoring (§4): the client component polls /metrics every ~8s and
+  // shows a stale warning if collection stops. SSR data renders immediately.
+  const monitoringTab = (
+    <NodeMonitor
+      nodeId={node.id}
+      initial={{
+        status: node.status,
+        lastMetricAt: (node.lastMetricAt ?? node.lastHeartbeatAt)?.toISOString() ?? null,
+        metrics: metrics.map((m) => ({
+          collectedAt: m.collectedAt.toISOString(),
+          cpuUsagePercent: m.cpuUsagePercent === null ? null : Number(m.cpuUsagePercent),
+          cpuLoad1: m.cpuLoad1 === null ? null : Number(m.cpuLoad1),
+          ramUsedBytes: Number(m.ramUsedBytes ?? 0),
+          ramTotalBytes: Number(m.ramTotalBytes ?? 0),
+          diskUsedBytes: Number(m.diskUsedBytes ?? 0),
+          networkRxBytes: Number(m.networkRxBytes ?? 0),
+          networkTxBytes: Number(m.networkTxBytes ?? 0),
+          containersRunning: m.containersRunning ?? 0,
+          containersFailed: m.containersFailed ?? 0,
+        })),
+      }}
+    />
   );
 
   const workloadsTab = (
@@ -574,7 +536,11 @@ export default async function NodeDetailPage({
 
   return (
     <>
-      <Breadcrumbs items={[{ label: "Nodes", href: "/nodes" }, { label: node.name }]} />
+      <Breadcrumbs items={[
+        { label: "Infrastructure", href: "/infrastructure" },
+        { label: "Nodes", href: "/infrastructure?tab=nodes" },
+        { label: node.name },
+      ]} />
       <div className="actionbar">
         <div>
           <h1 className="h1">{node.name}</h1>

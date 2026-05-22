@@ -1,11 +1,13 @@
-// Seed: platform admin, Starter + Pro plans (limits + features), one local
-// all-in-one node. Idempotent — safe to run repeatedly.
-import os from "node:os";
+// Seed: platform admin, Starter + Pro plans (limits + features), the single
+// local control-plane node, local infrastructure providers, and the default
+// provisioning policies. Fully idempotent — re-running it NEVER creates
+// duplicate local nodes (it dedupes and upserts by the stable `local-dev` key).
 import { prisma } from "./db.js";
 import { env } from "./env.js";
 import { hashPassword, encryptSecret } from "./crypto.js";
-import { PLAN_PRESETS, NODE_ROLES } from "./constants.js";
+import { PLAN_PRESETS } from "./constants.js";
 import { PROVIDER_HELP_DOCS } from "./provider-help.js";
+import { nodeDiscoveryService } from "./services/node-identity.js";
 
 async function seedPlan(preset: (typeof PLAN_PRESETS)["starter"]) {
   const planFields = {
@@ -42,6 +44,8 @@ async function seedPlan(preset: (typeof PLAN_PRESETS)["starter"]) {
     },
   });
 
+  // §9 — resource toggles. Each plan explicitly enables/disables every
+  // feature, so a plan can ship only DB, only static hosting, etc.
   for (const [featureKey, enabled] of Object.entries(preset.features)) {
     await prisma.planFeature.upsert({
       where: { planId_featureKey: { planId: plan.id, featureKey } },
@@ -54,6 +58,42 @@ async function seedPlan(preset: (typeof PLAN_PRESETS)["starter"]) {
 
 function bigOrNull(v: number | null): bigint | null {
   return v === null ? null : BigInt(v);
+}
+
+/** Idempotently seed one provisioning policy + its ordered targets (§7/§13). */
+async function seedPolicy(
+  resourceType: string,
+  name: string,
+  strategy: string,
+  targets: { targetType: string; targetId: string }[],
+) {
+  const policy = await prisma.provisioningPolicy.upsert({
+    where: { resourceType },
+    update: { name, strategy },
+    create: { resourceType, name, strategy, enabled: true },
+  });
+  let priority = 1;
+  for (const t of targets) {
+    await prisma.provisioningTarget.upsert({
+      where: {
+        policyId_targetType_targetId: {
+          policyId: policy.id,
+          targetType: t.targetType,
+          targetId: t.targetId,
+        },
+      },
+      update: {},
+      create: {
+        policyId: policy.id,
+        targetType: t.targetType,
+        targetId: t.targetId,
+        priority: priority++,
+        weight: 100,
+        enabled: true,
+      },
+    });
+  }
+  return policy;
 }
 
 async function main() {
@@ -72,40 +112,25 @@ async function main() {
   const starter = await seedPlan(PLAN_PRESETS.starter);
   const pro = await seedPlan(PLAN_PRESETS.pro);
 
-  const node = await prisma.node.upsert({
-    where: { name: "node-001" },
-    update: {
-      provider: "local",
-      publicIp: "127.0.0.1",
-      privateIp: "127.0.0.1",
-      connectionMode: "local",
-      sshHost: null,
-      sshUser: null,
-      sshPrivateKeyEncrypted: null,
-      status: "active",
-    },
-    create: {
-      name: "node-001",
-      provider: "local",
-      publicIp: "127.0.0.1",
-      privateIp: "127.0.0.1",
-      connectionMode: "local",
-      region: "local",
-      status: "active",
-      roles: [...NODE_ROLES],
-      cpuCores: os.cpus().length || 2,
-      ramBytes: BigInt(os.totalmem()),
-      diskBytes: BigInt(100) * BigInt(1024 ** 3),
-      lastHeartbeatAt: new Date(),
-      agentVersion: "local-dev",
-    },
-  });
+  // --- Local control-plane node (§1) ----------------------------------------
+  // Backfill keys on any legacy rows, then register the ONE local node by its
+  // stable `local-dev` key. Pre-existing duplicate local nodes are folded in.
+  const backfilled = await nodeDiscoveryService.backfillNodeKeys();
+  const local = await nodeDiscoveryService.registerLocalNode();
+  const node = local.node;
+  if (local.archivedDuplicates.length) {
+    console.log(
+      `  ⚠ archived ${local.archivedDuplicates.length} empty duplicate local node(s).`,
+    );
+  }
+  for (const blocked of local.blockedDuplicates) {
+    console.log(
+      `  ⚠ duplicate local node "${blocked.name}" still has ${blocked.workloads} workload(s) — ` +
+        `migrate them, then archive/delete it from the Nodes page.`,
+    );
+  }
 
   // --- DB-managed infrastructure providers (replaces customer infra env) ---
-
-  // local_dev customer Postgres cluster. For the single-node MVP this reuses
-  // the control Postgres server's superuser, targeting the default `postgres`
-  // database. Production registers real clusters from the admin UI instead.
   const adminUrl = new URL(env.DATABASE_URL);
   const clusterAdmin = new URL(env.DATABASE_URL);
   clusterAdmin.pathname = "/postgres";
@@ -124,7 +149,7 @@ async function main() {
 
   const cluster = await prisma.databaseCluster.upsert({
     where: { name: "local-cluster" },
-    update: {},
+    update: { nodeId: node.id },
     create: {
       name: "local-cluster",
       providerId: dbInfra.id,
@@ -181,7 +206,28 @@ async function main() {
     },
   });
 
-  // --- Storage/backup provider help docs (§14) ---
+  // --- Default provisioning policies (§7/§13) -------------------------------
+  // New customer resources land here unless the admin reconfigures them.
+  await seedPolicy("app", "Default app placement", "least_used", [
+    { targetType: "node", targetId: node.id },
+  ]);
+  await seedPolicy("build", "Default build placement", "least_used", [
+    { targetType: "node", targetId: node.id },
+  ]);
+  await seedPolicy("static", "Default static-site placement", "least_used", [
+    { targetType: "node", targetId: node.id },
+  ]);
+  await seedPolicy("database", "Default database placement", "least_used", [
+    { targetType: "database_cluster", targetId: cluster.id },
+  ]);
+  await seedPolicy("object_storage", "Default object storage", "manual_priority", [
+    { targetType: "object_storage_provider", targetId: objStore.id },
+  ]);
+  await seedPolicy("backup", "Default backup storage", "manual_priority", [
+    { targetType: "backup_storage_provider", targetId: backupStore.id },
+  ]);
+
+  // --- Storage/backup provider help docs ---
   for (const doc of PROVIDER_HELP_DOCS) {
     await prisma.providerHelpDoc.upsert({
       where: { slug: doc.slug },
@@ -206,14 +252,16 @@ async function main() {
   }
 
   console.log("Seed complete:");
-  console.log("  admin:", admin.email);
-  console.log("  help docs         :", PROVIDER_HELP_DOCS.length, "provider guides");
-  console.log("  plans:", starter.slug, pro.slug);
-  console.log("  node :", node.name, node.roles.join(","));
+  console.log("  admin             :", admin.email);
+  console.log("  plans             :", starter.slug, pro.slug);
+  console.log("  node              :", node.name, `(${node.nodeKey})`, local.created ? "created" : "updated");
+  console.log("  node key backfill :", backfilled, "legacy node(s)");
   console.log("  db cluster        :", cluster.name);
   console.log("  object storage    :", objStore.name);
   console.log("  backup provider   :", backupStore.name, "(default)");
   console.log("  worker config     :", workerCfg.workerType);
+  console.log("  provisioning      : app, build, static, database, object_storage, backup");
+  console.log("  help docs         :", PROVIDER_HELP_DOCS.length, "provider guides");
 }
 
 main()

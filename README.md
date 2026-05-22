@@ -16,9 +16,12 @@ swyftstack-workers/  Long-running job worker + periodic scheduler
 swyftstack-userapp/  Customer-facing app (Next.js, :3001)
 ```
 
-- **Control plane** (`swyftstack-platform`) — admins manage nodes, users,
-  organizations, projects, plans, infrastructure providers and monitoring.
-  Server components read Prisma directly; mutations are server actions.
+- **Control plane** (`swyftstack-platform`) — admins manage users,
+  organizations, projects, plans and all infrastructure. Nodes, database
+  clusters, storage/backup providers, worker configs and provisioning defaults
+  live under one **Infrastructure** hub (Overview · Nodes · Database Clusters ·
+  Object Storage · Backup Storage · Worker Configs · Provisioning Defaults ·
+  Help). Server components read Prisma directly; mutations are server actions.
 - **Customer app** (`swyftstack-userapp`) — customers manage projects, apps,
   databases (create + import), object storage and view their own usage.
 - **Worker** (`swyftstack-workers`) — claims jobs from a Postgres-backed queue
@@ -35,10 +38,17 @@ swyftstack-userapp/  Customer-facing app (Next.js, :3001)
 
 - The worker collects metrics on a schedule: node metrics every 30s, app
   metrics every 60s, database metrics every 120s, storage metrics every 300s.
+  **The worker (`npm run dev:worker`) must be running for charts to update** —
+  without it no new samples are written.
 - Raw samples land in `node_metrics`, `app_metrics`, `database_metrics`,
-  `storage_metrics` (plus `build_metrics` per deployment).
+  `storage_metrics` (plus `build_metrics` per deployment). Samples are always
+  **inserted** (time-series), never overwritten.
 - Node metrics carry CPU %, load average, RAM/disk totals + used, network
   counters, Docker container counts and DB/proxy health.
+- Each collection updates the node's `last_metric_at`. `markStaleNodes`
+  re-derives node status from that timestamp: **active** when fresh,
+  **degraded** when older than 60s (stale warning), **offline** beyond 180s.
+  An offline node automatically recovers to active once metrics resume.
 - The `rollup_metrics` job (every 120s) pre-aggregates raw samples and
   `usage_events` into `metric_rollups` — hourly and daily buckets across ten
   scopes (platform, node, organization, user, project, app, database, bucket,
@@ -71,6 +81,27 @@ When a node is added, only connection details are stored. Discovery then:
 
 If discovery fails the node stays out of `active` with a clear error. CPU/RAM/
 disk are **never entered by hand** — capacity can be overridden later if needed.
+
+Every node carries a stable `node_key`. The single local control-plane node is
+always `local-dev` (also `is_local` + `is_protected`); remote nodes derive a
+stable key from agent id / machine-id / provider instance id. Because identity
+is stable, re-running the seed or discovery **upserts the same row** — it never
+creates duplicate local nodes. A duplicate left over from an older build is
+archived by the seed (if it has no workloads) so it can be deleted from the UI.
+
+### How provisioning defaults work
+
+New customer resources are not pinned to "the first active node/cluster". Each
+resource type (`app`, `build`, `database`, `static`, `object_storage`,
+`backup`) has a **provisioning policy** (`provisioning_policies`) with one or
+more **targets** (`provisioning_targets`) — a node, database cluster or storage
+provider, each with a priority, weight and optional max-usage cap.
+
+When a customer creates a resource, `ProvisioningPolicyService.selectTarget()`
+picks a healthy target using the policy's strategy (`least_used`,
+`weighted_round_robin`, `capacity_available`, `random_healthy` or
+`manual_priority`). If no policy or healthy target exists it falls back to the
+previous least-loaded behaviour, so the platform always stays bootable.
 
 ## Prerequisites
 
@@ -115,6 +146,13 @@ npm run db:migrate    # create + apply a named migration (prisma migrate dev)
 npm run db:seed       # idempotent seed (safe to re-run)
 ```
 
+`db:seed` is fully idempotent. It upserts the admin, Starter/Pro plans, the
+single `local-dev` node, local infrastructure providers and the six default
+provisioning policies. Re-running it **never** creates a second local node — it
+dedupes any local-looking rows onto the canonical `local-dev` node and archives
+empty duplicates. If a duplicate still has workloads the seed prints a warning
+and leaves it for you to migrate, then archive/delete from the Nodes page.
+
 ## Test
 
 ```bash
@@ -148,16 +186,44 @@ the node **Configuration** tab to paste the full private key again; Swyftstack
 accepts normal multiline keys and values containing escaped `\n` line breaks,
 but it rejects `.pub` public keys.
 
+### Node lifecycle (drain / disable / archive / delete)
+
+The Nodes page row menu offers the full lifecycle:
+
+- **Drain** / **Disable** — reversible; safe on any node, including `local-dev`.
+- **Archive** — reversible; allowed once the node has no active workloads.
+- **Delete** — permanent; allowed only when the node is **not protected** and
+  has no active apps, databases, clusters, domains or in-flight migrations.
+  If blocked, the UI says exactly which workloads to move first.
+- **Force delete (dev)** — non-production escape hatch that removes even a
+  protected or stuck node. Hidden in production.
+
+The canonical `local-dev` node is `is_protected`, so it cannot be archived or
+normal-deleted — but a leftover duplicate is **not** protected and can be
+deleted normally. Admins are never trapped with an undeletable duplicate.
+
+### Configure provisioning defaults
+
+Provisioning policies decide where new customer resources land. The seed
+creates one policy per resource type (`app`, `build`, `database`, `static`,
+`object_storage`, `backup`), each pointing at the local node / cluster /
+provider. Edit them in **Infrastructure → Provisioning Defaults**: pick a
+strategy (least-used, weighted, capacity, random, manual priority), add/remove
+targets, and set each target's priority, weight and max-usage cap — for example
+a second `database` target with priority 2, weight 30 spreads new databases
+across clusters. Each policy card shows a live **decision preview** ("would
+pick …") and per-target health, so placement is verifiable at a glance.
+
 ### Add a database cluster
 
-Admin → **Providers → Database Clusters → New**. Provide a name and the admin
+Admin → **Infrastructure → Database Clusters**. Provide a name and the admin
 connection string (`postgresql://admin:pw@host:5432/postgres`) plus host/port/
 region. The connection string is AES-256-GCM encrypted at rest. New customer
-databases are placed on the least-loaded active cluster.
+databases are placed via the `database` provisioning policy (see above).
 
 ### Add a storage provider
 
-Admin → **Providers → Object Storage** (or **Backup Storage**) **→ New**. Pick
+Admin → **Infrastructure → Object Storage** (or **Backup Storage**). Pick
 the provider, endpoint, region and paste the keys (encrypted on submit).
 **Help → Storage providers** has step-by-step guides for Backblaze B2,
 Cloudflare R2, Hetzner Object Storage and OVHcloud, including endpoint formats,
@@ -197,7 +263,7 @@ one is `verified`.
 
 `.env` holds **only** what the control plane needs to boot. Customer Postgres
 clusters, object storage, backup targets and worker tuning are DB-managed and
-edited from the admin **Providers** page.
+edited from the admin **Infrastructure** page.
 
 | Key | Meaning |
 |---|---|

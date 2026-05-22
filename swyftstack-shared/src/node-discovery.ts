@@ -22,6 +22,9 @@ export interface DiscoveredDisk {
 
 export interface DiscoveredHardware {
   hostname: string | null;
+  // Stable per-machine id from /etc/machine-id (Linux). Used to re-identify a
+  // node across hostname / IP changes so discovery upserts instead of dupes.
+  machineId: string | null;
   cpuModel: string | null;
   cpuCores: number | null;
   cpuThreads: number | null;
@@ -61,6 +64,7 @@ const PSEUDO_FS = new Set([
 export const DISCOVERY_COMMAND = `
 set -u
 echo "__QD_HOSTNAME__ $(hostname 2>/dev/null || true)"
+echo "__QD_MACHINE_ID__ $(cat /etc/machine-id 2>/dev/null || cat /var/lib/dbus/machine-id 2>/dev/null || true)"
 echo "__QD_ARCH__ $(uname -m 2>/dev/null || true)"
 echo "__QD_KERNEL__ $(uname -r 2>/dev/null || true)"
 ( . /etc/os-release 2>/dev/null && echo "__QD_OSNAME__ \${NAME:-}" && echo "__QD_OSVER__ \${VERSION:-\${VERSION_ID:-}}" ) || echo "__QD_OSNAME__ $(uname -s 2>/dev/null || true)"
@@ -158,6 +162,7 @@ export function parseDiscovery(output: string): DiscoveredHardware {
 
   return {
     hostname: lineValue("__QD_HOSTNAME__ ", output),
+    machineId: lineValue("__QD_MACHINE_ID__ ", output),
     cpuModel: lineValue("__QD_CPU_MODEL__ ", output),
     cpuCores: intOrNull(lineValue("__QD_CPU_CORES__ ", output)),
     cpuThreads: intOrNull(lineValue("__QD_CPU_THREADS__ ", output)),

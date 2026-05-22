@@ -11,8 +11,7 @@ const NAV: { title: string; items: Item[] }[] = [
     title: "Operate",
     items: [
       ["/", "Overview", "overview"],
-      ["/infra-overview", "Infrastructure", "infra"],
-      ["/nodes", "Nodes", "nodes"],
+      ["/infrastructure", "Infrastructure", "infra"],
       ["/jobs", "Jobs", "jobs"],
       ["/migrations", "Migrations", "migrations"],
     ],
@@ -45,15 +44,18 @@ const NAV: { title: string; items: Item[] }[] = [
   {
     title: "System",
     items: [
-      ["/infrastructure", "Providers", "infra"],
-      ["/help", "Help & Guides", "help"],
       ["/settings", "Settings", "settings"],
+      ["/help", "Help & Guides", "help"],
     ],
   },
 ];
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
+  // Nodes live under Infrastructure now — keep the entry lit on node pages too.
+  if (href === "/infrastructure" && (pathname === "/nodes" || pathname.startsWith("/nodes/"))) {
+    return true;
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

@@ -24,6 +24,19 @@ function execCapture(cmd: string, args: string[]): Promise<string> {
   });
 }
 
+/** Read the stable Linux machine-id (absent on macOS — returns null). */
+async function readMachineId(): Promise<string | null> {
+  for (const path of ["/etc/machine-id", "/var/lib/dbus/machine-id"]) {
+    try {
+      const id = (await fs.readFile(path, "utf8")).trim();
+      if (id) return id;
+    } catch {
+      /* not present on this OS */
+    }
+  }
+  return null;
+}
+
 /** Discover the local control-plane host using Node APIs (cross-platform). */
 async function discoverLocal(): Promise<DiscoveredHardware> {
   const cpus = os.cpus();
@@ -39,6 +52,7 @@ async function discoverLocal(): Promise<DiscoveredHardware> {
     /* statfs unavailable — leave disk unknown */
   }
   const dockerVersion = await execCapture("docker", ["--version"]);
+  const machineId = await readMachineId();
 
   const ifaces = os.networkInterfaces();
   const interfaces = Object.entries(ifaces)
@@ -57,6 +71,7 @@ async function discoverLocal(): Promise<DiscoveredHardware> {
 
   return {
     hostname: os.hostname(),
+    machineId,
     cpuModel: cpus[0]?.model?.trim() ?? null,
     cpuCores: cpus.length || null,
     cpuThreads: cpus.length || null,
@@ -111,7 +126,11 @@ async function persistHardware(nodeId: string, hw: DiscoveredHardware) {
         uptimeSeconds: hw.uptimeSeconds ?? undefined,
         publicIp: hw.publicIp ?? node.publicIp,
         privateIp: hw.privateIp ?? node.privateIp,
+        hostname: hw.hostname ?? node.hostname ?? undefined,
+        // machine-id is a stable identity signal — record it once detected.
+        machineId: hw.machineId ?? node.machineId ?? undefined,
         hardwareDetectedAt: new Date(),
+        lastDiscoveredAt: new Date(),
         discoveryStatus: "succeeded",
         discoveryError: null,
       },

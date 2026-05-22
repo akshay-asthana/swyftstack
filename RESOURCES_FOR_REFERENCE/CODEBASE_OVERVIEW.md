@@ -48,6 +48,21 @@ Swyftstack/
   Hetzner, OVH); seeded into `provider_help_docs`.
 - `services/` — `types.ts` (interfaces) + implementations:
   `node.ts`, `app.ts`, `database.ts`, `storage.ts`, `backup.ts`, `migration.ts`,
+  plus node-lifecycle + placement services:
+  - `node-identity.ts` — `nodeDiscoveryService`: stable node identity. Derives
+    a `nodeKey`, `upsertNodeByStableIdentity`, `registerLocalNode` (idempotent
+    `local-dev`), `dedupeLocalNodes`, `backfillNodeKeys`. Prevents duplicate
+    nodes (§1).
+  - `node-deletion.ts` — `nodeDeletionService`: safe lifecycle —
+    `listBlockingResources`, `canDeleteNode`, `archiveNode`, `deleteNode`,
+    `forceDeleteNodeInDev` (§2).
+  - `provisioning-policy.ts` — `provisioningPolicyService`: `getPolicy`,
+    `resolveTargets`, `selectTarget`, `explainDecision` — picks where new
+    resources are provisioned via `provisioning_policies/_targets` (§7).
+  - `plan-resource.ts` — `planResourceService`: `getEffectivePlanResources`,
+    `validateResourceAllowed`, `validateResourceLimit` (§9).
+  - `node.ts` also exports `markStaleNodes` (active/degraded/offline from
+    `last_metric_at` freshness, §4).
   plus the **DB-managed provider services** (customer infra is not env-config):
   - `database-cluster.ts` — `databaseClusterService` (list/select/test/usage,
     `clusterAdminUrl`, `pgConnect`). Replaces `CUSTOMER_PG_*`.
@@ -75,7 +90,9 @@ Swyftstack/
 - `jobs/` — `index.ts` (enqueue/claim/complete/fail/retry/cancel),
   `backoff.ts` (pure), `handlers.ts` (per-type handlers incl. discover/collect
   metrics, rollup_metrics, import_database_from_url), `worker.ts` (loop).
-- `seed.ts` — admin user + Starter/Pro plans + one local all-in-one node.
+- `seed.ts` — idempotent: admin + Starter/Pro plans + the single `local-dev`
+  node (dedupes/upserts by `node_key`, never duplicates) + local infrastructure
+  providers + six default `provisioning_policies`.
 - `__tests__/` — vitest specs (pure logic only; no DB needed).
 
 Pure modules never import `db.ts`, so the test suite runs without Postgres or
@@ -95,21 +112,27 @@ Pure modules never import `db.ts`, so the test suite runs without Postgres or
 - `src/components/client.tsx` — client kit: `DataTable` (search/sort/filter),
   `RowMenu`, `CopyButton`, `SecretField`, `Tabs`, `NodeTerminal`,
   `ConfirmButton`.
-- `src/app/(dashboard)/*` — overview, infra-overview, nodes(+`[id]`),
-  users(+`[id]`), organizations(+`[id]`), projects(+`[id]`), apps, databases,
-  buckets, plans, usage, jobs, backups, audit-logs, migrations, infrastructure,
-  help, settings. List pages use `DataTable`; detail pages use `Tabs`.
+- `src/components/node-monitor.tsx` — client: live node metric charts that
+  poll `/api/admin/nodes/[id]/metrics` (§4, stale warning + last-updated).
+- `src/components/plan-resource-editor.tsx` — client: grouped plan resource
+  toggles + limits; a resource's limit inputs disable when it is off (§9).
+- `src/app/(dashboard)/*` — overview, users(+`[id]`), organizations(+`[id]`),
+  projects(+`[id]`), apps, databases, buckets, plans, usage, jobs, backups,
+  audit-logs, migrations, infrastructure, help, settings. `infra-overview` and
+  `nodes` are redirects into the Infrastructure hub. List pages use `DataTable`.
+- `infrastructure/` — the single Infrastructure hub (§5/§6). `page.tsx` is a
+  query-param tab shell; `overview-section.tsx` (fleet capacity/health/top-N),
+  `nodes-section.tsx` (node cards + table + add/lifecycle), `providers-section
+  .tsx` (clusters/object/backup/workers), `provisioning-section.tsx` (§7
+  provisioning policies + targets), `help-section.tsx`.
 - `nodes/[id]` — onboarding (test → discover → confirm roles → activate) then
-  tabbed overview/monitoring/workloads/capacity/configuration/logs/events.
-  Configuration updates VPS SSH details in place; Logs includes a streaming
+  tabbed overview/monitoring/workloads/capacity/configuration/logs/events. The
+  monitoring tab is the polling `NodeMonitor`. Logs includes a streaming
   terminal backed by `node_connection_logs`.
 - `users/[id]`, `organizations/[id]`, `projects/[id]` — comprehensive tabbed
   detail pages (usage, plan/trial, members, overrides, activity).
-- `infra-overview` — fleet capacity, health, bandwidth, top-N, incidents.
-- `src/app/(dashboard)/infrastructure/page.tsx` — tabs: Database Clusters,
-  Object Storage, Backup Storage, Worker Configs, Node Defaults
-  (create/disable/test/make-default via server actions).
 - `src/app/api/admin/*` — REST endpoints (overview, nodes[+drain+agent script,
+  metrics (live monitoring poll), safe DELETE via NodeDeletionService,
   SSH test/probe/logs/services/command; command supports NDJSON streaming],
   plans, users, projects[+suspend/unsuspend/databases/apps], databases
   [+backup/restore], migrations, jobs[+retry], usage, audit-logs) and

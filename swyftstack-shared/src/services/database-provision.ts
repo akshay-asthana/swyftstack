@@ -6,6 +6,23 @@ import { encryptSecret, decryptSecret, randomSecret } from "../crypto.js";
 import { deriveDbNames } from "../dbsql.js";
 import { enqueueJob } from "../jobs/index.js";
 import { databaseClusterService } from "./database-cluster.js";
+import { provisioningPolicyService } from "./provisioning-policy.js";
+
+/**
+ * Pick the database cluster for a new database. Placement flows through the
+ * admin-configured provisioning policy (§7/§10); when no policy/healthy target
+ * exists it falls back to the least-loaded active cluster.
+ */
+async function selectDatabaseCluster(projectId: string) {
+  const decision = await provisioningPolicyService.selectTarget("database");
+  if (decision.chosen && decision.chosen.targetType === "database_cluster") {
+    const cluster = await prisma.databaseCluster.findUnique({
+      where: { id: decision.chosen.targetId },
+    });
+    if (cluster && cluster.status === "active") return cluster;
+  }
+  return databaseClusterService.selectClusterForProject(projectId);
+}
 
 const GB = BigInt(1024) ** BigInt(3);
 
@@ -39,7 +56,7 @@ export interface ProvisionDatabaseInput {
  * create_database job that actually provisions it on the cluster.
  */
 export async function provisionDatabase(input: ProvisionDatabaseInput): Promise<Database> {
-  const cluster = await databaseClusterService.selectClusterForProject(input.projectId);
+  const cluster = await selectDatabaseCluster(input.projectId);
   if (!cluster) throw new NoClusterAvailableError();
 
   const { dbName, dbUser } = deriveDbNames(input.projectId);

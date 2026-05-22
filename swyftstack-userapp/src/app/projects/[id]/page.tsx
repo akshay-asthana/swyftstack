@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   prisma, enqueueJob, encryptSecret, projectActivity,
   provisionDatabase, assertDatabaseLimit, DatabaseLimitReachedError, NoClusterAvailableError,
+  provisioningPolicyService,
   can, permissionsFor, maskDbUrl, BANDWIDTH_IN_TYPES, BANDWIDTH_OUT_TYPES,
   type Role,
 } from "swyftstack-shared";
@@ -55,10 +56,20 @@ async function createApp(formData: FormData) {
   const dup = await prisma.app.findUnique({ where: { projectId_name: { projectId, name } }, select: { id: true } });
   if (dup) redirect(`/projects/${projectId}?error=dup_app#new-app`);
 
-  const node = await prisma.node.findFirst({ where: { roles: { has: "app" }, status: "active" } });
+  // §10/§11 — placement flows through the admin provisioning policy, with a
+  // fallback to the first active app node if no policy/healthy target exists.
+  const decision = await provisioningPolicyService.selectTarget("app");
+  let nodeId =
+    decision.chosen?.targetType === "node" ? decision.chosen.targetId : null;
+  if (!nodeId) {
+    const fallback = await prisma.node.findFirst({
+      where: { roles: { has: "app" }, status: "active" },
+    });
+    nodeId = fallback?.id ?? null;
+  }
   const app = await prisma.app.create({
     data: {
-      projectId, nodeId: node?.id, name,
+      projectId, nodeId, name,
       type: type as "nextjs" | "static" | "node" | "python" | "serverless_api",
       status: "created", cpuLimit: 0.25, memoryLimitBytes: BigInt(256 * 1024 * 1024),
     },
@@ -66,7 +77,7 @@ async function createApp(formData: FormData) {
   const deployment = await prisma.deployment.create({
     data: {
       appId: app.id, sourceType: repoUrl ? "git" : "cli", repoUrl, branch,
-      status: "queued", buildNodeId: node?.id, runtimeNodeId: node?.id,
+      status: "queued", buildNodeId: nodeId, runtimeNodeId: nodeId,
     },
   });
   await enqueueJob("deploy_app", { deploymentId: deployment.id }, { priority: 40 });

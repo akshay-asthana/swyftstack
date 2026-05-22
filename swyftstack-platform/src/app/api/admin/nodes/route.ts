@@ -50,6 +50,14 @@ export async function POST(req: Request) {
   const d = parsed.data;
   const existing = await prisma.node.findUnique({ where: { name: d.name }, select: { id: true } });
   if (existing) return json({ error: "node name already exists" }, { status: 409 });
+  // §1 — the platform allows only ONE local node.
+  if (d.connectionMode === "local") {
+    const existingLocal = await prisma.node.findFirst({
+      where: { OR: [{ isLocal: true }, { nodeKey: "local-dev" }, { connectionMode: "local" }] },
+      select: { id: true },
+    });
+    if (existingLocal) return json({ error: "a local node already exists" }, { status: 409 });
+  }
   const node = await prisma.node.create({
     data: {
       name: d.name,
@@ -57,6 +65,9 @@ export async function POST(req: Request) {
       publicIp: d.publicIp ?? (d.connectionMode === "ssh" ? d.sshHost : undefined),
       privateIp: d.privateIp,
       connectionMode: d.connectionMode,
+      isLocal: d.connectionMode === "local",
+      isProtected: d.connectionMode === "local",
+      nodeKey: d.connectionMode === "local" ? "local-dev" : undefined,
       sshHost: d.connectionMode === "ssh" ? d.sshHost : undefined,
       sshPort: d.connectionMode === "ssh" ? d.sshPort : 22,
       sshUser: d.connectionMode === "ssh" ? d.sshUser : undefined,
@@ -73,6 +84,9 @@ export async function POST(req: Request) {
       status: "provisioning",
     },
   });
+  if (d.connectionMode === "ssh") {
+    await prisma.node.update({ where: { id: node.id }, data: { nodeKey: `node:${node.id}` } });
+  }
   await audit({
     actorType: "admin",
     actorUserId: a.adminId,

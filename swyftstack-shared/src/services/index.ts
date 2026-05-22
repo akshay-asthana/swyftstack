@@ -1,5 +1,26 @@
 export * from "./types.js";
-export { localNodeService, isLocalControlPlaneNode, ProtectedLocalNodeError } from "./node.js";
+export { localNodeService, isLocalControlPlaneNode, markStaleNodes } from "./node.js";
+export {
+  nodeDiscoveryService,
+  deriveNodeKey,
+  findNodeByIdentity,
+  looksLikeLocalNode,
+} from "./node-identity.js";
+export type { StableIdentity } from "./node-identity.js";
+export {
+  nodeDeletionService,
+  NodeProtectedError,
+  NodeHasWorkloadsError,
+} from "./node-deletion.js";
+export type { BlockingResource, DeletionCheck } from "./node-deletion.js";
+export { provisioningPolicyService } from "./provisioning-policy.js";
+export type { ResolvedTarget, ProvisioningDecision } from "./provisioning-policy.js";
+export {
+  planResourceService,
+  ResourceNotInPlanError,
+  ResourceLimitReachedError,
+} from "./plan-resource.js";
+export type { EffectivePlanResources } from "./plan-resource.js";
 export { localAppService } from "./app.js";
 export { localDatabaseService } from "./database.js";
 export {

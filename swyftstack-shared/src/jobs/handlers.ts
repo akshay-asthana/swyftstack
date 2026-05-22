@@ -51,7 +51,11 @@ export const JOB_HANDLERS: Record<string, Handler> = {
   },
 
   async collect_node_metrics() {
-    const nodes = await prisma.node.findMany({ where: { status: { in: ["active", "draining", "degraded"] } } });
+    // Include "offline" so a node recovers once metrics resume (§4); only
+    // disabled / archived / provisioning nodes are skipped.
+    const nodes = await prisma.node.findMany({
+      where: { status: { in: ["active", "draining", "degraded", "offline"] } },
+    });
     for (const n of nodes) await localNodeService.collectMetrics(n.id).catch(() => undefined);
     await localNodeService.reconcileHealth();
     return { count: nodes.length };
