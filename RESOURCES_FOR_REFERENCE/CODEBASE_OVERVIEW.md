@@ -38,6 +38,12 @@ Quickdock/
 - `backup-state.ts` — **pure** backup transition rules + safe-to-delete logic.
 - `audit.ts` — `audit()` + `projectActivity()` writers (append-only).
 - `usage-engine.ts` — DB-backed `rollUpUsage()` + `enforceLimits()`.
+- `metrics-rollup.ts` — `rollUpMetrics()`: aggregates node gauges + usage
+  events into `metric_rollups` (hourly/daily, 10 scopes) for fast dashboards.
+- `node-discovery.ts` — **pure** SSH discovery probe + parser (CPU/RAM/disk/
+  OS/Docker/interfaces/mounts). Backs §2 node auto-detection.
+- `provider-help.ts` — **pure** storage/backup provider setup guides (B2, R2,
+  Hetzner, OVH); seeded into `provider_help_docs`.
 - `services/` — `types.ts` (interfaces) + implementations:
   `node.ts`, `app.ts`, `database.ts`, `storage.ts`, `backup.ts`, `migration.ts`,
   plus the **DB-managed provider services** (customer infra is not env-config):
@@ -49,14 +55,23 @@ Quickdock/
     Replaces `BACKUP_*`.
   - `worker-config.ts` — `workerConfigService` (DB config + env fallback,
     30s cache). Replaces global `WORKER_*` (now `DEFAULT_WORKER_*` fallback).
-  - `ssh.ts` — `sshNodeService` uses local execution for `connection_mode=local`
-    and the system `ssh` binary with encrypted pasted private keys for remote
-    VPS connectivity tests, metric probes, running-service snapshots and logs,
-    recording results in `node_connection_logs`.
+  - `ssh.ts` — `sshNodeService` + `runNodeProbe` use local execution for
+    `connection_mode=local` and the system `ssh` binary with encrypted pasted
+    private keys for remote VPS probes/logs, logged to `node_connection_logs`.
+  - `discovery.ts` — `discoveryService.discoverNode` runs hardware discovery
+    (local or SSH), persists `nodes` fields + `node_hardware_snapshots` +
+    interfaces + mounts; failure leaves the node out of `active`.
+  - `metrics.ts` — `metricsService` collects app/database/storage metric rows
+    and emits `usage_events` for billing + bandwidth.
+  - `database-provision.ts` — `provisionDatabase`, `assertDatabaseLimit`,
+    `databaseConnectionUrl` (shared cluster-select + connection-URL helpers).
+  - `database-import.ts` — `databaseImportService.runImport` (§11 external-URL
+    PostgreSQL import: status machine, masked logs, pg_dump/pg_restore).
   `database.ts`/`backup.ts`/`storage.ts` resolve their target from these
   services; `jobs/worker.ts` is driven by `workerConfigService`.
 - `jobs/` — `index.ts` (enqueue/claim/complete/fail/retry/cancel),
-  `backoff.ts` (pure), `handlers.ts` (per-type handlers), `worker.ts` (loop).
+  `backoff.ts` (pure), `handlers.ts` (per-type handlers incl. discover/collect
+  metrics, rollup_metrics, import_database_from_url), `worker.ts` (loop).
 - `seed.ts` — admin user + Starter/Pro plans + one local all-in-one node.
 - `__tests__/` — vitest specs (pure logic only; no DB needed).
 
@@ -69,15 +84,22 @@ Pure modules never import `db.ts`, so the test suite runs without Postgres or
   requireAdmin`); enforces `isPlatformAdmin`.
 - `src/lib/api.ts` — `authorize()` (admin session OR internal bearer token) +
   BigInt-safe `json()`.
-- `src/components/ui.tsx` — `Badge`, `Stat`, `Table`, `bytes()`.
-- `src/app/login/page.tsx` — server-action login.
-- `src/app/(dashboard)/layout.tsx` — auth gate + sidebar nav.
-- `src/app/(dashboard)/*` — 15 pages: overview, nodes, users, organizations,
-  projects, apps, databases, buckets, plans, usage, jobs, backups, audit-logs,
-  migrations, settings. Server components query Prisma directly; mutations use
-  server actions.
-- `src/app/(dashboard)/nodes/[id]/page.tsx` — tabbed per-node overview,
-  monitoring, logs, SSH command history/settings and workloads.
+- `src/lib/stats.ts` — shared usage/resource aggregation for detail pages.
+- `src/lib/user-admin.ts` — workspace bootstrap + trial-aware plan assignment.
+- `src/components/ui.tsx` — server kit: `Badge`, `StatCard`, `Panel`, `Table`,
+  `Breadcrumbs`, `Modal`, `Drawer`, `KeyValue`, `ProgressBar`, `AreaChart`,
+  `LineChart`, `BarChart`, `Donut`, `bytes()`.
+- `src/components/client.tsx` — client kit: `DataTable` (search/sort/filter),
+  `RowMenu`, `CopyButton`, `SecretField`, `Tabs`, `ConfirmButton`.
+- `src/app/(dashboard)/*` — overview, infra-overview, nodes(+`[id]`),
+  users(+`[id]`), organizations(+`[id]`), projects(+`[id]`), apps, databases,
+  buckets, plans, usage, jobs, backups, audit-logs, migrations, infrastructure,
+  help, settings. List pages use `DataTable`; detail pages use `Tabs`.
+- `nodes/[id]` — onboarding (test → discover → confirm roles → activate) then
+  tabbed overview/monitoring/workloads/capacity/logs/events.
+- `users/[id]`, `organizations/[id]`, `projects/[id]` — comprehensive tabbed
+  detail pages (usage, plan/trial, members, overrides, activity).
+- `infra-overview` — fleet capacity, health, bandwidth, top-N, incidents.
 - `src/app/(dashboard)/infrastructure/page.tsx` — tabs: Database Clusters,
   Object Storage, Backup Storage, Worker Configs, Node Defaults
   (create/disable/test/make-default via server actions).
@@ -92,7 +114,8 @@ Pure modules never import `db.ts`, so the test suite runs without Postgres or
 
 - `src/index.ts` — starts scheduler + `runWorker()` (from shared).
 - `src/scheduler.ts` — in-process interval scheduler enqueuing recurring jobs
-  (metrics 30s, usage 60s, enforce 120s, storage 300s, control backup 6h).
+  (node metrics 30s, app metrics 60s, db metrics 120s, storage metrics 300s,
+  usage 60s, rollup_metrics 120s, enforce 120s, control backup 6h).
 
 ## quickdock-userapp (customer baseline)
 
@@ -101,8 +124,13 @@ Pure modules never import `db.ts`, so the test suite runs without Postgres or
 - `src/app/pricing/page.tsx` — plan selection gate for free users.
 - `src/app/projects/new/page.tsx` — project creation; redirects to pricing if
   the workspace has no active plan or has reached plan limits.
-- `src/app/projects/[id]/page.tsx` — project detail gated by `project_members`,
-  shows apps/databases/activity and the user's resolved permissions.
+- `src/app/projects/[id]/page.tsx` — tabbed project detail gated by
+  `project_members`: apps, databases, storage, imports, members, activity;
+  create app, create database, and import-database-from-URL flows.
+- `src/app/projects/[id]/databases/[dbId]/page.tsx` — database connection
+  detail: `DATABASE_URL`, masked credentials, SSL mode, size, backups; rotate
+  password / create backup / restore actions.
+- `src/components/client.tsx` — `CopyButton`, `SecretField`, `Tabs`.
 
 ## Data flow
 
