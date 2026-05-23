@@ -40,6 +40,7 @@ export interface EffectivePlanResources {
 const LIMIT_COLUMNS: Record<string, string> = {
   maxProjects: "max_projects",
   maxDatabases: "max_databases",
+  maxStorageBuckets: "max_storage_buckets",
   maxDatabaseStorageBytes: "max_database_storage_bytes",
   maxObjectStorageBytes: "max_object_storage_bytes",
   maxEgressBytes: "max_egress_bytes",

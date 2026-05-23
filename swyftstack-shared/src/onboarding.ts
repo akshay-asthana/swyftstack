@@ -1,5 +1,7 @@
 import { prisma } from "./db.js";
 import { hashPassword } from "./crypto.js";
+import { env } from "./env.js";
+import type { AuthProvider } from "./generated/prisma/index.js";
 
 type CustomerAccountInput = {
   name: string;
@@ -7,6 +9,8 @@ type CustomerAccountInput = {
   company?: string;
   password?: string;
   emailVerified?: boolean;
+  authProvider?: AuthProvider;
+  providerAccountId?: string;
 };
 
 export class SignupEmailExistsError extends Error {
@@ -52,13 +56,34 @@ export async function findOrCreateOAuthCustomerAccount(input: CustomerAccountInp
   const email = normalizeEmail(input.email);
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    return prisma.user.update({
+    const user = await prisma.user.update({
       where: { id: existing.id },
       data: {
         name: existing.name ?? compactName(input.name),
         emailVerified: input.emailVerified ?? existing.emailVerified,
+        authProvider: input.authProvider ?? existing.authProvider,
       },
     });
+    if (input.authProvider && input.providerAccountId) {
+      await prisma.userAuthAccount.upsert({
+        where: {
+          provider_providerAccountId: {
+            provider: input.authProvider,
+            providerAccountId: input.providerAccountId,
+          },
+        },
+        update: { userId: user.id, email, displayName: compactName(input.name), lastUsedAt: new Date() },
+        create: {
+          userId: user.id,
+          provider: input.authProvider,
+          providerAccountId: input.providerAccountId,
+          email,
+          displayName: compactName(input.name),
+          lastUsedAt: new Date(),
+        },
+      });
+    }
+    return user;
   }
 
   const account = await createCustomerAccount({
@@ -66,6 +91,8 @@ export async function findOrCreateOAuthCustomerAccount(input: CustomerAccountInp
     email,
     passwordHash: null,
     emailVerified: input.emailVerified ?? true,
+    authProvider: input.authProvider ?? "google",
+    providerAccountId: input.providerAccountId,
   });
   return account.user;
 }
@@ -80,6 +107,7 @@ async function createCustomerAccount(
         name: compactName(input.name),
         passwordHash: input.passwordHash,
         emailVerified: input.emailVerified ?? false,
+        authProvider: input.authProvider ?? "password",
       },
     });
 
@@ -95,6 +123,43 @@ async function createCustomerAccount(
         },
       },
     });
+
+    if (input.authProvider && input.providerAccountId) {
+      await tx.userAuthAccount.create({
+        data: {
+          userId: user.id,
+          provider: input.authProvider,
+          providerAccountId: input.providerAccountId,
+          email: input.email,
+          displayName: compactName(input.name),
+          lastUsedAt: new Date(),
+        },
+      });
+    }
+
+    const plan = await tx.plan.findUnique({
+      where: { slug: env.DEFAULT_CUSTOMER_PLAN_SLUG },
+    });
+    if (plan) {
+      const now = new Date();
+      const trialEndAt = plan.hasTrial && plan.trialDays
+        ? new Date(now.getTime() + plan.trialDays * 24 * 60 * 60_000)
+        : null;
+      await tx.subscription.create({
+        data: {
+          organizationId: organization.id,
+          planId: plan.id,
+          status: trialEndAt ? "trialing" : "active",
+          billingPhase: trialEndAt ? "trial" : "regular",
+          trialStartAt: trialEndAt ? now : null,
+          trialEndAt,
+          trialPriceCents: plan.trialPriceCents,
+          regularPriceCents: plan.priceCents,
+          currentPeriodStart: now,
+          currentPeriodEnd: trialEndAt ?? new Date(now.getTime() + 30 * 24 * 60 * 60_000),
+        },
+      });
+    }
 
     return { user, organization };
   });

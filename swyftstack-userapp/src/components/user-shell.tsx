@@ -6,7 +6,7 @@ import { Icon } from "./icons";
 
 async function doLogout() {
   "use server";
-  logout();
+  await logout();
   redirect("/login");
 }
 
@@ -15,7 +15,7 @@ export function UserShell({
   workspace,
   children,
 }: {
-  user: { email: string; name: string | null };
+  user: { email: string; name: string | null; emailVerified?: boolean };
   workspace?: string;
   children: React.ReactNode;
 }) {
@@ -51,6 +51,11 @@ export function UserShell({
 
       <div className="content-col">
         <header className="topbar">
+          <div className="topbar-search">
+            <Icon name="search" size={15} />
+            <input placeholder="Search projects, databases, buckets..." aria-label="Search" />
+            <kbd>/</kbd>
+          </div>
           {workspace && (
             <span className="org-switch">
               <Icon name="org" size={15} />
@@ -64,7 +69,15 @@ export function UserShell({
             <div className="avatar" title={user.email}>{initials}</div>
           </div>
         </header>
-        <main className="main">{children}</main>
+        <main className="main">
+          {user.emailVerified === false && (
+            <div className="note verify-note">
+              Verify your email to receive security notifications and one-time generated credentials.
+              <Link href="/verify-email"> Send verification link</Link>
+            </div>
+          )}
+          {children}
+        </main>
       </div>
     </div>
   );

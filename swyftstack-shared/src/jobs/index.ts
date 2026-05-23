@@ -8,7 +8,11 @@ import { backoffDelayMs } from "./backoff.js";
 export const JOB_TYPES = [
   "deploy_app",
   "create_database",
+  "rotate_database_password",
+  "create_storage_bucket",
+  "rotate_storage_credentials",
   "backup_database",
+  "schedule_database_backups",
   "restore_database",
   "collect_node_metrics",
   "discover_node_hardware",

@@ -27,7 +27,7 @@ async function runDocker(args: string[]): Promise<string> {
 export const localAppService: AppService = {
   async createAppContainer(appId: string) {
     const app = await prisma.app.findUniqueOrThrow({ where: { id: appId } });
-    const containerName = `qd_${app.projectId.slice(0, 8)}_${app.name}`.replace(/[^a-zA-Z0-9_]/g, "_");
+    const containerName = `swyftstack_${app.projectId.slice(0, 8)}_${app.name}`.replace(/[^a-zA-Z0-9_]/g, "_");
     if (await dockerAvailable()) {
       const image = app.imageRef ?? "nginx:alpine";
       const cpu = app.cpuLimit ? Number(app.cpuLimit) : 0.25;

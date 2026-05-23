@@ -13,6 +13,7 @@ import { audit, projectActivity } from "../audit.js";
 import { pgConnect } from "./database-cluster.js";
 import { localDatabaseService } from "./database.js";
 import { provisionDatabase, databaseConnectionUrl } from "./database-provision.js";
+import { reconcileProjectProvisioning } from "./project-status.js";
 
 const exec = promisify(execFile);
 
@@ -96,6 +97,7 @@ export const databaseImportService = {
           "Could not connect to the source database. Check the host, port, and that it accepts external connections.",
         );
       }
+      await this.setStatus(importId, "estimating_size");
       let sourceSize = 0;
       try {
         const r = (await probe.query(
@@ -123,6 +125,7 @@ export const databaseImportService = {
       }
 
       // --- 2. provision the target database ---
+      await this.setStatus(importId, "creating_target");
       let databaseId = imp.databaseId;
       if (!databaseId) {
         const target = await provisionDatabase({
@@ -142,7 +145,7 @@ export const databaseImportService = {
       await this.setStatus(importId, "dumping");
       const haveDump = await pgToolAvailable("pg_dump");
       const haveRestore = await pgToolAvailable("pg_restore");
-      const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "qd-import-"));
+      const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "swyftstack-import-"));
       const dumpFile = path.join(workDir, "source.dump");
 
       let simulated = false;
@@ -154,6 +157,8 @@ export const databaseImportService = {
           });
           const stat = await fs.stat(dumpFile);
           await this.log(importId, `dump complete (${(stat.size / 1024 ** 2).toFixed(1)} MB archive)`);
+          await this.setStatus(importId, "uploading_dump_optional");
+          await this.log(importId, "dump archive kept on worker scratch disk for immediate restore");
         } catch (e) {
           await fs.rm(workDir, { recursive: true, force: true });
           throw new ImportError("dump_failed", `pg_dump failed: ${maskDbUrl(String(e))}`);
@@ -197,6 +202,7 @@ export const databaseImportService = {
       await this.log(importId, `target size ≈ ${(finalSize / 1024 ** 2).toFixed(1)} MB`);
 
       // --- 6. completed ---
+      await this.setStatus(importId, "switching");
       await prisma.databaseImport.update({
         where: { id: importId },
         data: {
@@ -214,6 +220,7 @@ export const databaseImportService = {
           : "import completed — source credentials discarded",
       );
       await projectActivity(imp.projectId, "database.imported", null, { importId, databaseId, simulated });
+      await reconcileProjectProvisioning(imp.projectId);
       await audit({
         actorType: "system",
         action: "database.import_completed",
@@ -228,6 +235,7 @@ export const databaseImportService = {
         where: { id: importId },
         data: { status: "failed", errorCode: code, errorMessage: message, completedAt: new Date() },
       });
+      await reconcileProjectProvisioning(imp.projectId);
       await this.log(importId, `FAILED [${code}] ${message}`);
       await audit({
         actorType: "system",

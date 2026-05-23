@@ -32,7 +32,7 @@ export default async function Dashboard() {
     where: { ownerUserId: user.id },
     orderBy: { createdAt: "asc" },
     include: {
-      subscriptions: { where: { status: "active" }, include: { plan: { include: { limits: true } } }, take: 1 },
+      subscriptions: { where: { status: { in: ["active", "trialing", "past_due"] } }, include: { plan: { include: { limits: true } } }, take: 1 },
     },
   });
   const plan = ownedOrg?.subscriptions[0]?.plan ?? null;
@@ -82,7 +82,7 @@ export default async function Dashboard() {
     <UserShell user={user} workspace={ownedOrg?.name}>
       <div className="page-head">
         <div>
-          <h1 className="hello">Welcome back, {user.name?.split(" ")[0] ?? "there"} 👋</h1>
+          <h1 className="hello">Welcome back, {user.name?.split(" ")[0] ?? "there"}</h1>
           <p className="sub" style={{ marginBottom: 0 }}>Here&apos;s what&apos;s happening across your projects.</p>
         </div>
         <Link className="btn" href="/projects/new"><Icon name="plus" size={15} /> New Project</Link>
@@ -90,7 +90,7 @@ export default async function Dashboard() {
 
       {!plan && (
         <div className="note" style={{ marginBottom: 16 }}>
-          You don&apos;t have an active plan yet. <Link href="/pricing?next=/">Choose a plan</Link> to create
+          You don&apos;t have an active plan yet. <Link href="/pricing?next=/console">Choose a plan</Link> to create
           projects and provision resources.
         </div>
       )}

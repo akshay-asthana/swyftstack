@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Icon, type IconName } from "./icons";
 
 const OK = ["active", "running", "live", "verified", "succeeded", "completed", "accepted", "ok", "online", "healthy"];
-const WARN = ["provisioning", "draining", "degraded", "building", "deploying", "queued", "retrying", "pending", "warning", "over_limit", "past_due", "restoring", "uploading", "trialing", "untested"];
+const WARN = ["provisioning", "partially_failed", "draining", "degraded", "building", "deploying", "queued", "retrying", "pending", "warning", "over_limit", "past_due", "restoring", "uploading", "uploading_dump_optional", "estimating_size", "creating_target", "switching", "trialing", "untested"];
 const BAD = ["offline", "disabled", "failed", "suspended", "deleted", "cancelled", "expired", "rolled_back", "limit_reached"];
 
 export function statusClass(status: string): "ok" | "warn" | "bad" | "muted" {

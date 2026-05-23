@@ -32,7 +32,10 @@ const GROUPS: Group[] = [
   {
     title: "Storage",
     features: ["object_storage"],
-    limits: [["maxObjectStorageBytes", "Object storage (bytes)"]],
+    limits: [
+      ["maxStorageBuckets", "Max storage buckets"],
+      ["maxObjectStorageBytes", "Object storage (bytes)"],
+    ],
   },
   { title: "Network", features: [], limits: [["maxEgressBytes", "Egress (bytes)"]] },
   {
@@ -58,6 +61,7 @@ const GROUPS: Group[] = [
 const LIMIT_GATE: Record<string, string | null> = {
   maxProjects: null,
   maxDatabases: "postgres_database",
+  maxStorageBuckets: "object_storage",
   maxDatabaseStorageBytes: "postgres_database",
   maxObjectStorageBytes: "object_storage",
   maxEgressBytes: null,

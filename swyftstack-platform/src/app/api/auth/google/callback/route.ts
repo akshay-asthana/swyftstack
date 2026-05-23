@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 import {
   env,
   findOrCreateOAuthCustomerAccount,
-  signUserSession,
+  hashToken,
+  prisma,
+  randomSecret,
   USER_SESSION_COOKIE,
   USER_SESSION_MAX_AGE,
 } from "swyftstack-shared";
@@ -11,6 +13,7 @@ import {
 export const dynamic = "force-dynamic";
 
 type GoogleProfile = {
+  sub?: string;
   email?: string;
   email_verified?: boolean;
   name?: string;
@@ -115,11 +118,44 @@ export async function GET(req: Request) {
       email: profile.email,
       name: profile.name ?? profile.email,
       emailVerified: true,
+      authProvider: "google",
+      providerAccountId: profile.sub ?? profile.email,
     });
     if (user.status !== "active") return userAppRedirect("/login?error=disabled");
 
+    const sessionToken = randomSecret(32);
+    const ipAddress = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip");
+    const userAgent = req.headers.get("user-agent");
+    await prisma.$transaction([
+      prisma.userSession.create({
+        data: {
+          userId: user.id,
+          tokenHash: hashToken(sessionToken),
+          ipAddress,
+          userAgent,
+          app: "userapp",
+          expiresAt: new Date(Date.now() + USER_SESSION_MAX_AGE * 1000),
+        },
+      }),
+      prisma.loginEvent.create({
+        data: {
+          userId: user.id,
+          email: user.email,
+          provider: "google",
+          success: true,
+          ipAddress,
+          userAgent,
+          app: "userapp",
+        },
+      }),
+      prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date(), lastLoginIp: ipAddress, lastActivityAt: new Date() },
+      }),
+    ]);
+
     const res = userAppRedirect(safeNext(state.next));
-    res.cookies.set(USER_SESSION_COOKIE, signUserSession(user.id), {
+    res.cookies.set(USER_SESSION_COOKIE, sessionToken, {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",

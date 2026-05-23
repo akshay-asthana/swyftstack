@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import {
-  prisma, enqueueJob, projectActivity, localDatabaseService, databaseConnectionUrl,
+  prisma, enqueueJob, projectActivity, databaseConnectionUrl,
   can, type Role,
 } from "swyftstack-shared";
 import { requireUser } from "@/lib/auth";
@@ -22,14 +22,26 @@ async function requireMembership(projectId: string) {
   return { user, role: membership.role as Role };
 }
 
+function backupStatusText(status: string): string {
+  const copy: Record<string, string> = {
+    pending: "Backup is waiting to start.",
+    running: "Backup is being created.",
+    uploading: "Backup is being uploaded to secure storage.",
+    verified: "Backup is complete and verified.",
+    failed: "Backup failed. We kept your previous verified backup.",
+    expired: "Backup expired based on your plan retention.",
+  };
+  return copy[status] ?? status;
+}
+
 async function rotatePassword(formData: FormData) {
   "use server";
   const projectId = String(formData.get("projectId"));
   const dbId = String(formData.get("dbId"));
   const { user, role } = await requireMembership(projectId);
-  if (!can(role, "db.create")) redirect(`/projects/${projectId}/databases/${dbId}`);
-  await localDatabaseService.rotateDatabasePassword(dbId);
-  await projectActivity(projectId, "database.password_rotated", user.id, { databaseId: dbId });
+  if (!can(role, "db.rotate_password")) redirect(`/projects/${projectId}/databases/${dbId}`);
+  await enqueueJob("rotate_database_password", { databaseId: dbId }, { priority: 40 });
+  await projectActivity(projectId, "database.password_rotation_requested", user.id, { databaseId: dbId });
   revalidatePath(`/projects/${projectId}/databases/${dbId}`);
 }
 
@@ -50,7 +62,7 @@ async function restoreBackup(formData: FormData) {
   const dbId = String(formData.get("dbId"));
   const backupId = String(formData.get("backupId"));
   const { user, role } = await requireMembership(projectId);
-  if (!can(role, "db.create")) redirect(`/projects/${projectId}/databases/${dbId}`);
+  if (!can(role, "backup.restore")) redirect(`/projects/${projectId}/databases/${dbId}`);
   await enqueueJob("restore_database", { backupId }, { priority: 50 });
   await projectActivity(projectId, "database.restore_requested", user.id, { databaseId: dbId, backupId });
   revalidatePath(`/projects/${projectId}/databases/${dbId}`);
@@ -76,6 +88,9 @@ export default async function DatabaseDetail({
   const conn = await databaseConnectionUrl(db.id);
   const lastBackup = db.backups[0];
   const canManage = can(role, "db.create");
+  const canRotate = can(role, "db.rotate_password");
+  const canRestore = can(role, "backup.restore");
+  const snippetUrl = conn ? conn.url.replace(encodeURIComponent(conn.password), "********") : "";
 
   return (
     <UserShell user={user} workspace={db.project.organization.name}>
@@ -109,6 +124,7 @@ export default async function DatabaseDetail({
         ) : conn ? (
           <>
             <label style={{ marginTop: 0 }}>DATABASE_URL</label>
+            {conn.warning && <div className="note" style={{ marginBottom: 10 }}>{conn.warning}</div>}
             <div className="conn-box">
               <code>{conn.url}</code>
               <CopyButton value={conn.url} />
@@ -132,23 +148,44 @@ export default async function DatabaseDetail({
         )}
       </Panel>
 
-      {canManage && (
+      {(canManage || canRotate) && (
         <Panel title="Actions">
           <div className="row">
-            <form action={rotatePassword}>
+            {canRotate && <form action={rotatePassword}>
               <input type="hidden" name="projectId" value={db.projectId} />
               <input type="hidden" name="dbId" value={db.id} />
               <button className="btn secondary" type="submit"><Icon name="key" size={14} /> Rotate password</button>
-            </form>
-            <form action={createBackup}>
+            </form>}
+            {canManage && <form action={createBackup}>
               <input type="hidden" name="projectId" value={db.projectId} />
               <input type="hidden" name="dbId" value={db.id} />
               <button className="btn secondary" type="submit"><Icon name="backups" size={14} /> Create backup</button>
-            </form>
+            </form>}
           </div>
           <p className="small" style={{ marginTop: 10 }}>
-            Rotating the password updates the connection URL immediately. Backups run in the background.
+            Password rotation and backups run through the worker queue. Refresh this page after the job completes.
           </p>
+        </Panel>
+      )}
+
+      {conn && (
+        <Panel title="Connect">
+          <div className="snippet-grid">
+            {[
+              ["Environment", `DATABASE_URL=\"${snippetUrl}\"`],
+              ["Prisma", `datasource db {\n  provider = \"postgresql\"\n  url      = env(\"DATABASE_URL\")\n}`],
+              ["Drizzle", `import { drizzle } from \"drizzle-orm/node-postgres\";\nconst db = drizzle(process.env.DATABASE_URL!);`],
+              ["Node pg", `import pg from \"pg\";\nconst pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });`],
+              ["Python SQLAlchemy", `engine = create_engine(os.environ[\"DATABASE_URL\"], pool_pre_ping=True)`],
+              ["psql", `psql \"${snippetUrl}\"`],
+            ].map(([title, value]) => (
+              <div key={title} className="snippet-card">
+                <div className="row between"><strong>{title}</strong><CopyButton value={value} /></div>
+                <pre>{value}</pre>
+              </div>
+            ))}
+          </div>
+          <p className="small">Snippets mask the password. Use the reveal/copy controls above when you need the full secret.</p>
         </Panel>
       )}
 
@@ -158,15 +195,15 @@ export default async function DatabaseDetail({
           empty="No backups yet."
           rows={db.backups.map((b) => [
             b.backupType,
-            <Badge key="s" status={b.status} />,
+            <div key="s"><Badge status={b.status} /><div className="small">{backupStatusText(b.status)}</div></div>,
             bytes(b.sizeBytes),
             timeAgo(b.createdAt),
-            canManage && b.status === "verified" ? (
+            canRestore && b.status === "verified" ? (
               <form key="r" action={restoreBackup}>
                 <input type="hidden" name="projectId" value={db.projectId} />
                 <input type="hidden" name="dbId" value={db.id} />
                 <input type="hidden" name="backupId" value={b.id} />
-                <button className="btn sm secondary" type="submit">Restore</button>
+                <button className="btn sm secondary" type="submit">Restore safely</button>
               </form>
             ) : "—",
           ])}

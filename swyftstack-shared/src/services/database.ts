@@ -12,7 +12,9 @@ import {
   generateSuspendSql,
 } from "../dbsql.js";
 import { projectActivity, audit } from "../audit.js";
+import { sendTransactionalEmail } from "../email.js";
 import { pgConnect, clusterAdminUrl, databaseClusterService } from "./database-cluster.js";
+import { reconcileProjectProvisioning } from "./project-status.js";
 import type { DatabaseService } from "./types.js";
 
 /** Decrypted admin URL for the cluster a database lives on (optionally a db). */
@@ -70,6 +72,7 @@ export const localDatabaseService: DatabaseService = {
       await databaseClusterService.updateClusterUsage(db.databaseClusterId);
     }
     await projectActivity(db.projectId, "database.created", null, { databaseId, simulated });
+    await reconcileProjectProvisioning(db.projectId);
   },
 
   async rotateDatabasePassword(databaseId: string) {
@@ -147,16 +150,33 @@ export const localDatabaseService: DatabaseService = {
   },
 
   async restoreDatabaseBackup(backupId: string) {
-    const backup = await prisma.databaseBackup.findUniqueOrThrow({ where: { id: backupId } });
+    const backup = await prisma.databaseBackup.findUniqueOrThrow({
+      where: { id: backupId },
+      include: { database: { include: { project: { include: { organization: { include: { owner: true } } } } } } },
+    });
+    const { backupService } = await import("./backup.js");
+    const safetyBackupId = await backupService.runDatabaseBackup(backup.databaseId);
     await prisma.database.update({ where: { id: backup.databaseId }, data: { status: "restoring" } });
+    // MVP restore is simulated unless a provider-specific pg_restore path is wired.
+    // The safety backup above is still real/simulated through the normal backup pipeline.
     await prisma.database.update({ where: { id: backup.databaseId }, data: { status: "active" } });
+    await projectActivity(backup.database.projectId, "database.restored", null, { backupId, safetyBackupId });
+    const owner = backup.database.project.organization.owner;
+    if (owner?.emailVerified) {
+      await sendTransactionalEmail({
+        to: owner.email,
+        subject: `Swyftstack restore completed for ${backup.database.name}`,
+        text: `Restore from backup ${backupId} completed for database ${backup.database.name}.\n\nA safety backup was created first: ${safetyBackupId}.`,
+      }).catch((mailErr) => console.log(`[restore-email] failed: ${String(mailErr)}`));
+    }
     await audit({
       actorType: "system",
       action: "database.restored",
       targetType: "database",
       targetId: backup.databaseId,
-      metadata: { backupId },
+      metadata: { backupId, safetyBackupId, simulated: true },
     });
+    await reconcileProjectProvisioning(backup.database.projectId);
   },
 
   async verifyIsolation(databaseAId: string, databaseBId: string) {

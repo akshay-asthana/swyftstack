@@ -5,6 +5,7 @@ import {
   prisma, enqueueJob, encryptSecret, projectActivity,
   provisionDatabase, assertDatabaseLimit, DatabaseLimitReachedError, NoClusterAvailableError,
   provisioningPolicyService,
+  provisionStorageBucket, NoStorageProviderAvailableError, StorageBucketLimitReachedError,
   can, permissionsFor, maskDbUrl, BANDWIDTH_IN_TYPES, BANDWIDTH_OUT_TYPES,
   type Role,
 } from "swyftstack-shared";
@@ -24,6 +25,8 @@ const ERRORS: Record<string, string> = {
   no_cluster: "No database cluster is available right now. Try again shortly.",
   import_url: "Enter a valid PostgreSQL connection URL (postgres://…).",
   import_name: "Enter a name for the imported database.",
+  bucket_limit: "Your plan does not allow another storage bucket.",
+  no_storage_provider: "No object storage provider is available right now.",
 };
 
 const monthStart = () => {
@@ -145,7 +148,40 @@ async function importDatabase(formData: FormData) {
   redirect(`/projects/${projectId}`);
 }
 
-const IMPORT_STEPS = ["queued", "testing_connection", "dumping", "restoring", "verifying", "completed"];
+async function createBucket(formData: FormData) {
+  "use server";
+  const projectId = String(formData.get("projectId") ?? "");
+  const { user, role } = await requireMembership(projectId);
+  if (!can(role, "storage.create")) redirect(`/projects/${projectId}?error=forbidden`);
+  const bucketName = String(formData.get("bucketName") ?? "").trim();
+  if (!bucketName) redirect(`/projects/${projectId}?error=name#new-bucket`);
+
+  try {
+    const bucket = await provisionStorageBucket({
+      projectId,
+      bucketName,
+      isPublic: formData.get("bucketPublic") === "on",
+    });
+    await projectActivity(projectId, "storage.bucket_requested", user.id, { bucketId: bucket.id });
+    redirect(`/projects/${projectId}/storage/${bucket.id}`);
+  } catch (err) {
+    if (err instanceof StorageBucketLimitReachedError) redirect(`/projects/${projectId}?error=bucket_limit`);
+    if (err instanceof NoStorageProviderAvailableError) redirect(`/projects/${projectId}?error=no_storage_provider`);
+    throw err;
+  }
+}
+
+const IMPORT_STEPS = [
+  "queued",
+  "testing_connection",
+  "estimating_size",
+  "creating_target",
+  "dumping",
+  "restoring",
+  "verifying",
+  "switching",
+  "completed",
+];
 
 function ImportSteps({ status }: { status: string }) {
   if (status === "failed") {
@@ -197,6 +233,7 @@ export default async function ProjectDetail({
   const perms = permissionsFor(role);
   const canDeploy = can(role, "app.deploy");
   const canDb = can(role, "db.create");
+  const canStorage = can(role, "storage.create");
   const error = searchParams.error ? ERRORS[searchParams.error] ?? "Something went wrong." : null;
   const APP_TYPES = ["nextjs", "static", "node", "python", "serverless_api"];
 
@@ -243,17 +280,25 @@ export default async function ProjectDetail({
   );
 
   const storageTab = (
-    <Panel title="Object storage" flush>
+    <Panel
+      title="Object storage"
+      flush
+      action={canStorage ? <a className="btn sm" href="#new-bucket">New bucket</a> : <span className="small">View only</span>}
+    >
       <Table
-        columns={["Bucket", "Provider", "Endpoint", "Visibility", "Used", "Egress"]}
+        columns={["Bucket", "Provider", "Status", "Region", "Visibility", "Used", "Objects", ""]}
         empty="No storage buckets in this project."
         rows={project.buckets.map((b) => [
           <strong key="n">{b.bucketName}</strong>,
           b.provider,
+          <Badge key="s" status={b.status} />,
           b.region ?? "—",
           b.isPublic ? "public" : "private",
           bytes(b.currentStorageBytes),
-          bytes(b.currentEgressBytes),
+          b.objectCount.toString(),
+          <Link key="l" className="btn sm secondary" href={`/projects/${project.id}/storage/${b.id}`}>
+            Open bucket
+          </Link>,
         ])}
       />
     </Panel>
@@ -347,6 +392,7 @@ export default async function ProjectDetail({
         <div className="row">
           {canDb && <a className="btn secondary" href="#import-db"><Icon name="database" size={15} /> Import database</a>}
           {canDb && <a className="btn secondary" href="#new-db"><Icon name="database" size={15} /> New database</a>}
+          {canStorage && <a className="btn secondary" href="#new-bucket"><Icon name="storage" size={15} /> New bucket</a>}
           {canDeploy && <a className="btn" href="#new-app"><Icon name="plus" size={15} /> New app</a>}
         </div>
       </div>
@@ -373,6 +419,30 @@ export default async function ProjectDetail({
       />
 
       <p className="small">Your permissions in this project: {perms.join(", ")}</p>
+
+      {/* New bucket modal */}
+      <div id="new-bucket" className="modal-backdrop">
+        <div className="modal-card">
+          <div className="modal-head"><strong>Create a storage bucket</strong><a href="#" className="modal-close">×</a></div>
+          <div className="modal-body">
+            <form action={createBucket}>
+              <input type="hidden" name="projectId" value={project.id} />
+              <label>Bucket name</label>
+              <input name="bucketName" placeholder={`${project.slug}-assets`} required />
+              <label className="check" style={{ marginTop: 10 }}>
+                <input type="checkbox" name="bucketPublic" /> Allow public object URLs
+              </label>
+              <p className="small">
+                Swyftstack provisions scoped credentials for this bucket. Provider master credentials are never shown.
+              </p>
+              <div className="row" style={{ marginTop: 14 }}>
+                <button className="btn" type="submit">Create bucket</button>
+                <a href="#" className="btn secondary">Cancel</a>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
 
       {/* New app modal */}
       <div id="new-app" className="modal-backdrop">

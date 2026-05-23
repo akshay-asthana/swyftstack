@@ -10,22 +10,28 @@ const NAV: { title: string; items: Item[] }[] = [
   {
     title: "Workspace",
     items: [
-      ["/", "Dashboard", "overview"],
+      ["/console", "Overview", "overview"],
       ["/projects", "Projects", "projects"],
-      ["/usage", "Usage & Billing", "usage"],
+      ["/databases", "Databases", "database"],
+      ["/storage", "Storage", "storage"],
+      ["/backups", "Backups", "backups"],
+      ["/migrations", "Migrations", "migrations"],
+      ["/usage", "Usage", "usage"],
     ],
   },
   {
     title: "Account",
     items: [
+      ["/team", "Team", "users"],
       ["/settings", "Settings", "settings"],
+      ["/billing", "Billing", "plans"],
       ["/help", "Help & Support", "help"],
     ],
   },
 ];
 
 function isActive(pathname: string, href: string): boolean {
-  if (href === "/") return pathname === "/";
+  if (href === "/console") return pathname === "/" || pathname === "/console";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

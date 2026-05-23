@@ -8,6 +8,8 @@ export * from "./dbsql.js";
 export * from "./backup-state.js";
 export * from "./session.js";
 export * from "./onboarding.js";
+export * from "./auth-tokens.js";
+export * from "./email.js";
 export * from "./node-discovery.js";
 export * from "./ssh-key.js";
 export * from "./provider-help.js";

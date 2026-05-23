@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   createPasswordCustomerAccount,
   env,
+  sendVerificationEmail,
   SignupEmailExistsError,
 } from "swyftstack-shared";
 import { currentUser, setUserSession } from "@/lib/auth";
@@ -19,9 +20,9 @@ export default async function SignupPage({
 }: {
   searchParams: { error?: string };
 }) {
-  if (await currentUser()) redirect("/");
+  if (await currentUser()) redirect("/console");
   const googleUrl = new URL("/api/auth/google/start", env.PLATFORM_BASE_URL);
-  googleUrl.searchParams.set("next", "/");
+  googleUrl.searchParams.set("next", "/console");
 
   async function doSignup(formData: FormData) {
     "use server";
@@ -33,7 +34,7 @@ export default async function SignupPage({
     if (!name || !email || !password) redirect("/signup?error=required");
     if (password.length < 8) redirect("/signup?error=password");
 
-    let next = "/";
+    let next = "/console";
     try {
       const account = await createPasswordCustomerAccount({
         name,
@@ -41,7 +42,8 @@ export default async function SignupPage({
         company,
         password,
       });
-      setUserSession(account.user.id);
+      await setUserSession(account.user.id);
+      await sendVerificationEmail(account.user.id);
     } catch (err) {
       if (err instanceof SignupEmailExistsError) {
         next = "/signup?error=exists";

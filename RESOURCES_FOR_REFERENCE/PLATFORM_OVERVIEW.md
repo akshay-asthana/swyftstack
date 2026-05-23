@@ -33,6 +33,7 @@ a node and is movable, so scaling out never requires a rewrite.
 | Projects | 1 | 10 | admin-set |
 | vCPU-hours/mo | 100 (360k s) | 1000 (3.6M s) | admin-set |
 | Databases | 1 | 10 | admin-set |
+| Storage buckets | 1 | 10 | admin-set |
 | DB capacity | 5 GB | 50 GB | admin-set |
 | Object storage | 25 GB | 500 GB | admin-set |
 | Egress | 100 GB | 1 TB | admin-set |
@@ -72,10 +73,44 @@ SQL (non-superuser role, connection limit, statement/idle timeouts, locked-down
 `public` schema), then updates cluster usage. Isolation test: a project user
 must fail to connect to another project's DB on the same cluster.
 
+Customer-created databases use the same path from `/console` and project pages.
+Password rotation is a `rotate_database_password` worker job. Connection
+strings are generated from the admin-configured `database_gateway_domain` when
+present; otherwise the customer UI warns that it is falling back to the selected
+cluster host.
+
+### Import an existing database
+
+Customer import jobs are always worker-driven and source-safe:
+`queued → testing_connection → estimating_size → creating_target → dumping →
+uploading_dump_optional → restoring → verifying → switching → completed`.
+The source URL is encrypted at rest, masked in logs, discarded after completion
+unless the user opts to keep it, and only read through `pg_dump` / metadata
+queries. If local `pg_dump`/`pg_restore` is missing, the import is recorded as a
+clear local-dev simulation.
+
+### Provision object storage
+
+Customers create buckets from project creation or project storage tabs. The
+request validates `object_storage`, `max_storage_buckets`, and object capacity,
+creates a `storage_buckets` row in `provisioning`, and enqueues
+`create_storage_bucket`. The worker selects an admin-configured object storage
+provider through provisioning defaults, creates the bucket/prefix, creates
+scoped credentials, encrypts the secret, and marks the bucket active.
+
+The console file browser supports upload/list/download/delete, public object
+flags, signed URL generation, and key rotation for the `local_dev` provider.
+Customers see Swyftstack API/gateway endpoints and scoped credentials, never
+provider master credentials. Full S3-compatible gateway support remains a later
+gateway task.
+
 ### Backups
 `backup_database` / `backup_control_db` jobs: create job → `pg_dump -Fc` →
 upload → verify checksum → mark `verified` → only then prune older verified
-backups. Control-plane DB backs up every 6h, retained ≥7 days.
+backups. Control-plane DB backs up every 6h, retained ≥7 days. The scheduler
+also enqueues `schedule_database_backups` hourly for customer databases whose
+plan includes backups. Restore jobs create a safety backup before the MVP
+restore path, then emit project activity and optional email notifications.
 
 ### Usage metering & enforcement
 Containers/builds emit `usage_events`. `collect_usage` rolls them into the open
@@ -101,10 +136,14 @@ delete after final backup (`delete_project` takes a final DB backup first).
 
 - **Admin**: sign in (`isPlatformAdmin`) → Overview → manage nodes, plans,
   users, projects, view usage/jobs/backups/audit, trigger backups/migrations,
-  suspend/unsuspend, edit limits/overrides.
-- **Customer**: sign in → see projects they're a member of → open a project
-  (gated by `project_members`) → view apps/databases/activity and the
-  permissions their role grants (`owner/admin/developer/billing/viewer`).
+  suspend/unsuspend, edit limits/overrides, configure platform domains
+  (`database_gateway_domain`, `storage_gateway_domain`, `app_domain`,
+  `console_domain`).
+- **Customer**: sign up → verify email → personal organization + default plan
+  → `/console`. Console sections cover overview, projects, databases, storage,
+  backups, migrations, usage, team, settings, and billing placeholder. Project
+  creation can create/import a database and create a bucket while jobs run in
+  the background. Team invites support pending/resend/revoke/accept.
 
 ## 6. Security model
 
@@ -113,13 +152,16 @@ delete after final backup (`delete_project` takes a final DB backup first).
 - Admin endpoints require an admin session; internal worker calls use a bearer
   token. Destructive UI actions are explicit buttons (confirmation-ready).
 - Customer DB roles are never superuser and cannot reach other tenants' DBs.
+- Customer-visible secrets are masked by default and reveal/copy only.
+- Verification, password-reset and invitation tokens are hashed at rest.
 - Every admin/system action is appended to immutable `audit_logs`.
 
 ## 7. MVP boundaries / next steps
 
 - Real node-agent (placeholder install script today; services are interface-
   ready for HTTPS/mTLS).
-- Real object storage providers (B2/R2/Hetzner) behind the existing
-  `StorageProvider` interface.
+- Real object storage gateway/S3-compatible API for B2/R2/Hetzner behind the
+  existing `StorageProvider` interface. Today local-dev file browser and signed
+  URL APIs are real; remote provider clients remain interface-ready.
 - Live billing (Stripe/Razorpay) — schema present, not wired.
 - PgBouncer, PITR, dedicated nodes, HA — Phase 3/4.

@@ -10,6 +10,7 @@ import path from "node:path";
 import { prisma } from "../db.js";
 import { env } from "../env.js";
 import { audit } from "../audit.js";
+import { sendTransactionalEmail } from "../email.js";
 import { backupsSafeToDelete, assertTransition } from "../backup-state.js";
 import { backupProviderService } from "./backup-provider.js";
 import { clusterAdminUrl } from "./database-cluster.js";
@@ -51,7 +52,7 @@ export async function runDatabaseBackup(databaseId: string): Promise<string> {
       data: { status: "running", startedAt: new Date() },
     });
 
-    const tmp = path.join(os.tmpdir(), `qd-backup-${backup.id}.dump`);
+    const tmp = path.join(os.tmpdir(), `swyftstack-backup-${backup.id}.dump`);
     if (db.databaseClusterId) {
       const connStr = await clusterAdminUrl(db.databaseClusterId, db.dbName);
       await pgDump(connStr, tmp);
@@ -110,6 +111,14 @@ export async function runDatabaseBackup(databaseId: string): Promise<string> {
       targetId: databaseId,
       metadata: { backupId: backup.id, error: String(e) },
     });
+    const owner = await prisma.user.findUnique({ where: { id: db.project.organization.ownerUserId ?? "" } }).catch(() => null);
+    if (owner?.emailVerified) {
+      await sendTransactionalEmail({
+        to: owner.email,
+        subject: `Swyftstack backup failed for ${db.name}`,
+        text: `Backup ${backup.id} for database ${db.name} failed.\n\n${String(e)}\n\nPrevious verified backups were not pruned.`,
+      }).catch((mailErr) => console.log(`[backup-email] failed: ${String(mailErr)}`));
+    }
     throw e;
   }
 }
@@ -119,7 +128,14 @@ async function retentionHoursFor(projectId: string): Promise<number> {
     where: { id: projectId },
     include: {
       organization: {
-        include: { subscriptions: { include: { plan: { include: { limits: true } } } } },
+        include: {
+          subscriptions: {
+            where: { status: { in: ["active", "trialing", "past_due"] } },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            include: { plan: { include: { limits: true } } },
+          },
+        },
       },
     },
   });
@@ -128,14 +144,41 @@ async function retentionHoursFor(projectId: string): Promise<number> {
 }
 
 async function pruneDatabaseBackups(databaseId: string): Promise<void> {
+  const keepCount = await backupKeepCountFor(databaseId);
   const all = await prisma.databaseBackup.findMany({ where: { databaseId } });
   const deletable = backupsSafeToDelete(
     all.map((b) => ({ id: b.id, status: b.status as never, createdAt: b.createdAt })),
-    7,
+    keepCount,
   );
   for (const d of deletable) {
     await prisma.databaseBackup.update({ where: { id: d.id }, data: { status: "expired" } });
   }
+}
+
+async function backupKeepCountFor(databaseId: string): Promise<number> {
+  const db = await prisma.database.findUnique({
+    where: { id: databaseId },
+    include: {
+      project: {
+        include: {
+          organization: {
+            include: {
+              subscriptions: {
+                where: { status: { in: ["active", "trialing", "past_due"] } },
+                orderBy: { createdAt: "desc" },
+                take: 1,
+                include: { plan: { include: { limits: true } } },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+  const limits = db?.project.organization.subscriptions[0]?.plan.limits;
+  const daily = limits?.dailyDbBackups ?? 1;
+  const retentionHours = limits?.backupRetentionHours ?? 24;
+  return Math.max(1, daily * Math.ceil(retentionHours / 24));
 }
 
 export async function runControlPlaneBackup(): Promise<string> {
@@ -150,7 +193,7 @@ export async function runControlPlaneBackup(): Promise<string> {
     },
   });
   try {
-    const tmp = path.join(os.tmpdir(), `qd-control-${backup.id}.dump`);
+    const tmp = path.join(os.tmpdir(), `swyftstack-control-${backup.id}.dump`);
     // The control plane DB *is* configured via env (DATABASE_URL) — that is
     // platform bootstrap config, not customer infrastructure.
     await pgDump(env.DATABASE_URL, tmp);

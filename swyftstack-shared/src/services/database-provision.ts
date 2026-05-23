@@ -7,6 +7,8 @@ import { deriveDbNames } from "../dbsql.js";
 import { enqueueJob } from "../jobs/index.js";
 import { databaseClusterService } from "./database-cluster.js";
 import { provisioningPolicyService } from "./provisioning-policy.js";
+import { platformSettingsService } from "./platform-settings.js";
+import { planResourceService } from "./plan-resource.js";
 
 /**
  * Pick the database cluster for a new database. Placement flows through the
@@ -47,6 +49,7 @@ export interface ProvisionDatabaseInput {
   storageLimitBytes?: bigint;
   connectionLimit?: number;
   sslMode?: string;
+  password?: string;
   /** When false, the caller provisions inline (used by the import job). */
   enqueue?: boolean;
 }
@@ -56,11 +59,30 @@ export interface ProvisionDatabaseInput {
  * create_database job that actually provisions it on the cluster.
  */
 export async function provisionDatabase(input: ProvisionDatabaseInput): Promise<Database> {
+  const project = await prisma.project.findUniqueOrThrow({ where: { id: input.projectId } });
+  if (["suspended", "deleted", "over_limit"].includes(project.status)) {
+    throw new Error("This project cannot create resources in its current state.");
+  }
+  const effective = await planResourceService.getEffectivePlanResources({
+    organizationId: project.organizationId,
+    projectId: input.projectId,
+  });
+  if (!effective.features.postgres_database) {
+    throw new Error("Your plan does not include PostgreSQL databases.");
+  }
+  const count = await prisma.database.count({
+    where: { project: { organizationId: project.organizationId }, status: { not: "deleted" } },
+  });
+  const maxDatabases = effective.limits.max_databases;
+  if (maxDatabases != null && count >= maxDatabases) {
+    throw new DatabaseLimitReachedError(maxDatabases);
+  }
+
   const cluster = await selectDatabaseCluster(input.projectId);
   if (!cluster) throw new NoClusterAvailableError();
 
   const { dbName, dbUser } = deriveDbNames(input.projectId);
-  const password = randomSecret(20);
+  const password = input.password && input.password.length >= 12 ? input.password : randomSecret(20);
 
   const database = await prisma.database.create({
     data: {
@@ -74,7 +96,7 @@ export async function provisionDatabase(input: ProvisionDatabaseInput): Promise<
       dbName,
       dbUser,
       encryptedPassword: encryptSecret(password),
-      storageLimitBytes: input.storageLimitBytes ?? GB,
+      storageLimitBytes: input.storageLimitBytes ?? BigInt(effective.limits.max_database_storage_bytes ?? Number(GB)),
       connectionLimit: input.connectionLimit ?? 10,
       sslMode: input.sslMode ?? (cluster.sslRequired ? "require" : "prefer"),
     },
@@ -119,6 +141,8 @@ export async function databaseConnectionUrl(databaseId: string): Promise<{
   password: string;
   sslMode: string;
   url: string;
+  gatewayConfigured: boolean;
+  warning?: string;
 } | null> {
   const db = await prisma.database.findUnique({
     where: { id: databaseId },
@@ -126,10 +150,22 @@ export async function databaseConnectionUrl(databaseId: string): Promise<{
   });
   if (!db || !db.cluster) return null;
   const password = decryptSecret(db.encryptedPassword);
-  const host = db.cluster.host;
-  const port = db.cluster.port;
+  const domains = await platformSettingsService.getDomains();
+  const gateway = domains.database_gateway_domain;
+  const host = gateway || db.cluster.host;
+  const port = gateway ? 5432 : db.cluster.port;
   const url =
     `postgresql://${encodeURIComponent(db.dbUser)}:${encodeURIComponent(password)}` +
     `@${host}:${port}/${db.dbName}?sslmode=${db.sslMode}`;
-  return { host, port, database: db.dbName, username: db.dbUser, password, sslMode: db.sslMode, url };
+  return {
+    host,
+    port,
+    database: db.dbName,
+    username: db.dbUser,
+    password,
+    sslMode: db.sslMode,
+    url,
+    gatewayConfigured: Boolean(gateway),
+    warning: gateway ? undefined : "DB gateway is not configured. Customers see the selected cluster host directly.",
+  };
 }

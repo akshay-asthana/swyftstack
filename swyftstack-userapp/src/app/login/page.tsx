@@ -13,10 +13,16 @@ const ERRORS: Record<string, string> = {
   disabled: "This account is not active.",
 };
 
-export default async function LoginPage({ searchParams }: { searchParams: { error?: string } }) {
-  if (await currentUser()) redirect("/");
+function safeNext(value: string | undefined): string {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/console";
+  return value;
+}
+
+export default async function LoginPage({ searchParams }: { searchParams: { error?: string; next?: string } }) {
+  const next = safeNext(searchParams.next);
+  if (await currentUser()) redirect(next);
   const googleUrl = new URL("/api/auth/google/start", env.PLATFORM_BASE_URL);
-  googleUrl.searchParams.set("next", "/");
+  googleUrl.searchParams.set("next", next);
   const error = searchParams.error ? ERRORS[searchParams.error] ?? ERRORS["1"] : null;
 
   async function doLogin(formData: FormData) {
@@ -25,7 +31,8 @@ export default async function LoginPage({ searchParams }: { searchParams: { erro
       String(formData.get("email") ?? ""),
       String(formData.get("password") ?? ""),
     );
-    redirect(ok ? "/" : "/login?error=1");
+    const nextUrl = safeNext(String(formData.get("next") ?? ""));
+    redirect(ok ? nextUrl : `/login?error=1&next=${encodeURIComponent(nextUrl)}`);
   }
 
   return (
@@ -41,10 +48,14 @@ export default async function LoginPage({ searchParams }: { searchParams: { erro
         <p className="sub" style={{ margin: "8px 0 16px" }}>Sign in to your workspace.</p>
         <a className="btn google" href={googleUrl.toString()}>Continue with Google</a>
         <div className="divider"><span>or</span></div>
+        <input type="hidden" name="next" value={next} />
         <label>Email</label>
         <input name="email" type="email" required autoFocus />
         <label>Password</label>
         <input name="password" type="password" required />
+        <div className="row right" style={{ marginTop: 6 }}>
+          <Link className="small" href="/forgot-password">Forgot password?</Link>
+        </div>
         <div style={{ marginTop: 18 }}>
           <button className="btn" type="submit" style={{ width: "100%" }}>Sign in</button>
         </div>

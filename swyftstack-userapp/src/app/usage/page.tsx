@@ -15,7 +15,7 @@ export default async function UsagePage() {
     include: {
       members: true,
       subscriptions: {
-        where: { status: "active" }, orderBy: { createdAt: "desc" }, take: 1,
+        where: { status: { in: ["active", "trialing", "past_due"] } }, orderBy: { createdAt: "desc" }, take: 1,
         include: { plan: { include: { limits: true } } },
       },
     },
@@ -110,6 +110,8 @@ export default async function UsagePage() {
           percent={pct(projects.length, num(limits?.maxProjects))} />
         <MetricRow name="Databases" value={`${databases.length} / ${limits?.maxDatabases ?? "∞"}`}
           percent={pct(databases.length, num(limits?.maxDatabases))} />
+        <MetricRow name="Storage buckets" value={`${buckets.length} / ${limits?.maxStorageBuckets ?? "∞"}`}
+          percent={pct(buckets.length, num(limits?.maxStorageBuckets))} />
         <MetricRow name="Custom domains" value={`${domains} / ${limits?.maxCustomDomains ?? "∞"}`}
           percent={pct(domains, num(limits?.maxCustomDomains))} />
         <MetricRow name="Team members" value={`${org.members.length} / ${limits?.maxTeamMembers ?? "∞"}`}

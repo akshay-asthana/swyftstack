@@ -18,6 +18,7 @@ export type FeatureKey = (typeof FEATURE_KEYS)[number];
 export const LIMIT_KEYS = [
   "max_projects",
   "max_databases",
+  "max_storage_buckets",
   "max_database_storage_bytes",
   "max_object_storage_bytes",
   "max_egress_bytes",
@@ -129,9 +130,13 @@ export type AuthProviderKey = (typeof AUTH_PROVIDERS)[number];
 export const DATABASE_IMPORT_STATUSES = [
   "queued",
   "testing_connection",
+  "estimating_size",
+  "creating_target",
   "dumping",
+  "uploading_dump_optional",
   "restoring",
   "verifying",
+  "switching",
   "completed",
   "failed",
 ] as const;
@@ -236,6 +241,7 @@ export const PLAN_PRESETS: Record<"starter" | "pro", PlanPreset> = {
     limits: {
       max_projects: 1,
       max_databases: 1,
+      max_storage_buckets: 1,
       max_database_storage_bytes: 5 * GB,
       max_object_storage_bytes: 25 * GB,
       max_egress_bytes: 100 * GB,
@@ -260,6 +266,7 @@ export const PLAN_PRESETS: Record<"starter" | "pro", PlanPreset> = {
     limits: {
       max_projects: 10,
       max_databases: 10,
+      max_storage_buckets: 10,
       max_database_storage_bytes: 50 * GB,
       max_object_storage_bytes: 500 * GB,
       max_egress_bytes: TB,

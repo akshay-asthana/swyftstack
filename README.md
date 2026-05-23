@@ -253,11 +253,118 @@ one is `verified`.
 1. Customer app → a project → **Import database**.
 2. Enter a source `postgresql://…` URL and a target name.
 3. An `import_database_from_url` job runs in the worker:
-   `queued → testing_connection → dumping → restoring → verifying → completed`.
+   `queued → testing_connection → estimating_size → creating_target → dumping
+   → uploading_dump_optional → restoring → verifying → switching → completed`.
 4. The Imports tab shows the live status; the source URL is encrypted, masked
    in every log line, and discarded on completion unless you keep it. With
    `pg_dump`/`pg_restore` installed the transfer is real; otherwise the steps
    are simulated and clearly logged.
+
+## Customer console MVP
+
+### Auth and onboarding
+
+Customers can sign up at `/signup`, sign in at `/login`, reset passwords via
+`/forgot-password` → `/reset-password`, and open the console at `/console`.
+Signup creates:
+
+1. `users` row with scrypt password hash.
+2. Personal `organizations` row.
+3. Owner `organization_members` row.
+4. Default subscription using `DEFAULT_CUSTOMER_PLAN_SLUG` (Starter by seed).
+5. Email verification token stored as a hash in `email_verification_tokens`.
+
+Verification/reset/invite tokens are never stored plaintext. In development,
+email messages and links are printed to logs when `EMAIL_WEBHOOK_URL` is empty.
+In production, `EMAIL_WEBHOOK_URL` is required.
+
+### Project creation
+
+`/projects/new` now creates the project and can also request:
+
+- a new managed PostgreSQL database
+- an import from an external PostgreSQL URL
+- an object storage bucket
+
+The project can remain `provisioning` while independent `create_database`,
+`import_database_from_url`, and `create_storage_bucket` jobs run. If one
+resource fails, the project becomes `partially_failed` instead of disappearing.
+
+Plan checks enforce max projects, max databases, max storage buckets, database
+capacity, object storage capacity, and disabled plan features.
+
+### Database management
+
+Database detail pages show masked/revealable host, port, DB name, username,
+password, full `DATABASE_URL`, SSL mode, storage used, backup status, and
+copyable framework snippets for `.env`, Prisma, Drizzle, Node `pg`, SQLAlchemy,
+and `psql`.
+
+Password rotation enqueues `rotate_database_password` and is performed by the
+worker. The generated SQL creates non-superuser roles, revokes public DB/schema
+access, grants only the tenant user, sets connection limits, and sets statement
+and idle transaction timeouts.
+
+If `database_gateway_domain` is set in Admin → Settings → Platform domains,
+customers see that gateway host. If not, the UI warns that cluster host fallback
+is being shown.
+
+### Backups and restore
+
+The scheduler enqueues `schedule_database_backups` hourly; eligible active
+databases receive `backup_database` jobs based on plan backup settings. Backups
+use `pg_dump -Fc` when available and otherwise write a clearly simulated dump.
+Old verified backups are pruned only after a new backup verifies.
+
+Restore requests enqueue `restore_database`; the worker creates a pre-restore
+safety backup first, then performs the MVP restore path (currently simulated
+unless provider-specific `pg_restore` is wired). Backup/restore completion or
+failure can notify verified owners through the email webhook, with dev-log
+fallback.
+
+### Object storage
+
+Users can provision buckets, rotate scoped bucket credentials, upload/list/
+download/delete files, toggle object public state, and copy signed download
+URLs. The local-dev provider writes objects under `DEV_LOCAL_STORAGE_ROOT`;
+provider master keys remain internal and are never shown to customers.
+
+Customer-visible storage endpoints come from Admin → Settings →
+`storage_gateway_domain` when configured. Without a storage gateway, the console
+uses the user app API (`/api/storage/object`, `/api/storage/signed`,
+`/api/storage/public`) and labels this as local-dev/API mode. Full
+S3-compatible gateway support is intentionally not claimed yet.
+
+### Teams
+
+`/team` supports owner/admin invites by email, role selection
+(`admin`, `developer`, `billing`, `viewer`), optional project scope, pending
+invite list, resend, revoke, and `/invite/accept`. Invite tokens are hashed at
+rest and expire after 7 days.
+
+### Local test checklist
+
+```bash
+npm run db:migrate
+npm run db:seed
+npm run dev:user
+npm run dev:worker
+```
+
+Then test:
+
+1. Create a customer at `/signup`; copy the dev verification link from logs and
+   open it.
+2. Open `/console`; create a project with a new DB and bucket.
+3. Watch worker jobs complete in the admin Jobs page or worker logs.
+4. Open the DB detail page; copy masked snippets, reveal/copy password, rotate
+   password, create a backup, and restore a verified backup.
+5. Create another project/resource to confirm Starter limit errors.
+6. Create a project with **Import existing PostgreSQL database** and watch the
+   migration status/logs.
+7. Open the bucket detail page; upload, list, download, make public/private,
+   copy a signed URL, and delete a file.
+8. Invite a teammate at `/team`, copy the dev invite link from logs, and accept.
 
 ## Configuration (.env) — control-plane only
 
@@ -273,6 +380,8 @@ edited from the admin **Infrastructure** page.
 | `INTERNAL_API_TOKEN` | Bearer token for worker → control-plane calls |
 | `PLATFORM_ADMIN_EMAIL/PASSWORD` | Seeded bootstrap admin |
 | `PLATFORM_BASE_URL` / `USERAPP_BASE_URL` | App URLs |
+| `DEFAULT_CUSTOMER_PLAN_SLUG` | Plan assigned to new customer workspaces (default `starter`) |
+| `EMAIL_FROM` / `EMAIL_WEBHOOK_URL` | Transactional email sender/webhook; dev prints links if webhook is empty |
 | `DEV_LOCAL_STORAGE_ROOT` / `DEV_LOCAL_BACKUP_ROOT` | Seed paths for `local_dev` providers |
 | `DEFAULT_WORKER_*` | Fallback worker tuning if no `worker_configs` row exists |
 

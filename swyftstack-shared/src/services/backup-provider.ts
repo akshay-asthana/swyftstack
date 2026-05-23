@@ -42,7 +42,7 @@ export const backupProviderService = {
       try {
         const root = rootFor(p);
         await fs.mkdir(root, { recursive: true });
-        const probe = path.join(root, ".qd-probe");
+        const probe = path.join(root, ".swyftstack-probe");
         await fs.writeFile(probe, "ok");
         const back = await fs.readFile(probe, "utf8");
         await fs.rm(probe);

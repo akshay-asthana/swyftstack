@@ -30,6 +30,13 @@ const schema = z.object({
   // URLs.
   PLATFORM_BASE_URL: z.string().default("http://localhost:3000"),
   USERAPP_BASE_URL: z.string().default("http://localhost:3001"),
+  DEFAULT_CUSTOMER_PLAN_SLUG: z.string().default("starter"),
+
+  // Transactional email. In development, messages are printed to the worker/app
+  // logs when EMAIL_WEBHOOK_URL is not configured. In production a provider is
+  // required; the webhook receives { from, to, subject, text } JSON.
+  EMAIL_FROM: z.string().default("Swyftstack <no-reply@swyftstack.local>"),
+  EMAIL_WEBHOOK_URL: z.string().default(""),
 
   // Optional Google OAuth for customer sign-in. The callback can live on the
   // platform app because the user cookie is scoped to localhost, not the port.

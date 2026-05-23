@@ -27,11 +27,12 @@ async function seedPlan(preset: (typeof PLAN_PRESETS)["starter"]) {
 
   await prisma.planLimit.upsert({
     where: { planId: plan.id },
-    update: {},
+    update: { maxStorageBuckets: preset.limits.max_storage_buckets },
     create: {
       planId: plan.id,
       maxProjects: preset.limits.max_projects,
       maxDatabases: preset.limits.max_databases,
+      maxStorageBuckets: preset.limits.max_storage_buckets,
       maxDatabaseStorageBytes: bigOrNull(preset.limits.max_database_storage_bytes),
       maxObjectStorageBytes: bigOrNull(preset.limits.max_object_storage_bytes),
       maxEgressBytes: bigOrNull(preset.limits.max_egress_bytes),

@@ -57,7 +57,9 @@ enum ScopeType {
 }
 
 enum ProjectStatus {
+  provisioning
   active
+  partially_failed
   suspended
   over_limit
   deleted
@@ -157,7 +159,9 @@ enum StorageProvider {
 }
 
 enum BucketStatus {
+  provisioning
   active
+  failed
   suspended
   deleted
 }
@@ -223,9 +227,13 @@ enum RollupPeriod {
 enum DatabaseImportStatus {
   queued
   testing_connection
+  estimating_size
+  creating_target
   dumping
+  uploading_dump_optional
   restoring
   verifying
+  switching
   completed
   failed
 }
@@ -267,9 +275,41 @@ model User {
   authAccounts       UserAuthAccount[]
   sessions           UserSession[]
   loginEvents        LoginEvent[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
   usageEvents        UsageEvent[]
 
   @@map("users")
+}
+
+model EmailVerificationToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  email      String
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([email])
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 // OAuth / external identity providers linked to a user. Password accounts are
@@ -403,6 +443,7 @@ model PlanLimit {
   planId                  String   @unique @map("plan_id") @db.Uuid
   maxProjects             Int?     @map("max_projects")
   maxDatabases            Int?     @map("max_databases")
+  maxStorageBuckets       Int?     @map("max_storage_buckets")
   maxDatabaseStorageBytes BigInt?  @map("max_database_storage_bytes")
   maxObjectStorageBytes   BigInt?  @map("max_object_storage_bytes")
   maxEgressBytes          BigInt?  @map("max_egress_bytes")
@@ -556,7 +597,7 @@ model Invitation {
   projectId      String?          @map("project_id") @db.Uuid
   email          String
   role           MemberRole
-  tokenHash      String           @map("token_hash")
+  tokenHash      String           @unique @map("token_hash")
   status         InvitationStatus @default(pending)
   invitedBy      String?          @map("invited_by") @db.Uuid
   expiresAt      DateTime         @map("expires_at") @db.Timestamptz
@@ -1043,6 +1084,7 @@ model StorageBucket {
   project     Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
   storageProvider ObjectStorageProvider? @relation(fields: [objectStorageProviderId], references: [id])
   credentials StorageCredential[]
+  objects     StorageObject[]
   usageEvents UsageEvent[]
   metrics     StorageMetric[]
 
@@ -1050,6 +1092,24 @@ model StorageBucket {
   @@index([projectId])
   @@index([objectStorageProviderId])
   @@map("storage_buckets")
+}
+
+model StorageObject {
+  id          String   @id @default(uuid()) @db.Uuid
+  bucketId    String   @map("bucket_id") @db.Uuid
+  key         String
+  sizeBytes   BigInt   @map("size_bytes")
+  contentType String?  @map("content_type")
+  etag        String?
+  isPublic    Boolean  @default(false) @map("is_public")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  bucket StorageBucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+
+  @@unique([bucketId, key])
+  @@index([bucketId, updatedAt])
+  @@map("storage_objects")
 }
 
 // Per-bucket usage sample. network/egress counters are interval deltas.
@@ -1182,6 +1242,18 @@ model ProviderHelpDoc {
 
   @@index([providerKey])
   @@map("provider_help_docs")
+}
+
+model PlatformSetting {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique
+  value       String
+  description String?
+  updatedBy   String?  @map("updated_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("platform_settings")
 }
 
 model UsageRollup {

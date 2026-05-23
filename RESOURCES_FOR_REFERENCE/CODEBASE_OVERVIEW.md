@@ -28,6 +28,8 @@ Swyftstack/
   `npm run db:generate` first (`prisma/schema.prisma`).
 - `crypto.ts` — AES-256-GCM `encryptSecret/decryptSecret`, `hashPassword`
   (scrypt), `hashToken`, `randomSecret`.
+- `email.ts` — transactional email webhook + dev-log fallback.
+- `auth-tokens.ts` — hashed email verification and password reset tokens.
 - `constants.ts` — `FEATURE_KEYS`, `LIMIT_KEYS`, `USAGE_TYPES`, `NODE_ROLES`,
   `SCOPE_PRECEDENCE`, `PLAN_PRESETS` (Starter/Pro).
 - `limits.ts` — **pure** effective-limit/feature resolution with override
@@ -61,6 +63,11 @@ Swyftstack/
     resources are provisioned via `provisioning_policies/_targets` (§7).
   - `plan-resource.ts` — `planResourceService`: `getEffectivePlanResources`,
     `validateResourceAllowed`, `validateResourceLimit` (§9).
+  - `platform-settings.ts` — DB-backed platform domains:
+    `database_gateway_domain`, `storage_gateway_domain`, `app_domain`,
+    `console_domain`.
+  - `project-status.ts` — reconciles `provisioning` / `active` /
+    `partially_failed` project state from child DB/import/bucket state.
   - `node.ts` also exports `markStaleNodes` (active/degraded/offline from
     `last_metric_at` freshness, §4).
   plus the **DB-managed provider services** (customer infra is not env-config):
@@ -82,14 +89,20 @@ Swyftstack/
   - `metrics.ts` — `metricsService` collects app/database/storage metric rows
     and emits `usage_events` for billing + bandwidth.
   - `database-provision.ts` — `provisionDatabase`, `assertDatabaseLimit`,
-    `databaseConnectionUrl` (shared cluster-select + connection-URL helpers).
+    `databaseConnectionUrl` (shared cluster-select + connection-URL helpers;
+    uses DB gateway domain when configured).
   - `database-import.ts` — `databaseImportService.runImport` (§11 external-URL
-    PostgreSQL import: status machine, masked logs, pg_dump/pg_restore).
+    PostgreSQL import: expanded status machine, masked logs, pg_dump/pg_restore).
+  - `customer-storage.ts` — customer bucket provisioning, scoped credentials,
+    local-dev file browser operations, signed storage URL HMAC helpers, storage
+    limit enforcement.
   `database.ts`/`backup.ts`/`storage.ts` resolve their target from these
   services; `jobs/worker.ts` is driven by `workerConfigService`.
 - `jobs/` — `index.ts` (enqueue/claim/complete/fail/retry/cancel),
   `backoff.ts` (pure), `handlers.ts` (per-type handlers incl. discover/collect
-  metrics, rollup_metrics, import_database_from_url), `worker.ts` (loop).
+  metrics, rollup_metrics, `create_storage_bucket`,
+  `rotate_database_password`, `schedule_database_backups`,
+  `import_database_from_url`), `worker.ts` (loop).
 - `seed.ts` — idempotent: admin + Starter/Pro plans + the single `local-dev`
   node (dedupes/upserts by `node_key`, never duplicates) + local infrastructure
   providers + six default `provisioning_policies`.
@@ -118,7 +131,8 @@ Pure modules never import `db.ts`, so the test suite runs without Postgres or
   toggles + limits; a resource's limit inputs disable when it is off (§9).
 - `src/app/(dashboard)/*` — overview, users(+`[id]`), organizations(+`[id]`),
   projects(+`[id]`), apps, databases, buckets, plans, usage, jobs, backups,
-  audit-logs, migrations, infrastructure, help, settings. `infra-overview` and
+  audit-logs, migrations, infrastructure, help, settings. Settings includes
+  DB-backed platform domain configuration. `infra-overview` and
   `nodes` are redirects into the Infrastructure hub. List pages use `DataTable`.
 - `infrastructure/` — the single Infrastructure hub (§5/§6). `page.tsx` is a
   query-param tab shell; `overview-section.tsx` (fleet capacity/health/top-N),
@@ -144,31 +158,48 @@ Pure modules never import `db.ts`, so the test suite runs without Postgres or
 - `src/index.ts` — starts scheduler + `runWorker()` (from shared).
 - `src/scheduler.ts` — in-process interval scheduler enqueuing recurring jobs
   (node metrics 30s, app metrics 60s, db metrics 120s, storage metrics 300s,
-  usage 60s, rollup_metrics 120s, enforce 120s, control backup 6h).
+  usage 60s, rollup_metrics 120s, enforce 120s, database backup scheduler 1h,
+  control backup 6h).
 
-## swyftstack-userapp (customer baseline)
+## swyftstack-userapp (customer console)
 
-- `src/lib/auth.ts` — user session (email + optional password).
-- `src/app/login` / `src/app/page.tsx` — sign-in + project list (membership).
+- `src/lib/auth.ts` — DB-backed user sessions, login events, legacy-cookie
+  compatibility, logout revocation.
+- `src/app/signup`, `login`, `forgot-password`, `reset-password`,
+  `verify-email`, `invite/accept` — auth/onboarding, hashed token flows,
+  email/dev-log delivery.
+- `src/app/page.tsx` and `/console` — console overview: plan/trial/usage,
+  resource counts, quick create project, recent activity.
 - `src/app/pricing/page.tsx` — plan selection gate for free users.
-- `src/app/projects/new/page.tsx` — project creation; redirects to pricing if
-  the workspace has no active plan or has reached plan limits.
+- `src/app/projects/new/page.tsx` — project creation with optional new DB,
+  DB import, and storage bucket; validates project/db/bucket limits and
+  enqueues worker jobs.
 - `src/app/projects/[id]/page.tsx` — tabbed project detail gated by
   `project_members`: apps, databases, storage, imports, members, activity;
-  create app, create database, and import-database-from-URL flows.
+  create app, create database, create bucket, and import-database-from-URL
+  flows.
 - `src/app/projects/[id]/databases/[dbId]/page.tsx` — database connection
   detail: `DATABASE_URL`, masked credentials, SSL mode, size, backups; rotate
-  password / create backup / restore actions.
+  password / create backup / safe restore actions, plus framework snippets.
+- `src/app/projects/[id]/storage/[bucketId]/page.tsx` — bucket detail:
+  endpoint/keys, upload/list/download/delete, public object flags, signed URLs,
+  local-dev quickstart snippets.
+- `src/app/databases`, `storage`, `backups`, `migrations`, `usage`, `team`,
+  `billing`, `settings` — aggregate console sections.
+- `src/app/api/storage/{object,public,signed}` — authenticated console object
+  API, public object API, and HMAC signed URL API.
 - `src/components/client.tsx` — `CopyButton`, `SecretField`, `Tabs`.
 
 ## Data flow
 
-1. Admin/API creates a record (`apps`, `databases`, …) → enqueues a `job`.
+1. Admin/API/customer console creates a record (`apps`, `databases`,
+   `storage_buckets`, …) → enqueues a `job`.
 2. `swyftstack-workers` claims the job (race-safe `updateMany` lock), runs the
    matching handler in `swyftstack-shared/jobs/handlers.ts`.
 3. Handlers call the local-dev service implementations (Docker/pg if present,
    otherwise simulated) and write `audit_logs` / `project_activity_logs`.
-4. Scheduler-driven jobs roll up usage and enforce limits (80/100/110).
+4. Scheduler-driven jobs roll up usage, enforce limits (80/100/110), schedule
+   database backups, and sync storage usage.
 
 ## Conventions
 

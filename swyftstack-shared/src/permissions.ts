@@ -8,6 +8,9 @@ export type Permission =
   | "env.manage"
   | "db.create"
   | "db.rotate_password"
+  | "backup.restore"
+  | "storage.create"
+  | "storage.manage"
   | "billing.manage"
   | "members.invite"
   | "project.view";
@@ -17,8 +20,11 @@ const MATRIX: Record<Permission, Role[]> = {
   "app.deploy": ["owner", "admin", "developer"],
   "logs.view": ["owner", "admin", "developer", "viewer"],
   "env.manage": ["owner", "admin", "developer"],
-  "db.create": ["owner", "admin"],
+  "db.create": ["owner", "admin", "developer"],
   "db.rotate_password": ["owner", "admin"],
+  "backup.restore": ["owner", "admin"],
+  "storage.create": ["owner", "admin", "developer"],
+  "storage.manage": ["owner", "admin", "developer"],
   "billing.manage": ["owner", "billing"],
   "members.invite": ["owner", "admin"],
   "project.view": ["owner", "admin", "developer", "billing", "viewer"],

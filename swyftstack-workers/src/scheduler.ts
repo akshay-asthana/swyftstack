@@ -17,6 +17,7 @@ const SCHEDULES: Schedule[] = [
   { type: "rollup_metrics", everyMs: 120_000 },
   { type: "enforce_limits", everyMs: 120_000 },
   { type: "sync_storage_usage", everyMs: 300_000 },
+  { type: "schedule_database_backups", everyMs: 60 * 60_000 },
   // Control-plane DB backup every 6 hours (00:00 / 06:00 / 12:00 / 18:00).
   { type: "backup_control_db", everyMs: 6 * 60 * 60_000 },
 ];

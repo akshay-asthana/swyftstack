@@ -1,7 +1,8 @@
 import crypto from "node:crypto";
 import { env } from "./env.js";
 
-export const USER_SESSION_COOKIE = "qd_user_session";
+export const USER_SESSION_COOKIE = "swyftstack_user_session";
+export const LEGACY_USER_SESSION_COOKIE = "swyftstack_legacy_user_session";
 export const USER_SESSION_MAX_AGE = 60 * 60 * 8;
 
 function sign(value: string): string {

@@ -131,7 +131,7 @@ export const objectStorageProviderService = {
       try {
         const root = path.resolve(p.localPath ?? "./storage-local");
         await fs.mkdir(root, { recursive: true });
-        const probe = path.join(root, ".qd-probe");
+        const probe = path.join(root, ".swyftstack-probe");
         await fs.writeFile(probe, "ok");
         await fs.rm(probe);
         return { ok: true, detail: `local_dev path writable: ${root}` };

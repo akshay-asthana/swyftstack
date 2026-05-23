@@ -11,6 +11,7 @@ import { objectStorageProviderService } from "../services/object-storage-provide
 import { discoveryService } from "../services/discovery.js";
 import { metricsService } from "../services/metrics.js";
 import { databaseImportService } from "../services/database-import.js";
+import { createStorageBucketOnProvider, rotateStorageCredentials } from "../services/customer-storage.js";
 import { rollUpUsage, enforceLimits } from "../usage-engine.js";
 import { rollUpMetrics } from "../metrics-rollup.js";
 
@@ -41,8 +42,67 @@ export const JOB_HANDLERS: Record<string, Handler> = {
     return { databaseId: p.databaseId };
   },
 
+  async rotate_database_password(p) {
+    await localDatabaseService.rotateDatabasePassword(String(p.databaseId));
+    return { databaseId: p.databaseId };
+  },
+
+  async create_storage_bucket(p) {
+    await createStorageBucketOnProvider(String(p.bucketId));
+    return { bucketId: p.bucketId };
+  },
+
+  async rotate_storage_credentials(p) {
+    await rotateStorageCredentials(String(p.bucketId));
+    return { bucketId: p.bucketId };
+  },
+
   async backup_database(p) {
     return { backupId: await backupService.runDatabaseBackup(String(p.databaseId)) };
+  },
+
+  async schedule_database_backups() {
+    const cutoff = new Date(Date.now() - 23 * 60 * 60_000);
+    const databases = await prisma.database.findMany({
+      where: { status: "active" },
+      include: {
+        backups: { orderBy: { createdAt: "desc" }, take: 1 },
+        project: {
+          include: {
+            organization: {
+              include: {
+                subscriptions: {
+                  where: { status: { in: ["active", "trialing", "past_due"] } },
+                  orderBy: { createdAt: "desc" },
+                  take: 1,
+                  include: { plan: { include: { limits: true, features: true } } },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    let enqueued = 0;
+    for (const db of databases) {
+      const sub = db.project.organization.subscriptions[0];
+      const backupsEnabled = sub?.plan.features.some((f) => f.featureKey === "backups" && f.enabled) ?? false;
+      const daily = sub?.plan.limits?.dailyDbBackups ?? 0;
+      const latest = db.backups[0];
+      if (!backupsEnabled || daily <= 0) continue;
+      if (latest && latest.createdAt > cutoff && ["pending", "running", "uploading", "verified"].includes(latest.status)) continue;
+      await prisma.job.create({
+        data: {
+          type: "backup_database",
+          payload: { databaseId: db.id },
+          priority: 70,
+          runAfter: new Date(),
+          maxAttempts: 5,
+        },
+      });
+      enqueued += 1;
+    }
+    return { enqueued };
   },
 
   async restore_database(p) {

@@ -21,7 +21,7 @@ export default async function SettingsPage() {
     where: { ownerUserId: user.id },
     orderBy: { createdAt: "asc" },
     include: {
-      subscriptions: { where: { status: "active" }, include: { plan: true }, take: 1 },
+      subscriptions: { where: { status: { in: ["active", "trialing", "past_due"] } }, include: { plan: true }, take: 1 },
       _count: { select: { projects: true, members: true } },
     },
   });

@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma, env, verifyPassword } from "swyftstack-shared";
 
-const COOKIE = "qd_admin_session";
+const COOKIE = "swyftstack_admin_session";
 const MAX_AGE = 60 * 60 * 8; // 8h
 
 function sign(value: string): string {

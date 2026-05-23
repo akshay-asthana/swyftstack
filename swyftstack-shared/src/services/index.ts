@@ -16,6 +16,13 @@ export type { BlockingResource, DeletionCheck } from "./node-deletion.js";
 export { provisioningPolicyService } from "./provisioning-policy.js";
 export type { ResolvedTarget, ProvisioningDecision } from "./provisioning-policy.js";
 export {
+  platformSettingsService,
+  PLATFORM_DOMAIN_KEYS,
+  normalizeDomainSetting,
+  isValidDomainSetting,
+} from "./platform-settings.js";
+export type { PlatformDomains, PlatformDomainKey } from "./platform-settings.js";
+export {
   planResourceService,
   ResourceNotInPlanError,
   ResourceLimitReachedError,
@@ -23,12 +30,32 @@ export {
 export type { EffectivePlanResources } from "./plan-resource.js";
 export { localAppService } from "./app.js";
 export { localDatabaseService } from "./database.js";
+export { reconcileProjectProvisioning } from "./project-status.js";
 export {
   objectStorageProviderService,
   storageProviderFor,
   storageProviderForBucket,
   defaultStorageProvider,
 } from "./storage.js";
+export {
+  provisionStorageBucket,
+  createStorageBucketOnProvider,
+  rotateStorageCredentials,
+  storageCredential,
+  storageEndpoint,
+  listStorageObjects,
+  uploadStorageObject,
+  readStorageObject,
+  deleteStorageObject,
+  setStorageObjectPublic,
+  signStorageUrl,
+  verifySignedStorageUrl,
+  normalizeObjectKey,
+  assertStorageBucketLimit,
+  NoStorageProviderAvailableError,
+  StorageBucketLimitReachedError,
+  StorageCapacityLimitReachedError,
+} from "./customer-storage.js";
 export { databaseClusterService, clusterAdminUrl, pgConnect } from "./database-cluster.js";
 export { backupProviderService } from "./backup-provider.js";
 export { workerConfigService } from "./worker-config.js";

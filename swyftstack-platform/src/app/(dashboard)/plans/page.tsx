@@ -52,6 +52,7 @@ function planLimitData(formData: FormData) {
   return {
     maxProjects: intOrNull(formData, "maxProjects"),
     maxDatabases: intOrNull(formData, "maxDatabases"),
+    maxStorageBuckets: intOrNull(formData, "maxStorageBuckets"),
     maxDatabaseStorageBytes: bigOrNull(formData, "maxDatabaseStorageBytes"),
     maxObjectStorageBytes: bigOrNull(formData, "maxObjectStorageBytes"),
     maxEgressBytes: bigOrNull(formData, "maxEgressBytes"),
@@ -132,6 +133,7 @@ async function savePlan(formData: FormData) {
 type PlanLimits = {
   maxProjects: number | null;
   maxDatabases: number | null;
+  maxStorageBuckets: number | null;
   maxDatabaseStorageBytes: bigint | null;
   maxObjectStorageBytes: bigint | null;
   maxEgressBytes: bigint | null;
@@ -145,8 +147,8 @@ type PlanLimits = {
 
 const LIMIT_KEYS = [
   "maxProjects", "maxDatabases", "maxDatabaseStorageBytes", "maxObjectStorageBytes",
-  "maxEgressBytes", "maxVcpuSeconds", "maxBuildVcpuSeconds", "dailyDbBackups",
-  "backupRetentionHours", "maxTeamMembers", "maxCustomDomains",
+  "maxStorageBuckets", "maxEgressBytes", "maxVcpuSeconds", "maxBuildVcpuSeconds",
+  "dailyDbBackups", "backupRetentionHours", "maxTeamMembers", "maxCustomDomains",
 ] as const;
 
 /** Limit values as strings (RSC props must not carry BigInt). "" = unlimited. */
@@ -229,7 +231,7 @@ export default async function PlansPage() {
               : <span key="t" className="muted">—</span>,
             <Badge key="status" status={p.status} />,
             <div key="limits" className="small">
-              {p.limits?.maxProjects ?? "∞"} projects · {p.limits?.maxDatabases ?? "∞"} DBs<br />
+              {p.limits?.maxProjects ?? "∞"} projects · {p.limits?.maxDatabases ?? "∞"} DBs · {p.limits?.maxStorageBuckets ?? "∞"} buckets<br />
               {bytes(p.limits?.maxDatabaseStorageBytes)} DB · {bytes(p.limits?.maxObjectStorageBytes)} object
             </div>,
             `${enabled.size}/${FEATURE_KEYS.length} enabled`,
