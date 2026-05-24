@@ -26,7 +26,7 @@ const PROVIDER_TABS = new Set(["database-clusters", "object-storage", "backup-st
 export default async function InfrastructurePage({
   searchParams,
 }: {
-  searchParams: { tab?: string; error?: string };
+  searchParams: { tab?: string; error?: string; archived?: string };
 }) {
   const tab = TABS.some(([id]) => id === searchParams.tab) ? searchParams.tab! : "overview";
 

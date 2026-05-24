@@ -7,6 +7,7 @@ import {
   encryptSecret,
   isLocalControlPlaneNode,
   localNodeService,
+  nodeDrainService,
   NODE_ROLES,
   normalizeSshPrivateKey,
   prisma,
@@ -85,7 +86,7 @@ async function healthCheck(formData: FormData) {
   revalidatePath(`/nodes/${id}`);
 }
 
-async function setStatus(formData: FormData, status: "draining" | "disabled" | "active") {
+async function setStatus(formData: FormData, status: "disabled" | "active") {
   const id = str(formData, "id");
   if (status === "disabled") {
     await localNodeService.disable(id).catch(() => undefined);
@@ -95,7 +96,24 @@ async function setStatus(formData: FormData, status: "draining" | "disabled" | "
   }
   revalidatePath(`/nodes/${id}`);
 }
-async function drainNode(fd: FormData) { "use server"; await setStatus(fd, "draining"); }
+async function drainNode(fd: FormData) {
+  "use server";
+  const id = str(fd, "id");
+  await nodeDrainService.startDrain(id);
+  revalidatePath(`/nodes/${id}`);
+}
+async function retryDrain(fd: FormData) {
+  "use server";
+  const id = str(fd, "id");
+  await nodeDrainService.startDrain(id);
+  revalidatePath(`/nodes/${id}`);
+}
+async function cancelDrain(fd: FormData) {
+  "use server";
+  const id = str(fd, "id");
+  await nodeDrainService.cancelDrain(id);
+  revalidatePath(`/nodes/${id}`);
+}
 async function disableNode(fd: FormData) { "use server"; await setStatus(fd, "disabled"); }
 async function enableNode(fd: FormData) { "use server"; await setStatus(fd, "active"); }
 
@@ -219,7 +237,7 @@ export default async function NodeDetailPage({
   });
   if (!node) notFound();
 
-  const [events, buildDeployments] = await Promise.all([
+  const [events, buildDeployments, drainStatus] = await Promise.all([
     prisma.auditLog.findMany({
       where: { targetType: "node", targetId: node.id },
       orderBy: { createdAt: "desc" },
@@ -231,7 +249,15 @@ export default async function NodeDetailPage({
       take: 10,
       include: { app: { select: { name: true } } },
     }),
+    nodeDrainService.drainStatus(node.id),
   ]);
+  const drainBlocked = events
+    .filter((e) => e.action === "node.drain_enqueued")
+    .flatMap((e) => {
+      const meta = e.metadata as { blockedDetail?: { kind: string; name: string; reason: string }[] };
+      return meta?.blockedDetail ?? [];
+    })
+    .slice(0, 20);
 
   const metrics = [...node.metrics].reverse();
   const latest = node.metrics[0];
@@ -379,6 +405,76 @@ export default async function NodeDetailPage({
   // shows a stale warning if collection stops. SSR data renders immediately.
   const monitoringTab = (
     <NodeMonitor nodeId={node.id} initial={initialMonitorData} />
+  );
+
+  const drainInFlight = drainStatus.migrations.filter((m) =>
+    ["pending", "running", "verifying"].includes(m.status),
+  );
+  const drainCompleted = drainStatus.migrations.filter((m) => m.status === "completed");
+  const drainFailed = drainStatus.migrations.filter((m) => ["failed", "rolled_back"].includes(m.status));
+
+  const drainTab = (
+    <>
+      <Panel title="Drain status">
+        <KeyValue
+          rows={[
+            ["Node status", <Badge key="ns" status={drainStatus.nodeStatus} />],
+            ["Workloads remaining on this node", String(drainStatus.remainingWorkloads)],
+            ["Migrations in flight", String(drainInFlight.length)],
+            ["Migrations completed", String(drainCompleted.length)],
+            ["Migrations failed", String(drainFailed.length)],
+            ["Blocked workloads (no target)", String(drainBlocked.length)],
+          ]}
+        />
+        <div className="row" style={{ marginTop: 12, gap: 8 }}>
+          {node.status === "draining" ? (
+            <>
+              <form action={retryDrain}>
+                <input type="hidden" name="id" value={node.id} />
+                <button className="btn secondary">Retry drain (enqueue missing migrations)</button>
+              </form>
+              {drainInFlight.length === 0 && (
+                <form action={cancelDrain}>
+                  <input type="hidden" name="id" value={node.id} />
+                  <ConfirmButton message="Cancel drain and restore node to active?" className="btn danger">
+                    Cancel drain
+                  </ConfirmButton>
+                </form>
+              )}
+            </>
+          ) : (
+            <form action={drainNode}>
+              <input type="hidden" name="id" value={node.id} />
+              <button className="btn">Start drain</button>
+            </form>
+          )}
+        </div>
+        {drainBlocked.length > 0 && (
+          <div className="err" style={{ marginTop: 12 }}>
+            <strong>Blocked workloads:</strong>
+            <ul style={{ margin: "6px 0 0 18px" }}>
+              {drainBlocked.map((b, i) => (
+                <li key={i}>
+                  {b.kind} <code>{b.name}</code> — {b.reason}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </Panel>
+      <Panel title="Migration jobs" flush>
+        <Table
+          columns={["Resource", "Target node", "Status", "Created", "Error"]}
+          rows={drainStatus.migrations.map((m) => [
+            `${m.resourceType} ${m.resourceId?.slice(0, 8) ?? "—"}`,
+            m.targetNodeId ? m.targetNodeId.slice(0, 8) : "—",
+            <Badge key="s" status={m.status} />,
+            timeAgo(m.createdAt),
+            <span key="e" className="small">{m.errorMessage ?? "—"}</span>,
+          ])}
+        />
+      </Panel>
+    </>
   );
 
   const workloadsTab = (
@@ -578,6 +674,7 @@ export default async function NodeDetailPage({
           { id: "overview", label: "Overview", icon: "nodes", content: overviewTab },
           { id: "monitoring", label: "Live monitoring", icon: "usage", content: monitoringTab },
           { id: "workloads", label: "Workloads", icon: "apps", content: workloadsTab },
+          { id: "drain", label: "Drain", icon: "migrations", content: drainTab },
           { id: "capacity", label: "Capacity", icon: "cpu", content: capacityTab },
           { id: "configuration", label: "Configuration", icon: "settings", content: configTab },
           { id: "logs", label: "Logs", icon: "audit", content: logsTab },

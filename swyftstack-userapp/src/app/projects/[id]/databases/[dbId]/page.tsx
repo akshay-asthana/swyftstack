@@ -9,6 +9,7 @@ import { requireUser } from "@/lib/auth";
 import { UserShell } from "@/components/user-shell";
 import { Panel, Table, Badge, StatCard, bytes, timeAgo } from "@/components/ui";
 import { CopyButton, SecretField } from "@/components/client";
+import { DatabaseBrowser } from "@/components/db-browser";
 import { Icon } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
@@ -186,6 +187,12 @@ export default async function DatabaseDetail({
             ))}
           </div>
           <p className="small">Snippets mask the password. Use the reveal/copy controls above when you need the full secret.</p>
+        </Panel>
+      )}
+
+      {db.status === "active" && (
+        <Panel title="Browse data" flush>
+          <DatabaseBrowser databaseId={db.id} />
         </Panel>
       )}
 

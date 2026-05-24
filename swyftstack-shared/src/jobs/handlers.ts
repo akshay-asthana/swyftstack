@@ -6,6 +6,7 @@ import { localAppService } from "../services/app.js";
 import { localDatabaseService } from "../services/database.js";
 import { backupService } from "../services/backup.js";
 import { migrationService } from "../services/migration.js";
+import { nodeDrainService } from "../services/node-drain.js";
 import { storageProviderFor } from "../services/storage.js";
 import { objectStorageProviderService } from "../services/object-storage-provider.js";
 import { discoveryService } from "../services/discovery.js";
@@ -173,13 +174,25 @@ export const JOB_HANDLERS: Record<string, Handler> = {
   },
 
   async migrate_app(p) {
-    await migrationService.runMigration(String(p.migrationId));
-    return { migrationId: p.migrationId };
+    const migrationId = String(p.migrationId);
+    await migrationService.runMigration(migrationId);
+    const m = await prisma.migration.findUnique({
+      where: { id: migrationId },
+      select: { sourceNodeId: true },
+    });
+    if (m?.sourceNodeId) await nodeDrainService.finalizeIfDrained(m.sourceNodeId).catch(() => undefined);
+    return { migrationId };
   },
 
   async migrate_database(p) {
-    await migrationService.runMigration(String(p.migrationId));
-    return { migrationId: p.migrationId };
+    const migrationId = String(p.migrationId);
+    await migrationService.runMigration(migrationId);
+    const m = await prisma.migration.findUnique({
+      where: { id: migrationId },
+      select: { sourceNodeId: true },
+    });
+    if (m?.sourceNodeId) await nodeDrainService.finalizeIfDrained(m.sourceNodeId).catch(() => undefined);
+    return { migrationId };
   },
 
   async suspend_project(p) {

@@ -124,6 +124,17 @@ Containers/builds emit `usage_events`. `collect_usage` rolls them into the open
 resource's `node_id`, keeping the source until `verifying`→`completed`; failures
 mark `failed` (rollback-able).
 
+### Node drain (auto-migrate)
+Admin "Drain" → `nodeDrainService.startDrain(nodeId)`: marks the node
+`draining`, walks its live apps + databases + static sites, picks a target
+for each via `provisioningPolicyService.selectTarget(...)` (excluding the
+source node), and enqueues one `migrate_app` / `migrate_database` job per
+workload. Drain progress is derived from `migrations` rows where
+`source_node_id = nodeId`; the Drain tab in the admin node detail surfaces
+in-flight / blocked / completed counts and per-workload errors. After every
+successful migration the handler calls `finalizeIfDrained`, which moves the
+node to `disabled` once nothing remains.
+
 ### Node health
 Scheduler enqueues `collect_node_metrics` every 30s. Missed heartbeats:
 >60s → `degraded`, >180s → `offline` (audited; affected workloads visible).
@@ -142,8 +153,16 @@ delete after final backup (`delete_project` takes a final DB backup first).
 - **Customer**: sign up → verify email → personal organization + default plan
   → `/console`. Console sections cover overview, projects, databases, storage,
   backups, migrations, usage, team, settings, and billing placeholder. Project
-  creation can create/import a database and create a bucket while jobs run in
-  the background. Team invites support pending/resend/revoke/accept.
+  creation only asks for a name (placement comes from provisioning defaults);
+  it can create/import a database and create a bucket while jobs run in the
+  background. The database detail page includes a **read-only browser**:
+  table list, paginated rows with a no-code filter builder, and a SQL runner
+  restricted to SELECT-style statements with a 5s timeout. Team invites
+  support pending/resend/revoke/accept.
+- **Public visitor**: lands on `/` (marketing), can read `/platform`,
+  `/pricing`, `/blog`, `/announcements`, `/comparisons/*`. Marketing content
+  is served from `cms_marketing_pages` (admin → CMS). Only `published` rows
+  are publicly visible; previews use a short-lived HMAC token.
 
 ## 6. Security model
 

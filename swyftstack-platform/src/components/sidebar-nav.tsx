@@ -42,6 +42,12 @@ const NAV: { title: string; items: Item[] }[] = [
     ],
   },
   {
+    title: "Marketing",
+    items: [
+      ["/cms", "CMS", "help"],
+    ],
+  },
+  {
     title: "System",
     items: [
       ["/settings", "Settings", "settings"],

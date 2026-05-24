@@ -1,162 +1,117 @@
+// Public marketing landing page. If a logged-in user lands here, they still
+// see marketing — the console is at /console. We use CMS content when a
+// `landing_page` row is published, otherwise fall back to static copy.
 import Link from "next/link";
+import type { Metadata } from "next";
 import { prisma } from "swyftstack-shared";
-import { requireUser } from "@/lib/auth";
-import { UserShell } from "@/components/user-shell";
-import {
-  StatCard, Panel, Table, Badge, MetricRow, FeedItem, Ring, bytes, timeAgo,
-} from "@/components/ui";
-import { Icon, type IconName } from "@/components/icons";
+import { MarketingShell } from "@/components/marketing-shell";
+import { renderCmsContent } from "@/components/cms-content";
 
 export const dynamic = "force-dynamic";
 
-function actIcon(action: string): { icon: IconName; tone: "violet" | "blue" | "green" | "amber" | "rose" } {
-  if (action.includes("deploy") || action.includes("app")) return { icon: "rocket", tone: "green" };
-  if (action.includes("database") || action.includes("backup")) return { icon: "database", tone: "violet" };
-  if (action.includes("domain")) return { icon: "globe", tone: "blue" };
-  if (action.includes("project")) return { icon: "projects", tone: "amber" };
-  return { icon: "activity", tone: "violet" };
+export const metadata: Metadata = {
+  title: "Swyftstack — Databases, storage and apps on one platform",
+  description:
+    "Provision PostgreSQL databases, object storage, and host apps from a single control plane. Built for small teams.",
+};
+
+async function loadLandingContent() {
+  return prisma.cmsMarketingPage
+    .findFirst({
+      where: { type: "landing_page", status: "published" },
+      orderBy: { publishedAt: "desc" },
+    })
+    .catch(() => null);
 }
 
-const pretty = (s: string) => s.replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-
-export default async function Dashboard() {
-  const user = await requireUser();
-
-  const memberships = await prisma.projectMember.findMany({
-    where: { userId: user.id },
-    include: { project: { include: { organization: true } } },
-  });
-  const projectIds = memberships.map((m) => m.project.id);
-
-  const ownedOrg = await prisma.organization.findFirst({
-    where: { ownerUserId: user.id },
-    orderBy: { createdAt: "asc" },
-    include: {
-      subscriptions: { where: { status: { in: ["active", "trialing", "past_due"] } }, include: { plan: { include: { limits: true } } }, take: 1 },
-    },
-  });
-  const plan = ownedOrg?.subscriptions[0]?.plan ?? null;
-  const limits = plan?.limits ?? null;
-
-  const [apps, databases, buckets, activity, rollups] = await Promise.all([
-    prisma.app.findMany({
-      where: { projectId: { in: projectIds } },
-      include: { project: { select: { name: true } } },
-      orderBy: { updatedAt: "desc" },
-    }),
-    prisma.database.findMany({ where: { projectId: { in: projectIds } } }),
-    prisma.storageBucket.findMany({ where: { projectId: { in: projectIds } } }),
-    prisma.projectActivityLog.findMany({
-      where: { projectId: { in: projectIds } }, orderBy: { createdAt: "desc" }, take: 6,
-    }),
-    ownedOrg
-      ? prisma.usageRollup.findMany({ where: { organizationId: ownedOrg.id } })
-      : Promise.resolve([]),
-  ]);
-
-  const activeProjects = memberships.filter((m) => m.project.status === "active").length;
-  const runningApps = apps.filter((a) => a.status === "running").length;
-  const activeDbs = databases.filter((d) => d.status === "active").length;
-  const dbBytes = databases.reduce((s, d) => s + d.currentSizeBytes, 0n);
-  const objBytes = buckets.reduce((s, b) => s + b.currentStorageBytes, 0n);
-  const egressBytes = buckets.reduce((s, b) => s + b.currentEgressBytes, 0n);
-  const storageBytes = dbBytes + objBytes;
-
-  const rollupSum = (type: string) =>
-    rollups.filter((r) => r.usageType === type).reduce((s, r) => s + r.quantity, 0n);
-  const bandwidthIn =
-    rollupSum("node_network_in_bytes") + rollupSum("app_network_in_bytes") +
-    rollupSum("storage_network_in_bytes") + rollupSum("database_network_in_bytes");
-  const bandwidthOut =
-    rollupSum("node_network_out_bytes") + rollupSum("app_network_out_bytes") +
-    rollupSum("storage_network_out_bytes") + rollupSum("database_network_out_bytes");
-  const vcpuSeconds = rollupSum("app_runtime_vcpu_seconds") + rollupSum("build_vcpu_seconds");
-  const vcpuHours = Number(vcpuSeconds) / 3600;
-  const vcpuLimit = limits?.maxVcpuSeconds ? Number(limits.maxVcpuSeconds) / 3600 : null;
-  const vcpuPct = vcpuLimit ? (vcpuHours / vcpuLimit) * 100 : 0;
-
-  const pct = (used: bigint, limit: bigint | null | undefined) =>
-    limit && Number(limit) > 0 ? (Number(used) / Number(limit)) * 100 : 0;
-
+export default async function Landing() {
+  const cms = await loadLandingContent();
   return (
-    <UserShell user={user} workspace={ownedOrg?.name}>
-      <div className="page-head">
-        <div>
-          <h1 className="hello">Welcome back, {user.name?.split(" ")[0] ?? "there"}</h1>
-          <p className="sub" style={{ marginBottom: 0 }}>Here&apos;s what&apos;s happening across your projects.</p>
+    <MarketingShell>
+      <section className="mk-hero">
+        <div className="mk-container">
+          <h1 className="mk-h1">{cms?.title ?? "One control plane for databases, storage, and apps."}</h1>
+          <p className="mk-lead">
+            {cms?.excerpt ??
+              "Spin up managed PostgreSQL, object storage, and app hosting in minutes. Migrate workloads between nodes without downtime. Built for small teams who want infrastructure that just works."}
+          </p>
+          <div className="row" style={{ gap: 10, justifyContent: "center", marginTop: 18 }}>
+            <Link className="btn" href="/signup">Start free</Link>
+            <Link className="btn secondary" href="/platform">See the platform</Link>
+          </div>
         </div>
-        <Link className="btn" href="/projects/new"><Icon name="plus" size={15} /> New Project</Link>
-      </div>
+      </section>
 
-      {!plan && (
-        <div className="note" style={{ marginBottom: 16 }}>
-          You don&apos;t have an active plan yet. <Link href="/pricing?next=/console">Choose a plan</Link> to create
-          projects and provision resources.
-        </div>
+      {cms && (
+        <section className="mk-section">
+          <div className="mk-container mk-prose">{renderCmsContent(cms)}</div>
+        </section>
       )}
 
-      <div className="grid cols-5" style={{ marginBottom: 16 }}>
-        <StatCard icon="projects" tone="violet" label="Projects" value={activeProjects}
-          foot={`${memberships.length} total`} />
-        <StatCard icon="rocket" tone="green" label="Apps" value={runningApps}
-          foot={`${apps.length} deployed`} />
-        <StatCard icon="database" tone="blue" label="Databases" value={activeDbs}
-          foot={`${databases.length} total`} />
-        <StatCard icon="storage" tone="amber" label="Storage" value={bytes(storageBytes)}
-          foot={`${buckets.length} buckets`} />
-        <div className="statcard">
-          <div className="stat-top">
-            <div className="stat-icon rose"><Icon name="cpu" size={18} /></div>
-            <div className="stat-label">This Month vCPU</div>
-          </div>
-          <div className="ring-card">
-            <Ring percent={vcpuPct} />
-            <div className="ring-meta">
-              <div className="stat-value" style={{ fontSize: 18 }}>{vcpuHours.toFixed(0)}<small> vCPU-h</small></div>
-              <div className="stat-foot">of {vcpuLimit ? vcpuLimit.toFixed(0) : "∞"} included</div>
-            </div>
+      <section className="mk-section">
+        <div className="mk-container">
+          <h2 className="mk-h2">Everything you need to ship</h2>
+          <div className="mk-grid">
+            <Feature title="Managed PostgreSQL" body="Create databases with one click. Import from any URL. Daily backups, password rotation, and instant snapshots." />
+            <Feature title="Object storage" body="S3-compatible buckets per project. Storage capacity and egress metered against your plan." />
+            <Feature title="App hosting" body="Deploy Next.js, Node, Python, and static sites. Automatic builds, custom domains, and rollback." />
+            <Feature title="Backups & restores" body="Verified daily backups go to your configured storage provider. Restore safely from the dashboard." />
+            <Feature title="Imports & migrations" body="Bring an existing database over via libpq URL. Move workloads between nodes without losing data." />
+            <Feature title="Usage controls" body="Plans, limits, overrides. See per-project and per-app usage in real time before bills surprise you." />
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="split">
-        <Panel title="Usage overview" action={<Link className="small" href="/usage">Details →</Link>}>
-          <MetricRow name="vCPU hours" value={`${vcpuHours.toFixed(0)} / ${vcpuLimit ? vcpuLimit.toFixed(0) : "∞"}`} percent={vcpuPct} />
-          <MetricRow name="Database storage" value={`${bytes(dbBytes)} / ${limits?.maxDatabaseStorageBytes ? bytes(limits.maxDatabaseStorageBytes) : "∞"}`} percent={pct(dbBytes, limits?.maxDatabaseStorageBytes)} />
-          <MetricRow name="Object storage" value={`${bytes(objBytes)} / ${limits?.maxObjectStorageBytes ? bytes(limits.maxObjectStorageBytes) : "∞"}`} percent={pct(objBytes, limits?.maxObjectStorageBytes)} />
-          <MetricRow name="Egress bandwidth" value={`${bytes(egressBytes)} / ${limits?.maxEgressBytes ? bytes(limits.maxEgressBytes) : "∞"}`} percent={pct(egressBytes, limits?.maxEgressBytes)} />
-          <MetricRow name="Bandwidth in (this month)" value={bytes(bandwidthIn)} percent={0} />
-          <MetricRow name="Bandwidth out (this month)" value={bytes(bandwidthOut)} percent={0} />
-        </Panel>
+      <section className="mk-section mk-section-alt">
+        <div className="mk-container">
+          <h2 className="mk-h2">Built for small teams</h2>
+          <p className="mk-lead" style={{ maxWidth: 720 }}>
+            Self-hosted on your VPS fleet. Add a node, Swyftstack auto-detects hardware,
+            you confirm, and it joins the pool. No agents to babysit, no cloud lock-in,
+            and one operational view across nodes, databases, storage, and apps.
+          </p>
+        </div>
+      </section>
 
-        <Panel title="Recent activity">
-          <div className="feed">
-            {activity.length === 0 && <p className="small" style={{ margin: 0 }}>No activity yet.</p>}
-            {activity.map((a) => {
-              const m = actIcon(a.action);
-              return (
-                <FeedItem key={a.id} icon={m.icon} tone={m.tone}
-                  title={pretty(a.action)} time={timeAgo(a.createdAt)} />
-              );
-            })}
+      <section className="mk-section">
+        <div className="mk-container row between" style={{ flexWrap: "wrap", gap: 16 }}>
+          <div>
+            <h2 className="mk-h2" style={{ marginBottom: 6 }}>Ready to ship?</h2>
+            <p className="small muted" style={{ margin: 0 }}>Start free. Upgrade when you outgrow it.</p>
           </div>
-        </Panel>
-      </div>
+          <div className="row" style={{ gap: 10 }}>
+            <Link className="btn" href="/signup">Create account</Link>
+            <Link className="btn secondary" href="/pricing">See pricing</Link>
+          </div>
+        </div>
+      </section>
 
-      <Panel title="Your apps" flush action={<Link className="small" href="/projects">All projects →</Link>}>
-        <Table
-          columns={["Name", "Type", "Status", "Project", "Domain", "Updated"]}
-          empty="No apps yet — open a project to deploy your first app."
-          rows={apps.slice(0, 8).map((a) => [
-            <strong key="n">{a.name}</strong>,
-            a.type,
-            <Badge key="s" status={a.status} />,
-            a.project.name,
-            a.defaultDomain ?? "—",
-            timeAgo(a.updatedAt),
-          ])}
-        />
-      </Panel>
-    </UserShell>
+      <section className="mk-section">
+        <div className="mk-container">
+          <h2 className="mk-h2">FAQ</h2>
+          <Faq q="Can I bring an existing database?" a="Yes. Use the database import flow — paste a libpq URL and Swyftstack dumps, uploads, and restores into your project." />
+          <Faq q="Where does my data live?" a="On the nodes you connect. Swyftstack is the control plane; storage and DBs run on your VPS fleet." />
+          <Faq q="Do you charge for egress?" a="Egress is metered per plan. The usage page shows the live counter and your remaining budget." />
+        </div>
+      </section>
+    </MarketingShell>
+  );
+}
+
+function Feature({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="mk-feature">
+      <div className="mk-feature-title">{title}</div>
+      <p className="mk-feature-body">{body}</p>
+    </div>
+  );
+}
+
+function Faq({ q, a }: { q: string; a: string }) {
+  return (
+    <details className="mk-faq">
+      <summary>{q}</summary>
+      <p>{a}</p>
+    </details>
   );
 }

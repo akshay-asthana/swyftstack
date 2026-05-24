@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
-import { env, platformSettingsService, PLATFORM_DOMAIN_KEYS } from "swyftstack-shared";
+import {
+  env,
+  platformSettingsService,
+  PLATFORM_DOMAIN_KEYS,
+  platformBucketService,
+  prisma,
+} from "swyftstack-shared";
 import { requireAdmin } from "@/lib/auth";
 import { Panel, Table } from "@/components/ui";
 
@@ -15,8 +21,26 @@ async function saveDomains(formData: FormData) {
   revalidatePath("/settings");
 }
 
+async function savePlatformBucket(formData: FormData) {
+  "use server";
+  const admin = await requireAdmin();
+  const providerId = String(formData.get("platform_bucket_provider_id") ?? "").trim();
+  if (!providerId) return;
+  await platformBucketService.configure({
+    providerId,
+    bucketName: String(formData.get("platform_bucket_name") ?? "").trim() || undefined,
+    prefix: String(formData.get("platform_bucket_prefix") ?? "").trim() || undefined,
+    actorUserId: admin.id,
+  });
+  revalidatePath("/settings");
+}
+
 export default async function SettingsPage() {
   const domains = await platformSettingsService.getDomains();
+  const [bucketSettings, providers] = await Promise.all([
+    platformBucketService.settings(),
+    prisma.objectStorageProvider.findMany({ where: { status: "active" }, orderBy: { name: "asc" } }),
+  ]);
   const rows: [string, string][] = [
     ["NODE_ENV", env.NODE_ENV],
     ["LOG_LEVEL", env.LOG_LEVEL],
@@ -60,6 +84,56 @@ export default async function SettingsPage() {
             </div>
           </div>
           <div style={{ marginTop: 14 }}><button className="btn">Save domains</button></div>
+        </form>
+      </Panel>
+
+      <Panel title="Platform bucket (CMS + marketing assets)">
+        <p className="small">
+          Where Swyftstack stores its own assets — CMS images, marketing files, email
+          attachments. Distinct from customer buckets so customers are never billed for
+          platform-owned content. Asset paths are <code>/{bucketSettings.prefix}/marketing_data/&lt;yyyy&gt;/&lt;mm&gt;/&lt;uuid&gt;-&lt;file&gt;</code>.
+        </p>
+        <form action={savePlatformBucket}>
+          <div className="form-grid">
+            <div>
+              <label>Storage provider</label>
+              <select name="platform_bucket_provider_id" defaultValue={bucketSettings.providerId ?? ""}>
+                <option value="">— select a provider —</option>
+                {providers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.provider}{p.region ? `, ${p.region}` : ""})
+                  </option>
+                ))}
+              </select>
+              {providers.length === 0 && (
+                <p className="small">
+                  Add an active provider on <Link href="/infrastructure?tab=object-storage">Infrastructure → Object Storage</Link> first.
+                </p>
+              )}
+            </div>
+            <div>
+              <label>Bucket name</label>
+              <input
+                name="platform_bucket_name"
+                defaultValue={bucketSettings.bucketName}
+                placeholder="platform"
+              />
+            </div>
+            <div>
+              <label>Prefix</label>
+              <input
+                name="platform_bucket_prefix"
+                defaultValue={bucketSettings.prefix}
+                placeholder="platform"
+              />
+            </div>
+          </div>
+          <div className="row" style={{ marginTop: 12, gap: 8 }}>
+            <button className="btn" type="submit">Save platform bucket</button>
+            {bucketSettings.bucketId && (
+              <span className="small muted">bucket id: <code>{bucketSettings.bucketId.slice(0, 8)}…</code></span>
+            )}
+          </div>
         </form>
       </Panel>
     </>

@@ -190,8 +190,21 @@ but it rejects `.pub` public keys.
 
 The Nodes page row menu offers the full lifecycle:
 
-- **Drain** / **Disable** — reversible; safe on any node, including `local-dev`.
+- **Drain** — marks the node `draining` **and** auto-enqueues migrations for
+  every live app, database and static site on it. Targets are chosen by the
+  matching `ProvisioningPolicy` (`app` / `database` / `static`), with the
+  source node excluded from candidates. The node's **Drain** tab shows the
+  enqueued migrations, in-flight / completed counts, and any **blocked**
+  workloads (no healthy alternative node). The drain can be retried (to pick
+  up newly-arrived workloads) or cancelled while no migration is in flight.
+  When every migration completes the node is moved to `disabled`
+  (`finalizeIfDrained`), at which point you can archive it safely.
+- **Disable** — reversible; safe on any node, including `local-dev`. Stops
+  scheduling new resources without touching existing workloads.
 - **Archive** — reversible; allowed once the node has no active workloads.
+  Archived nodes are excluded from totals and the active table (capacity,
+  health, totals all ignore them). Toggle **Show archived** on the Nodes
+  page to surface a separate "Archived nodes" panel.
 - **Delete** — permanent; allowed only when the node is **not protected** and
   has no active apps, databases, clusters, domains or in-flight migrations.
   If blocked, the UI says exactly which workloads to move first.
@@ -201,6 +214,23 @@ The Nodes page row menu offers the full lifecycle:
 The canonical `local-dev` node is `is_protected`, so it cannot be archived or
 normal-deleted — but a leftover duplicate is **not** protected and can be
 deleted normally. Admins are never trapped with an undeletable duplicate.
+
+#### Drain workflow internals
+
+- `nodeDrainService.startDrain(nodeId)` flips status, walks `apps` and
+  `databases` whose `node_id = nodeId`, picks a target with
+  `provisioningPolicyService.selectTarget(...)` and filters out the source.
+- Each workload becomes one `migrations` row (`source_node_id = nodeId`) and
+  one queued `migrate_app` / `migrate_database` job. The existing
+  `migrationService.runMigration` re-points the resource's `node_id` once
+  verification succeeds — no fake rsync work.
+- The job handler calls `nodeDrainService.finalizeIfDrained(sourceNodeId)`
+  after each successful migration so the node auto-transitions to `disabled`
+  the moment the last workload moves.
+- If no healthy target exists for a workload, the drain marks it **blocked**
+  in `audit_logs.metadata.blockedDetail` so the admin sees an actionable
+  reason ("no healthy target node — configure another node or relax
+  provisioning targets") instead of a silent stall.
 
 ### Configure provisioning defaults
 
@@ -280,11 +310,18 @@ In production, `EMAIL_WEBHOOK_URL` is required.
 
 ### Project creation
 
-`/projects/new` now creates the project and can also request:
+`/projects/new` only asks for:
 
-- a new managed PostgreSQL database
-- an import from an external PostgreSQL URL
-- an object storage bucket
+- project name
+- database mode (create new / import existing / skip)
+- optional database name + password (auto-generated if omitted)
+- optional bucket name + public flag
+
+**No region / location field.** Placement of the database, storage bucket and
+future app workloads is decided entirely by the `ProvisioningPolicy` rows
+configured in **Admin → Infrastructure → Provisioning Defaults**. The
+`Project.region` column is left null on new projects — older projects keep
+their region but it is informational only.
 
 The project can remain `provisioning` while independent `create_database`,
 `import_database_from_url`, and `create_storage_bucket` jobs run. If one
@@ -292,6 +329,31 @@ resource fails, the project becomes `partially_failed` instead of disappearing.
 
 Plan checks enforce max projects, max databases, max storage buckets, database
 capacity, object storage capacity, and disabled plan features.
+
+### Database GUI (browse / SQL / stats)
+
+Each customer database page now has a **Browse data** panel powered by three
+new services in `swyftstack-shared`:
+
+- `DatabaseIntrospectionService` (`listTables`, `describeTable`, `getStats`)
+  — pulls schema info from `information_schema` + `pg_*` system catalogs.
+- `DatabaseBrowseService.browseTable` — paginated row viewer with a no-code
+  filter builder. Filters are validated against the introspected columns
+  (unknown columns are rejected) and applied as parameterized SQL.
+- `DatabaseQueryService.runQuery` — a read-only SQL runner. DDL/DML keywords
+  (`DROP/DELETE/UPDATE/INSERT/ALTER/TRUNCATE/CREATE/GRANT/REVOKE/VACUUM/
+  REFRESH/COPY`) are rejected before the statement leaves the userapp, and
+  every query is wrapped in `BEGIN; SET LOCAL statement_timeout = 5000;
+  SET TRANSACTION READ ONLY; …; COMMIT` so the database itself refuses any
+  write that slips past the parser. Result rows are capped at 1000 with a
+  `truncated` flag returned to the UI.
+
+Everything goes through `/api/db-browse` (POST, JSON action envelope) so
+membership and rate-limit checks happen on the server. Each successful query
+is recorded in `project_activity_logs` for audit. Databases without an
+assigned cluster (`databaseClusterId == null`) return an empty browser
+instead of error — same simulated-mode pattern as the rest of the local-dev
+stack.
 
 ### Database management
 
@@ -341,6 +403,97 @@ S3-compatible gateway support is intentionally not claimed yet.
 (`admin`, `developer`, `billing`, `viewer`), optional project scope, pending
 invite list, resend, revoke, and `/invite/accept`. Invite tokens are hashed at
 rest and expire after 7 days.
+
+## Public marketing app + console split
+
+`swyftstack-userapp` is now Swyftstack's public website **and** the customer
+console, in one Next.js app:
+
+- `/` → marketing landing (public)
+- `/platform` → product page (public)
+- `/pricing` → public pricing from active `plans` rows
+- `/blog`, `/blog/[slug]` → CMS blog
+- `/announcements`, `/announcements/[slug]` → CMS announcements / news / changelog
+- `/comparisons/[slug]` → CMS comparisons
+- `/console` → authenticated customer dashboard (was `/`)
+- `/projects`, `/databases`, `/storage`, `/backups`, `/billing`, … →
+  authenticated console resources (each still calls `requireUser()`)
+
+Marketing pages render with `<MarketingShell>` (header / footer / SEO);
+console routes keep the existing `<UserShell>` sidebar. The two layouts share
+nothing — admin code never imports into marketing pages.
+
+The app still ships as a normal Next.js app:
+
+```bash
+npm run dev:user       # alias of dev:userapp — Next dev on :3001
+npm run build          # build all workspaces
+```
+
+### CMS — content for the marketing app
+
+Admin → **CMS** (sidebar group "Marketing") manages every marketing page,
+blog post, comparison and announcement. Single table: `cms_marketing_pages`.
+
+- **Types:** `landing_page · page · blog · testimonial · comparison ·
+  announcement · news · changelog · docs · faq`
+- **Statuses:** `draft · published · archived` — only `published` is publicly
+  visible. Slug uniqueness is enforced per `(type, slug)`.
+- **Editor:** TipTap (`@tiptap/react` + `starter-kit`, `link`, `image`,
+  `placeholder`). The doc is stored as `content_json`; rendered HTML is also
+  cached in `content_html` for crawler-friendly SSR.
+- **SEO fields:** `seo_title`, `seo_description`, `og_image_url`,
+  `canonical_url`. Used by `generateMetadata` on every public route.
+- **Preview:** the admin edit page exposes a **Preview** button that signs a
+  short-lived `?preview=…` HMAC; the public route then renders the draft
+  without exposing it via the normal URL.
+
+Images and assets uploaded from the TipTap editor POST to
+`/api/cms/upload` (admin-only), which writes via `platformBucketService` —
+**never** a customer bucket — and returns a long-lived signed URL.
+
+### Platform bucket
+
+`platform_settings` keys configure where platform-owned assets live:
+
+| Key | Meaning |
+|---|---|
+| `platform_bucket_provider_id` | uuid of an `object_storage_providers` row |
+| `platform_bucket_name` | bucket name (default `platform`) |
+| `platform_bucket_prefix` | path prefix (default `platform`) |
+| `platform_bucket_id` | populated automatically after first use |
+
+Admin → **Settings → Platform bucket** wires these. The first call to
+`platformBucketService.ensurePlatformBucket()` creates a `storage_buckets`
+row owned by a system org named `__platform__` (so customers are never
+billed for it) and materialises the on-disk folder via the existing storage
+provider. Asset paths are:
+
+```
+/<prefix>/marketing_data/<yyyy>/<mm>/<uuid>-<sanitised-filename>
+```
+
+The same helper can later host email assets at `/<prefix>/email_assets/...`.
+
+## Commands
+
+```bash
+# Schema / migrations
+npm run db:migrate     # prisma migrate dev
+npm run db:push        # prisma db push (remote schema sync)
+npm run db:generate    # prisma generate
+npm run db:seed        # seed plans, providers, policies, local-dev node
+
+# Apps
+npm run dev:admin      # admin control-plane (Next, :3000)
+npm run dev:user       # public marketing + customer console (Next, :3001)
+npm run dev:worker     # background job worker
+npm run docker:up      # bring up local Postgres
+
+# Tests / build
+npm test               # vitest run on swyftstack-shared
+npm run build          # tsc + next build across all workspaces
+```
 
 ### Local test checklist
 

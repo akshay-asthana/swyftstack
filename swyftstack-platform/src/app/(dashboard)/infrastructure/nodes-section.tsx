@@ -10,6 +10,7 @@ import {
   isLocalControlPlaneNode,
   localNodeService,
   nodeDeletionService,
+  nodeDrainService,
   NodeProtectedError,
   NodeHasWorkloadsError,
   NODE_ROLES,
@@ -119,8 +120,13 @@ async function createNode(formData: FormData) {
 
 async function drain(formData: FormData) {
   "use server";
-  await localNodeService.drain(str(formData, "id"));
+  const id = str(formData, "id");
+  // Mark draining + auto-enqueue migration jobs for every live workload on
+  // the node. Blocked workloads (no healthy target) surface on the node
+  // detail "Drain" tab as actionable errors.
+  await nodeDrainService.startDrain(id);
   revalidatePath("/infrastructure");
+  revalidatePath(`/nodes/${id}`);
 }
 
 async function disable(formData: FormData) {
@@ -173,7 +179,12 @@ async function forceDeleteNode(formData: FormData) {
 
 // ---- section --------------------------------------------------------------
 
-export async function NodesSection({ searchParams }: { searchParams: { error?: string } }) {
+export async function NodesSection({
+  searchParams,
+}: {
+  searchParams: { error?: string; archived?: string };
+}) {
+  const showArchived = searchParams.archived === "1";
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
@@ -226,7 +237,10 @@ export async function NodesSection({ searchParams }: { searchParams: { error?: s
 
   const error = searchParams.error ? NODE_ERRORS[searchParams.error] : null;
 
-  const rows: DTRow[] = nodes.map((n) => {
+  const archivedNodes = nodes.filter((n) => n.status === "archived");
+  const activeTableNodes = live;
+
+  const renderRow = (n: typeof nodes[number]): DTRow => {
     const m = n.metrics[0];
     const stale = n.lastMetricAt && Date.now() - n.lastMetricAt.getTime() > 60_000;
     const usage = m
@@ -264,14 +278,16 @@ export async function NodesSection({ searchParams }: { searchParams: { error?: s
         </span>,
         <RowMenu key="m">
           <Link href={`/nodes/${n.id}`}>View node</Link>
-          <Link href={`/nodes/${n.id}#monitoring`}>Live monitoring</Link>
+          {n.status !== "archived" && (
+            <Link href={`/nodes/${n.id}#monitoring`}>Live monitoring</Link>
+          )}
           <Link href={`/nodes/${n.id}#configuration`}>Configure node</Link>
-          <div className="sep" />
-          {n.status !== "draining" && (
+          {n.status !== "archived" && <div className="sep" />}
+          {n.status !== "draining" && n.status !== "archived" && (
             <form action={drain}><input type="hidden" name="id" value={n.id} /><button>Drain node</button></form>
           )}
           {n.status === "disabled" || n.status === "archived" ? (
-            <form action={enable}><input type="hidden" name="id" value={n.id} /><button>Enable node</button></form>
+            <form action={enable}><input type="hidden" name="id" value={n.id} /><button>Restore node</button></form>
           ) : (
             <form action={disable}><input type="hidden" name="id" value={n.id} /><button>Disable node</button></form>
           )}
@@ -292,15 +308,31 @@ export async function NodesSection({ searchParams }: { searchParams: { error?: s
         </RowMenu>,
       ],
     };
-  });
+  };
+
+  const activeRows = activeTableNodes.map(renderRow);
+  const archivedRows = archivedNodes.map(renderRow);
 
   return (
     <>
       <div className="actionbar" style={{ marginBottom: 14 }}>
         <p className="sub" style={{ margin: 0 }}>
           VPS nodes auto-detect their hardware on connection. No manual capacity entry.
+          {archivedNodes.length > 0 && (
+            <> · <span className="muted">{archivedNodes.length} archived</span></>
+          )}
         </p>
-        <a className="btn" href="#new-node">+ Add node</a>
+        <div className="row">
+          {archivedNodes.length > 0 && (
+            <a
+              className="btn secondary"
+              href={showArchived ? "/infrastructure?tab=nodes" : "/infrastructure?tab=nodes&archived=1"}
+            >
+              {showArchived ? "Hide archived" : `Show archived (${archivedNodes.length})`}
+            </a>
+          )}
+          <a className="btn" href="#new-node">+ Add node</a>
+        </div>
       </div>
 
       {error && <div className="err" style={{ marginBottom: 14 }}>{error}</div>}
@@ -339,14 +371,40 @@ export async function NodesSection({ searchParams }: { searchParams: { error?: s
           { key: "heartbeat", label: "Last metric" },
           { key: "actions", label: "" },
         ]}
-        rows={rows}
+        rows={activeRows}
         filters={[
-          { key: "status", label: "Status", options: ["active", "degraded", "offline", "disabled", "provisioning", "archived"] },
+          { key: "status", label: "Status", options: ["active", "degraded", "offline", "disabled", "provisioning", "draining"] },
           { key: "discovery", label: "Discovery", options: ["pending", "succeeded", "failed"] },
         ]}
         searchPlaceholder="Search nodes by name or provider…"
         emptyText="No nodes yet. Add your first VPS node to begin."
       />
+
+      {showArchived && archivedNodes.length > 0 && (
+        <section style={{ marginTop: 24 }}>
+          <div className="actionbar" style={{ marginBottom: 10 }}>
+            <h2 className="h2" style={{ margin: 0 }}>Archived nodes</h2>
+            <p className="sub" style={{ margin: 0 }}>
+              Historical nodes — excluded from capacity totals and from scheduling. Restore to reactivate.
+            </p>
+          </div>
+          <DataTable
+            columns={[
+              { key: "name", label: "Node", sortable: true },
+              { key: "status", label: "Status" },
+              { key: "discovery", label: "Discovery" },
+              { key: "capacity", label: "Last detected capacity" },
+              { key: "usage", label: "Last usage" },
+              { key: "workloads", label: "Workloads" },
+              { key: "heartbeat", label: "Last metric" },
+              { key: "actions", label: "" },
+            ]}
+            rows={archivedRows}
+            searchPlaceholder="Search archived nodes…"
+            emptyText="No archived nodes."
+          />
+        </section>
+      )}
 
       <Modal id="new-node" title="Add a node">
         <form action={createNode}>

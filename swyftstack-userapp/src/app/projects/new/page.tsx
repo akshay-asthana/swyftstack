@@ -51,7 +51,6 @@ async function createProject(formData: FormData) {
   }
 
   const name = String(formData.get("name") ?? "").trim();
-  const region = String(formData.get("region") ?? "").trim() || "local";
   if (!name) redirect("/projects/new");
   const databaseMode = String(formData.get("databaseMode") ?? "new");
   const databaseName = String(formData.get("databaseName") ?? "").trim();
@@ -68,12 +67,12 @@ async function createProject(formData: FormData) {
 
   const project = await prisma.project.create({
     data: {
-      organizationId: workspace.id, name, slug, region, createdBy: user.id,
+      organizationId: workspace.id, name, slug, createdBy: user.id,
       status: (databaseMode !== "none" || bucketName) ? "provisioning" : "active",
       members: { create: { userId: user.id, role: "owner" } },
     },
   });
-  await projectActivity(project.id, "project.created", user.id, { name, region });
+  await projectActivity(project.id, "project.created", user.id, { name });
 
   try {
     if (databaseMode === "new") {
@@ -157,13 +156,9 @@ export default async function NewProjectPage() {
           <form action={createProject}>
             <label>Project name</label>
             <input name="name" required autoFocus placeholder="Production API" />
-            <label>Region</label>
-            <select name="region" defaultValue="local">
-              <option value="local">local — control-plane node</option>
-              <option value="fsn1">fsn1 — Falkenstein</option>
-              <option value="gra">gra — Gravelines</option>
-              <option value="bhs">bhs — Beauharnois</option>
-            </select>
+            <p className="small muted" style={{ margin: "6px 0 0" }}>
+              Region is chosen automatically by Swyftstack's provisioning defaults.
+            </p>
             <div className="section-title" style={{ marginTop: 18 }}>Database</div>
             <label>Create or import database</label>
             <select name="databaseMode" defaultValue="new">

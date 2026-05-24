@@ -2,7 +2,8 @@
 
 // Interactive admin UI kit (§15). Server pages pass plain data + pre-rendered
 // cells; these components handle search/sort/filter, menus, tabs and clipboard.
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Icon, type IconName } from "./icons";
 
@@ -295,35 +296,92 @@ export function DataTable({
 }
 
 // ---------------------------------------------------------------- RowMenu
+// Renders the popover into <body> via a portal so the menu escapes any
+// table/card overflow:hidden parent. Positioning is computed from the trigger
+// button's getBoundingClientRect; it flips upward when the menu would clip
+// against the viewport bottom.
+const MENU_WIDTH = 200;
+const MENU_GAP = 6;
+
 export function RowMenu({ children, label }: { children: React.ReactNode; label?: string }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; placement: "down" | "up" } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !btnRef.current) return;
+    const recompute = () => {
+      const rect = btnRef.current!.getBoundingClientRect();
+      const popHeight = popRef.current?.offsetHeight ?? 220;
+      const room = window.innerHeight - rect.bottom;
+      const placement: "down" | "up" = room < popHeight + MENU_GAP + 12 ? "up" : "down";
+      const top = placement === "down" ? rect.bottom + MENU_GAP : rect.top - MENU_GAP - popHeight;
+      const left = Math.max(8, Math.min(window.innerWidth - MENU_WIDTH - 8, rect.right - MENU_WIDTH));
+      setPos({ top, left, placement });
+    };
+    recompute();
+    window.addEventListener("scroll", recompute, true);
+    window.addEventListener("resize", recompute);
+    return () => {
+      window.removeEventListener("scroll", recompute, true);
+      window.removeEventListener("resize", recompute);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (popRef.current?.contains(target) || btnRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
     };
     document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [open]);
 
   return (
-    <div className="rowmenu" ref={ref}>
+    <span className="rowmenu">
       <button
+        ref={btnRef}
+        type="button"
         className="rowmenu-btn"
         aria-label="Row actions"
-        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
       >
         <Icon name="dots" size={16} />
       </button>
-      {open && (
-        <div className="rowmenu-pop" onClick={() => setOpen(false)}>
-          {label && <div className="mlabel">{label}</div>}
-          {children}
-        </div>
-      )}
-    </div>
+      {open && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={popRef}
+            className="rowmenu-pop rowmenu-portal"
+            style={{
+              top: pos?.top ?? 0,
+              left: pos?.left ?? 0,
+              width: MENU_WIDTH,
+              opacity: pos ? 1 : 0,
+            }}
+            onClick={() => setOpen(false)}
+          >
+            {label && <div className="mlabel">{label}</div>}
+            {children}
+          </div>,
+          document.body,
+        )}
+    </span>
   );
 }
 

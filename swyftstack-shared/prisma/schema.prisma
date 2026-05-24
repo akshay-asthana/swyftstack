@@ -1546,6 +1546,44 @@ model ProvisioningPolicy {
   @@map("provisioning_policies")
 }
 
+// ---------------------------------------------------------------------------
+// CMS (§15) — marketing pages, blog, comparisons, announcements. One table
+// per spec (single-table v1, no separate assets/categories/tags). Asset
+// files live in the platform bucket; only their URLs are stored here.
+// ---------------------------------------------------------------------------
+
+model CmsMarketingPage {
+  id              String   @id @default(uuid()) @db.Uuid
+  // type: landing_page | page | blog | testimonial | comparison |
+  //       announcement | news | changelog | docs | faq
+  type            String
+  // status: draft | published | archived
+  status          String   @default("draft")
+  title           String
+  slug            String
+  excerpt         String?
+  // TipTap document JSON (canonical authoring format).
+  contentJson     Json     @default("{}") @map("content_json")
+  // Pre-rendered HTML for non-TipTap fallback / SSR speed (optional).
+  contentHtml     String?  @map("content_html")
+  seoTitle        String?  @map("seo_title")
+  seoDescription  String?  @map("seo_description")
+  ogImageUrl      String?  @map("og_image_url")
+  canonicalUrl    String?  @map("canonical_url")
+  authorId        String?  @map("author_id") @db.Uuid
+  publishedAt     DateTime? @map("published_at") @db.Timestamptz
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  metadata        Json     @default("{}")
+
+  @@unique([type, slug])
+  @@index([status])
+  @@index([type])
+  @@index([publishedAt])
+  @@index([slug])
+  @@map("cms_marketing_pages")
+}
+
 model ProvisioningTarget {
   id              String   @id @default(uuid()) @db.Uuid
   policyId        String   @map("policy_id") @db.Uuid

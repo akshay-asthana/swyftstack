@@ -96,6 +96,25 @@ Swyftstack/
   - `customer-storage.ts` — customer bucket provisioning, scoped credentials,
     local-dev file browser operations, signed storage URL HMAC helpers, storage
     limit enforcement.
+  - `node-drain.ts` — `nodeDrainService`: `startDrain` flips a node to
+    `draining` and auto-enqueues `migrate_*` jobs for every live app/db/
+    static site (target picked via `provisioningPolicyService` with the
+    source excluded). `drainStatus` / `cancelDrain` / `finalizeIfDrained`
+    feed the admin Drain tab and the post-migration handler.
+  - `database-browser.ts` — `databaseBrowserService` powering the user
+    console DB GUI: `listTables`, `describeTable`, `browseTable` (paginated
+    rows, parameterized WHERE built from validated filter operators), and
+    `runQuery` (single-statement, blocks DDL/DML keywords, wraps every call
+    in `BEGIN; SET LOCAL statement_timeout = 5000; SET TRANSACTION READ
+    ONLY; …; COMMIT`; rows capped at 1000).
+  - `cms.ts` — `cmsService`: CRUD + publish/unpublish/archive +
+    `generatePreviewToken` / `verifyCmsPreviewToken` (HMAC). Backs the admin
+    CMS pages and the public marketing routes.
+  - `platform-bucket.ts` — `platformBucketService.ensurePlatformBucket()`,
+    `uploadMarketingAsset()`, `platformAssetKey()`. Lazy-creates a system-
+    owned `storage_buckets` row under the `__platform__` org so CMS assets
+    never touch a customer bucket. Asset path is
+    `/<prefix>/marketing_data/<yyyy>/<mm>/<uuid>-<file>`.
   `database.ts`/`backup.ts`/`storage.ts` resolve their target from these
   services; `jobs/worker.ts` is driven by `workerConfigService`.
 - `jobs/` — `index.ts` (enqueue/claim/complete/fail/retry/cancel),
@@ -131,18 +150,23 @@ Pure modules never import `db.ts`, so the test suite runs without Postgres or
   toggles + limits; a resource's limit inputs disable when it is off (§9).
 - `src/app/(dashboard)/*` — overview, users(+`[id]`), organizations(+`[id]`),
   projects(+`[id]`), apps, databases, buckets, plans, usage, jobs, backups,
-  audit-logs, migrations, infrastructure, help, settings. Settings includes
-  DB-backed platform domain configuration. `infra-overview` and
-  `nodes` are redirects into the Infrastructure hub. List pages use `DataTable`.
+  audit-logs, migrations, infrastructure, **cms**(+`new`/`[id]`), help,
+  settings. Settings now also configures the platform bucket (provider,
+  bucket name, prefix). `infra-overview` and `nodes` are redirects into the
+  Infrastructure hub. List pages use `DataTable`. `RowMenu` (in
+  `client.tsx`) renders its popover via `createPortal` so dropdowns escape
+  table/card `overflow:hidden` parents.
 - `infrastructure/` — the single Infrastructure hub (§5/§6). `page.tsx` is a
   query-param tab shell; `overview-section.tsx` (fleet capacity/health/top-N),
   `nodes-section.tsx` (node cards + table + add/lifecycle), `providers-section
   .tsx` (clusters/object/backup/workers), `provisioning-section.tsx` (§7
   provisioning policies + targets), `help-section.tsx`.
 - `nodes/[id]` — onboarding (test → discover → confirm roles → activate) then
-  tabbed overview/monitoring/workloads/capacity/configuration/logs/events. The
-  monitoring tab is the polling `NodeMonitor`. Logs includes a streaming
-  terminal backed by `node_connection_logs`.
+  tabbed overview/monitoring/workloads/**drain**/capacity/configuration/logs/
+  events. The Drain tab lists `nodeDrainService.drainStatus(nodeId)`:
+  migration jobs created, in-flight / completed / blocked counts, and
+  retry / cancel actions. The monitoring tab is the polling `NodeMonitor`.
+  Logs includes a streaming terminal backed by `node_connection_logs`.
 - `users/[id]`, `organizations/[id]`, `projects/[id]` — comprehensive tabbed
   detail pages (usage, plan/trial, members, overrides, activity).
 - `src/app/api/admin/*` — REST endpoints (overview, nodes[+drain+agent script,
@@ -161,19 +185,47 @@ Pure modules never import `db.ts`, so the test suite runs without Postgres or
   usage 60s, rollup_metrics 120s, enforce 120s, database backup scheduler 1h,
   control backup 6h).
 
-## swyftstack-userapp (customer console)
+## swyftstack-userapp (public marketing + customer console)
+
+`swyftstack-userapp` is now both the public website **and** the customer
+console — in the same Next.js app, with distinct shells:
+
+- Marketing routes (`/`, `/platform`, `/pricing`, `/blog`, `/blog/[slug]`,
+  `/announcements`, `/announcements/[slug]`, `/comparisons/[slug]`) use
+  `<MarketingShell>` (header + footer, public, SEO-driven). They read CMS
+  rows from `cms_marketing_pages` filtered to `status=published`. Drafts can
+  be previewed with a short-lived `?preview=<hmac>` token issued by the
+  admin CMS editor.
+- Console routes (`/console`, `/projects`, `/databases`, `/storage`,
+  `/backups`, `/team`, `/billing`, `/usage`, `/settings`, …) use the
+  existing `<UserShell>` and each calls `requireUser()`. The dashboard
+  formerly served at `/` now lives at `/console`.
+
+Files:
 
 - `src/lib/auth.ts` — DB-backed user sessions, login events, legacy-cookie
   compatibility, logout revocation.
 - `src/app/signup`, `login`, `forgot-password`, `reset-password`,
   `verify-email`, `invite/accept` — auth/onboarding, hashed token flows,
   email/dev-log delivery.
-- `src/app/page.tsx` and `/console` — console overview: plan/trial/usage,
+- `src/app/page.tsx` — public landing (marketing), pulls a published
+  `landing_page` row from CMS if present, else static fallback.
+- `src/app/console/page.tsx` — authenticated overview: plan/trial/usage,
   resource counts, quick create project, recent activity.
-- `src/app/pricing/page.tsx` — plan selection gate for free users.
-- `src/app/projects/new/page.tsx` — project creation with optional new DB,
-  DB import, and storage bucket; validates project/db/bucket limits and
-  enqueues worker jobs.
+- `src/app/pricing/page.tsx` — public pricing list from `plans`; the choose-
+  plan action still attaches a `Subscription` for signed-in users.
+- `src/app/platform`, `blog`, `announcements`, `comparisons` — CMS-backed
+  marketing routes (see above).
+- `src/components/marketing-shell.tsx`, `src/components/cms-content.tsx` —
+  marketing layout + TipTap-JSON renderer (no admin code imported).
+- `src/components/db-browser.tsx` — client component for the database GUI
+  (tables / browse / SQL runner / stats). Calls `/api/db-browse`.
+- `src/app/api/db-browse/route.ts` — single POST endpoint with action
+  dispatch: `list_tables / describe_table / browse / run_query / stats`.
+  Validates project membership, then forwards to `databaseBrowserService`.
+- `src/app/projects/new/page.tsx` — project creation (name + db/bucket
+  options only — **no region field**; placement comes from provisioning
+  defaults).
 - `src/app/projects/[id]/page.tsx` — tabbed project detail gated by
   `project_members`: apps, databases, storage, imports, members, activity;
   create app, create database, create bucket, and import-database-from-URL

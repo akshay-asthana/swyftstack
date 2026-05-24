@@ -62,6 +62,12 @@ export { workerConfigService } from "./worker-config.js";
 export type { WorkerType, ResolvedWorkerConfig } from "./worker-config.js";
 export { backupService, runDatabaseBackup, runControlPlaneBackup, expireOldBackups } from "./backup.js";
 export { migrationService } from "./migration.js";
+export {
+  nodeDrainService,
+  NoMigrationTargetError,
+  DrainInProgressError,
+} from "./node-drain.js";
+export type { DrainStatus } from "./node-drain.js";
 export { sshNodeService, runNodeProbe } from "./ssh.js";
 export type { SshResult, SshStreamCallbacks } from "./ssh.js";
 export { discoveryService } from "./discovery.js";
@@ -74,3 +80,40 @@ export {
   DatabaseLimitReachedError,
 } from "./database-provision.js";
 export { databaseImportService, maskDbUrl } from "./database-import.js";
+export {
+  cmsService,
+  verifyCmsPreviewToken,
+  slugifyCms,
+  CmsValidationError,
+  CMS_TYPES,
+  CMS_STATUSES,
+} from "./cms.js";
+export type { CmsType, CmsStatus, CmsInput } from "./cms.js";
+export {
+  platformBucketService,
+  ensurePlatformBucket,
+  platformAssetKey,
+  PlatformBucketNotConfiguredError,
+} from "./platform-bucket.js";
+export {
+  databaseBrowserService,
+  validateFilters,
+  isUnsafeQuery,
+  UnsafeQueryError,
+  DatabaseUnavailableError,
+  InvalidIdentifierError,
+  FILTER_OPERATORS,
+  QUERY_STATEMENT_TIMEOUT_MS,
+  ROW_LIMIT_DEFAULT,
+  ROW_LIMIT_MAX,
+  QUERY_ROW_LIMIT,
+} from "./database-browser.js";
+export type {
+  BrowseFilter,
+  BrowseOptions,
+  BrowseResult,
+  ColumnInfo,
+  TableInfo,
+  QueryResult,
+  FilterOperator,
+} from "./database-browser.js";
