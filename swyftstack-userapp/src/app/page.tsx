@@ -131,7 +131,7 @@ export default async function Homepage() {
             Deploy production-ready database and storage <span className="m-text-grad">in seconds</span>.
           </h1>
           <p className="m-hero-lead">
-            Managed PostgreSQL, S3 storage, and verified backups - on one premium developer platform.
+            Production-grade PostgreSQL, S3-compatible storage, and verified backups from one clean dashboard.
           </p>
           <div className="m-hero-ctas">
             <Link className="m-btn m-btn-primary m-btn-lg" href={signedIn ? "/console" : "/signup"}>

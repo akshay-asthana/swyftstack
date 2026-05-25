@@ -8,9 +8,10 @@
  * ============================================================ */
 
 :root {
-  /* Edit these two colors to test marketing gradients across the app. */
+  /* Edit these colors to test marketing gradients and the homepage Vanta field. */
   --gradientcolor1: #ff8008;
   --gradientcolor2: #ffc837;
+  --vantabackground: #07080d;
 }
 
 .m {

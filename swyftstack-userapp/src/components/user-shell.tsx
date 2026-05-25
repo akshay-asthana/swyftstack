@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "swyftstack-shared";
 import { logout } from "@/lib/auth";
 import { UserNav } from "./user-nav";
+import { ConsoleThemeToggle } from "./console-theme-toggle";
 import { Icon } from "./icons";
 import { timeAgo } from "./ui";
 
@@ -81,6 +82,7 @@ export async function UserShell({
           <div className="row right">
             <Link className="small" href="/help">Docs</Link>
             <Link className="small" href="/help">Support</Link>
+            <ConsoleThemeToggle />
             <details className="notif-menu">
               <summary className="icon-btn" title="Notifications" aria-label="Notifications">
                 <Icon name="bell" size={16} />

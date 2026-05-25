@@ -20,7 +20,7 @@ export default function NodejsDatabasePage() {
       eyebrow="Node.js + Swyftstack"
       headline="PostgreSQL for Node.js,"
       headlineAccent="ready in minutes."
-      subheadline="Express, Fastify, Hono, Nest. pg, Prisma, Drizzle - all work as-is."
+      subheadline="Express, Fastify, Hono, Nest. pg, Prisma, and Drizzle all work as-is."
       primaryCta={{ label: "Deploy a database", href: "/signup" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
       snippets={{

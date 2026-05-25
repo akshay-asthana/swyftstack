@@ -4,7 +4,6 @@
 import { currentUser } from "@/lib/auth";
 import { MarketingNavbar } from "./navbar";
 import { MarketingFooter } from "./footer";
-import "@/styles/theme.css";
 import "@/styles/marketing.css";
 
 export async function MarketingShell({ children }: { children: React.ReactNode }) {

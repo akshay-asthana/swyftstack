@@ -20,7 +20,7 @@ export default function FromRailwayPage() {
       eyebrow="From Railway"
       headline="Migrate from Railway to Swyftstack"
       headlineAccent="in three clicks."
-      subheadline="Keep Railway for app hosting if you like. We just take the database - flat bill, included backups."
+      subheadline="Keep Railway for app hosting if you like. Swyftstack takes the database with a flat bill and included backups."
       primaryCta={{ label: "Start migration", href: "/signup" }}
       secondaryCta={{ label: "Compare to Railway", href: "/railway-alternative" }}
       steps={{

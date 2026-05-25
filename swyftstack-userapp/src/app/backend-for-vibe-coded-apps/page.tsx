@@ -22,7 +22,7 @@ export default function VibeCodedPage() {
       eyebrow="For AI-built apps"
       headline="You built an app."
       headlineAccent="Here's what makes it real."
-      subheadline="Lovable, Bolt, Cursor, v0 - your AI tool built it. Now connect a real database and storage."
+      subheadline="Lovable, Bolt, Cursor, and v0 built the app. Now connect a real database and storage."
       primaryCta={{ label: "Deploy my first backend", href: "/signup" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
       whenLists={{

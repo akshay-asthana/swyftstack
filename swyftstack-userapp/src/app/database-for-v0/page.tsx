@@ -20,7 +20,7 @@ export default function V0Page() {
       eyebrow="For v0 apps"
       headline="Connect a real database to your v0 app"
       headlineAccent="in 5 minutes."
-      subheadline="v0 generates the UI. Swyftstack adds the missing piece - a managed PostgreSQL database your app can actually save data to."
+      subheadline="v0 generates the UI. Swyftstack adds the managed PostgreSQL database your app can actually save data to."
       primaryCta={{ label: "Get a database", href: "/signup" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
       steps={{

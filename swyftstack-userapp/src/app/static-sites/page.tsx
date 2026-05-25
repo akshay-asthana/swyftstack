@@ -36,7 +36,7 @@ export default function StaticSitesPage() {
           <div className="m-eyebrow"><span className="m-eyebrow-dot" />Free static site hosting</div>
           <h1>Custom domains. Automatic HTTPS. <span className="m-text-grad">Free forever</span>.</h1>
           <p className="m-hero-lead">
-            Drag a folder or push to Git - live in seconds with HTTPS and unmetered bandwidth.
+            Drag a folder or push to Git, then go live in seconds with HTTPS and unmetered bandwidth.
           </p>
           <div className="m-hero-ctas">
             <Link className="m-btn m-btn-primary m-btn-lg" href="/signup">

@@ -69,7 +69,7 @@ export default function PostgresPage() {
           <div className="m-eyebrow"><span className="m-eyebrow-dot" />Managed PostgreSQL</div>
           <h1>Managed PostgreSQL, <span className="m-text-grad">deployed in seconds</span>.</h1>
           <p className="m-hero-lead">
-            PostgreSQL 16 with SSL, daily backups, and a connection string ready to paste - under a minute.
+            PostgreSQL 16 with SSL, daily backups, and a connection string ready to paste in under a minute.
           </p>
           <div className="m-hero-ctas">
             <Link className="m-btn m-btn-primary m-btn-lg" href="/signup">

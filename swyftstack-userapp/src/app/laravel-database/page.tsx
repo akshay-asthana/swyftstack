@@ -20,7 +20,7 @@ export default function LaravelDatabasePage() {
       eyebrow="Laravel + Swyftstack"
       headline="PostgreSQL for Laravel,"
       headlineAccent="ready in minutes."
-      subheadline="A managed PostgreSQL Laravel will be happy with - SSL, backups, and a copyable connection string under a minute."
+      subheadline="A managed PostgreSQL Laravel will be happy with, including SSL, backups, and a copyable connection string under a minute."
       primaryCta={{ label: "Deploy a database", href: "/signup" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
       snippets={{

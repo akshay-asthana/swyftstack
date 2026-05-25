@@ -42,7 +42,7 @@ export default function PlatformPage() {
           <div className="m-eyebrow"><span className="m-eyebrow-dot" />One platform for your whole backend</div>
           <h1>Everything you need to ship. Nothing you don&rsquo;t.</h1>
           <p className="m-hero-lead">
-            Managed PostgreSQL, S3 storage, backups and migration - on one premium platform.
+            Managed PostgreSQL, S3 storage, backups, and migration on one premium platform.
           </p>
           <div className="m-hero-ctas">
             <Link className="m-btn m-btn-primary m-btn-lg" href="/signup">
