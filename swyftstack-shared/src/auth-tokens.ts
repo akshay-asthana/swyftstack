@@ -31,12 +31,15 @@ export async function sendVerificationEmail(userId: string): Promise<string> {
   const link = await createEmailVerificationLink(userId);
   await sendTransactionalEmail({
     to: user.email,
+    userId: user.id,
+    essential: true,
     subject: "Verify your Swyftstack account",
     text:
       `Welcome to Swyftstack.\n\n` +
       `Verify your email address with this link:\n${link}\n\n` +
       `This link expires in 24 hours.`,
   });
+  if (env.NODE_ENV !== "production") console.log(`[dev-verification-link] ${link}`);
   return link;
 }
 
@@ -81,15 +84,20 @@ export async function createPasswordResetLink(email: string): Promise<string | n
 }
 
 export async function sendPasswordResetEmail(email: string): Promise<string | null> {
-  const link = await createPasswordResetLink(email);
+  const normalized = email.trim().toLowerCase();
+  const link = await createPasswordResetLink(normalized);
   if (!link) return null;
+  const user = await prisma.user.findUnique({ where: { email: normalized }, select: { id: true } });
   await sendTransactionalEmail({
-    to: email.trim().toLowerCase(),
+    to: normalized,
+    userId: user?.id ?? null,
+    essential: true,
     subject: "Reset your Swyftstack password",
     text:
       `Use this link to reset your Swyftstack password:\n${link}\n\n` +
       `This link expires in 1 hour. If you did not request it, you can ignore this email.`,
   });
+  if (env.NODE_ENV !== "production") console.log(`[dev-password-reset-link] ${link}`);
   return link;
 }
 

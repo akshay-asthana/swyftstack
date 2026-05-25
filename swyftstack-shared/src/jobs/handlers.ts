@@ -13,8 +13,9 @@ import { discoveryService } from "../services/discovery.js";
 import { metricsService } from "../services/metrics.js";
 import { databaseImportService } from "../services/database-import.js";
 import { createStorageBucketOnProvider, rotateStorageCredentials } from "../services/customer-storage.js";
-import { rollUpUsage, enforceLimits } from "../usage-engine.js";
+import { rollUpUsage, enforceLimits, checkUsageThresholds } from "../usage-engine.js";
 import { rollUpMetrics } from "../metrics-rollup.js";
+import { sendEmailDelivery, sendPendingEmailDeliveries } from "../email.js";
 
 type Handler = (payload: Record<string, unknown>) => Promise<unknown>;
 
@@ -151,6 +152,16 @@ export const JOB_HANDLERS: Record<string, Handler> = {
 
   async enforce_limits() {
     return enforceLimits();
+  },
+
+  async check_usage_thresholds() {
+    return checkUsageThresholds();
+  },
+
+  async send_email(p) {
+    const deliveryId = typeof p.deliveryId === "string" ? p.deliveryId : "";
+    if (deliveryId) return sendEmailDelivery(deliveryId);
+    return sendPendingEmailDeliveries();
   },
 
   async import_database_from_url(p) {

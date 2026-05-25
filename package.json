@@ -13,6 +13,7 @@
     "db:generate": "npm -w swyftstack-shared run prisma:generate",
     "db:migrate": "npm -w swyftstack-shared run prisma:migrate",
     "db:push": "npm -w swyftstack-shared run prisma:push",
+    "db:repair": "npm -w swyftstack-shared run db:repair",
     "db:seed": "npm -w swyftstack-shared run seed",
     "docker:up": "docker compose up -d postgres",
     "docker:down": "docker compose down",

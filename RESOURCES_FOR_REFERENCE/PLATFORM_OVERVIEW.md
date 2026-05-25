@@ -19,7 +19,7 @@ a node and is movable, so scaling out never requires a rewrite.
 | Component | Role |
 |---|---|
 | `swyftstack-platform` | Admin dashboard + control API (auth, RBAC, plans, limits, resource actions). |
-| `swyftstack-workers` | Job worker + scheduler. Runs deploys, backups, metrics, usage rollups, enforcement. |
+| `swyftstack-workers` | Job worker + scheduler. Runs deploys, backups, metrics, usage rollups, enforcement, threshold notifications, email delivery. |
 | `swyftstack-userapp` | Customer view of their projects/apps/databases (role-gated). |
 | `swyftstack-shared` | Schema, services, job runtime, and all business logic. |
 | Postgres (control) | Source of truth for the whole platform. |
@@ -110,7 +110,7 @@ upload → verify checksum → mark `verified` → only then prune older verifie
 backups. Control-plane DB backs up every 6h, retained ≥7 days. The scheduler
 also enqueues `schedule_database_backups` hourly for customer databases whose
 plan includes backups. Restore jobs create a safety backup before the MVP
-restore path, then emit project activity and optional email notifications.
+restore path, then emit project activity and queued email notifications.
 
 ### Usage metering & enforcement
 Containers/builds emit `usage_events`. `collect_usage` rolls them into the open
@@ -118,6 +118,23 @@ Containers/builds emit `usage_events`. `collect_usage` rolls them into the open
 - ≥80% → warning (audit)
 - ≥100% → block new builds/deploys
 - ≥110% → suspend dynamic runtime (unless overage/override) → `suspend_project`
+
+`check_usage_thresholds` runs after rollups every 15 minutes. It checks database
+storage, object storage and egress against effective plan limits, creates only
+the highest newly crossed threshold (75/90/100) per billing period, and records
+`usage_threshold_events.idempotency_key` to prevent duplicates. Email delivery
+is queued through `send_email`, not sent from request handlers.
+
+### Notifications and transactional email
+
+Customer notifications live in `notifications`; delivery attempts live in
+`notification_deliveries`; preferences live in `notification_preferences`.
+The customer console shows a notification bell and `/console/notifications`.
+
+Admin → Settings → Email providers configures ZeptoMail/local-dev/webhook
+providers. ZeptoMail API tokens are AES-256-GCM encrypted. Google OAuth
+first-time signup creates one welcome notification/email via a deterministic
+`welcome:google:<user_id>` idempotency key.
 
 ### Migration between nodes
 `POST /api/admin/migrations` → `migrations` row + job → worker re-points the
@@ -158,7 +175,8 @@ delete after final backup (`delete_project` takes a final DB backup first).
   background. The database detail page includes a **read-only browser**:
   table list, paginated rows with a no-code filter builder, and a SQL runner
   restricted to SELECT-style statements with a 5s timeout. Team invites
-  support pending/resend/revoke/accept.
+  support pending/resend/revoke/accept. Usage alerts appear in the notification
+  bell and inbox, with email sent only when verified email + preferences allow it.
 - **Public visitor**: lands on `/` (marketing), can read `/platform`,
   `/pricing`, `/blog`, `/announcements`, `/comparisons/*`. Marketing content
   is served from `cms_marketing_pages` (admin → CMS). Only `published` rows
@@ -173,6 +191,8 @@ delete after final backup (`delete_project` takes a final DB backup first).
 - Customer DB roles are never superuser and cannot reach other tenants' DBs.
 - Customer-visible secrets are masked by default and reveal/copy only.
 - Verification, password-reset and invitation tokens are hashed at rest.
+- Transactional email provider credentials are encrypted; API tokens are never
+  logged and emails are delivered by worker jobs.
 - Every admin/system action is appended to immutable `audit_logs`.
 
 ## 7. MVP boundaries / next steps

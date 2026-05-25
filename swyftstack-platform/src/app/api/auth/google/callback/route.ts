@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import {
   env,
+  createGoogleWelcomeNotification,
   findOrCreateOAuthCustomerAccount,
   hashToken,
   prisma,
@@ -114,6 +115,10 @@ export async function GET(req: Request) {
       return userAppRedirect("/login?error=google_email");
     }
 
+    const existingUser = await prisma.user.findUnique({
+      where: { email: profile.email.trim().toLowerCase() },
+      select: { id: true },
+    });
     const user = await findOrCreateOAuthCustomerAccount({
       email: profile.email,
       name: profile.name ?? profile.email,
@@ -153,6 +158,11 @@ export async function GET(req: Request) {
         data: { lastLoginAt: new Date(), lastLoginIp: ipAddress, lastActivityAt: new Date() },
       }),
     ]);
+    if (!existingUser) {
+      await createGoogleWelcomeNotification(user.id).catch((err) =>
+        console.error("[google-auth] welcome notification failed:", err),
+      );
+    }
 
     const res = userAppRedirect(safeNext(state.next));
     res.cookies.set(USER_SESSION_COOKIE, sessionToken, {

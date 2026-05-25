@@ -278,6 +278,9 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
   usageEvents        UsageEvent[]
+  notifications      Notification[]
+  notificationPreferences NotificationPreference?
+  usageThresholdEvents UsageThresholdEvent[]
 
   @@map("users")
 }
@@ -388,6 +391,8 @@ model Organization {
   usageEvents   UsageEvent[]
   usageRollups  UsageRollup[]
   invitations   Invitation[]
+  notifications Notification[]
+  usageThresholdEvents UsageThresholdEvent[]
 
   @@index([ownerUserId])
   @@map("organizations")
@@ -569,6 +574,8 @@ model Project {
   usageRollups    UsageRollup[]
   migrations      Migration[]
   databaseImports DatabaseImport[]
+  notifications   Notification[]
+  usageThresholdEvents UsageThresholdEvent[]
 
   @@unique([organizationId, slug])
   @@index([organizationId])
@@ -1160,6 +1167,7 @@ model UsagePeriod {
   organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   subscription Subscription? @relation(fields: [subscriptionId], references: [id])
   rollups      UsageRollup[]
+  thresholdEvents UsageThresholdEvent[]
 
   @@index([organizationId])
   @@map("usage_periods")
@@ -1254,6 +1262,128 @@ model PlatformSetting {
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("platform_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Notifications / transactional email
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String?   @map("user_id") @db.Uuid
+  organizationId String?   @map("organization_id") @db.Uuid
+  projectId      String?   @map("project_id") @db.Uuid
+  resourceType   String?   @map("resource_type")
+  resourceId     String?   @map("resource_id") @db.Uuid
+  type           String
+  severity       String
+  title          String
+  message        String
+  actionLabel    String?   @map("action_label")
+  actionUrl      String?   @map("action_url")
+  idempotencyKey String?   @unique @map("idempotency_key")
+  metadata       Json      @default("{}")
+  readAt         DateTime? @map("read_at") @db.Timestamptz
+  dismissedAt    DateTime? @map("dismissed_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  project      Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  deliveries   NotificationDelivery[]
+  thresholdEvents UsageThresholdEvent[]
+
+  @@index([userId, readAt, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([projectId, createdAt])
+  @@index([type, createdAt])
+  @@map("notifications")
+}
+
+model NotificationDelivery {
+  id                String    @id @default(uuid()) @db.Uuid
+  notificationId    String    @map("notification_id") @db.Uuid
+  channel           String
+  status            String    @default("pending")
+  provider          String?
+  providerMessageId String?   @map("provider_message_id")
+  errorMessage      String?   @map("error_message")
+  attempts          Int       @default(0)
+  metadata          Json      @default("{}")
+  sentAt            DateTime? @map("sent_at") @db.Timestamptz
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  usageThresholdEvents UsageThresholdEvent[] @relation("UsageThresholdEmailDelivery")
+
+  @@index([notificationId])
+  @@index([channel, status, createdAt])
+  @@index([provider, status])
+  @@map("notification_deliveries")
+}
+
+model NotificationPreference {
+  id                  String   @id @default(uuid()) @db.Uuid
+  userId              String   @unique @map("user_id") @db.Uuid
+  usageThresholdEmail Boolean  @default(true) @map("usage_threshold_email")
+  usageThresholdInApp Boolean  @default(true) @map("usage_threshold_in_app")
+  welcomeEmail        Boolean  @default(true) @map("welcome_email")
+  marketingEmail      Boolean  @default(false) @map("marketing_email")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+model UsageThresholdEvent {
+  id                  String   @id @default(uuid()) @db.Uuid
+  userId              String   @map("user_id") @db.Uuid
+  organizationId      String   @map("organization_id") @db.Uuid
+  projectId           String?  @map("project_id") @db.Uuid
+  usagePeriodId       String?  @map("usage_period_id") @db.Uuid
+  resourceType        String   @map("resource_type")
+  thresholdPercent    Int      @map("threshold_percent")
+  currentValueBytes   BigInt?  @map("current_value_bytes")
+  limitValueBytes     BigInt?  @map("limit_value_bytes")
+  currentValueSeconds BigInt?  @map("current_value_seconds")
+  limitValueSeconds   BigInt?  @map("limit_value_seconds")
+  notificationId      String?  @map("notification_id") @db.Uuid
+  emailDeliveryId     String?  @map("email_delivery_id") @db.Uuid
+  idempotencyKey      String   @unique @map("idempotency_key")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization  Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  project       Project?              @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  usagePeriod   UsagePeriod?          @relation(fields: [usagePeriodId], references: [id], onDelete: SetNull)
+  notification  Notification?         @relation(fields: [notificationId], references: [id], onDelete: SetNull)
+  emailDelivery NotificationDelivery? @relation("UsageThresholdEmailDelivery", fields: [emailDeliveryId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([organizationId, resourceType, thresholdPercent])
+  @@index([usagePeriodId])
+  @@map("usage_threshold_events")
+}
+
+model EmailProvider {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String
+  provider        String
+  status          String   @default("active")
+  fromEmail       String   @map("from_email")
+  fromName        String   @map("from_name")
+  replyToEmail    String?  @map("reply_to_email")
+  apiUrl          String   @map("api_url")
+  encryptedApiKey String?  @map("encrypted_api_key")
+  config          Json     @default("{}")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([provider, status])
+  @@map("email_providers")
 }
 
 model UsageRollup {

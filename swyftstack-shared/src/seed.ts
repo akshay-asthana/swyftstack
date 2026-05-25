@@ -207,6 +207,34 @@ async function main() {
     },
   });
 
+  let emailProvider = await prisma.emailProvider.findFirst({ where: { status: "active" } });
+  if (env.ZEPTOMAIL_API_URL && env.ZEPTOMAIL_API_KEY) {
+    const existing = await prisma.emailProvider.findFirst({ where: { name: "zeptomail-env-bootstrap" } });
+    const data = {
+      provider: "zeptomail",
+      status: "active",
+      fromEmail: env.ZEPTOMAIL_FROM_EMAIL || "no-reply@swyftstack.local",
+      fromName: env.ZEPTOMAIL_FROM_NAME || "Swyftstack",
+      apiUrl: env.ZEPTOMAIL_API_URL,
+      encryptedApiKey: encryptSecret(env.ZEPTOMAIL_API_KEY),
+    };
+    await prisma.emailProvider.updateMany({ where: { name: { not: "zeptomail-env-bootstrap" } }, data: { status: "disabled" } });
+    emailProvider = existing
+      ? await prisma.emailProvider.update({ where: { id: existing.id }, data })
+      : await prisma.emailProvider.create({ data: { name: "zeptomail-env-bootstrap", ...data } });
+  } else if (!emailProvider && env.NODE_ENV !== "production") {
+    emailProvider = await prisma.emailProvider.create({
+      data: {
+        name: "local-dev-email",
+        provider: "local_dev",
+        status: "active",
+        fromEmail: "no-reply@swyftstack.local",
+        fromName: "Swyftstack",
+        apiUrl: "local_dev",
+      },
+    });
+  }
+
   // --- Default provisioning policies (§7/§13) -------------------------------
   // New customer resources land here unless the admin reconfigures them.
   await seedPolicy("app", "Default app placement", "least_used", [
@@ -260,6 +288,7 @@ async function main() {
   console.log("  db cluster        :", cluster.name);
   console.log("  object storage    :", objStore.name);
   console.log("  backup provider   :", backupStore.name, "(default)");
+  console.log("  email provider    :", emailProvider?.name ?? "env/local fallback");
   console.log("  worker config     :", workerCfg.workerType);
   console.log("  provisioning      : app, build, static, database, object_storage, backup");
   console.log("  help docs         :", PROVIDER_HELP_DOCS.length, "provider guides");

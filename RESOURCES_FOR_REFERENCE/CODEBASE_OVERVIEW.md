@@ -7,7 +7,7 @@
 
 ```
 Swyftstack/
-├── package.json              # workspace root + scripts (db:*, dev:*, test)
+├── package.json              # workspace root + scripts (db:*, db:repair, dev:*, test)
 ├── docker-compose.yml        # local Postgres (control + optional customer DB)
 ├── .env / .env.example       # configuration (secrets, DB, worker, storage)
 ├── swyftstack-shared/         # shared library: schema, services, jobs, logic
@@ -28,7 +28,12 @@ Swyftstack/
   `npm run db:generate` first (`prisma/schema.prisma`).
 - `crypto.ts` — AES-256-GCM `encryptSecret/decryptSecret`, `hashPassword`
   (scrypt), `hashToken`, `randomSecret`.
-- `email.ts` — transactional email webhook + dev-log fallback.
+- `email.ts` — queued transactional email delivery, provider abstraction
+  (`zeptomail`, `webhook`, `local_dev`), encrypted provider config helpers.
+- `email-templates.ts` — transactional templates for Google welcome and usage
+  threshold/limit emails.
+- `notifications.ts` — in-app notification creation, usage threshold
+  idempotency, Google OAuth welcome notification, `checkUsageThresholds()`.
 - `auth-tokens.ts` — hashed email verification and password reset tokens.
 - `constants.ts` — `FEATURE_KEYS`, `LIMIT_KEYS`, `USAGE_TYPES`, `NODE_ROLES`,
   `SCOPE_PRECEDENCE`, `PLAN_PRESETS` (Starter/Pro).
@@ -39,7 +44,8 @@ Swyftstack/
 - `dbsql.ts` — **pure** SQL generation for isolated customer DB provisioning.
 - `backup-state.ts` — **pure** backup transition rules + safe-to-delete logic.
 - `audit.ts` — `audit()` + `projectActivity()` writers (append-only).
-- `usage-engine.ts` — DB-backed `rollUpUsage()` + `enforceLimits()`.
+- `usage-engine.ts` — DB-backed `rollUpUsage()`, `enforceLimits()` and
+  threshold-check export.
 - `metrics-rollup.ts` — `rollUpMetrics()`: aggregates node gauges + usage
   events into `metric_rollups` (hourly/daily, 10 scopes) for fast dashboards.
 - `node-discovery.ts` — **pure** SSH discovery probe + parser (CPU/RAM/disk/
@@ -121,10 +127,14 @@ Swyftstack/
   `backoff.ts` (pure), `handlers.ts` (per-type handlers incl. discover/collect
   metrics, rollup_metrics, `create_storage_bucket`,
   `rotate_database_password`, `schedule_database_backups`,
-  `import_database_from_url`), `worker.ts` (loop).
+  `import_database_from_url`, `check_usage_thresholds`, `send_email`),
+  `worker.ts` (loop).
 - `seed.ts` — idempotent: admin + Starter/Pro plans + the single `local-dev`
   node (dedupes/upserts by `node_key`, never duplicates) + local infrastructure
   providers + six default `provisioning_policies`.
+- `scripts/apply-safe-migrations.mjs` — `npm run db:repair`; applies additive,
+  idempotent app migrations for existing dev/remote DBs without Prisma's full
+  schema diff prompt.
 - `__tests__/` — vitest specs (pure logic only; no DB needed).
 
 Pure modules never import `db.ts`, so the test suite runs without Postgres or

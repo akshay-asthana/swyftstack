@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
-import { prisma } from "swyftstack-shared";
+import { ensureNotificationPreferences, prisma } from "swyftstack-shared";
 import { requireUser } from "@/lib/auth";
 import { UserShell } from "@/components/user-shell";
 import { Panel, Badge } from "@/components/ui";
@@ -15,6 +15,28 @@ async function updateName(formData: FormData) {
   revalidatePath("/settings");
 }
 
+async function updateNotificationPreferences(formData: FormData) {
+  "use server";
+  const user = await requireUser();
+  await prisma.notificationPreference.upsert({
+    where: { userId: user.id },
+    update: {
+      usageThresholdEmail: formData.get("usageThresholdEmail") === "on",
+      usageThresholdInApp: formData.get("usageThresholdInApp") === "on",
+      welcomeEmail: formData.get("welcomeEmail") === "on",
+      marketingEmail: formData.get("marketingEmail") === "on",
+    },
+    create: {
+      userId: user.id,
+      usageThresholdEmail: formData.get("usageThresholdEmail") === "on",
+      usageThresholdInApp: formData.get("usageThresholdInApp") === "on",
+      welcomeEmail: formData.get("welcomeEmail") === "on",
+      marketingEmail: formData.get("marketingEmail") === "on",
+    },
+  });
+  revalidatePath("/settings");
+}
+
 export default async function SettingsPage() {
   const user = await requireUser();
   const org = await prisma.organization.findFirst({
@@ -26,6 +48,7 @@ export default async function SettingsPage() {
     },
   });
   const plan = org?.subscriptions[0]?.plan;
+  const prefs = await ensureNotificationPreferences(user.id);
 
   return (
     <UserShell user={user} workspace={org?.name}>
@@ -37,15 +60,26 @@ export default async function SettingsPage() {
       </div>
 
       <div className="split">
-        <Panel title="Profile">
-          <form action={updateName}>
-            <label>Display name</label>
-            <input name="name" defaultValue={user.name ?? ""} placeholder="Your name" />
-            <label>Email</label>
-            <input value={user.email} disabled />
-            <div style={{ marginTop: 16 }}><button className="btn">Save changes</button></div>
-          </form>
-        </Panel>
+        <div>
+          <Panel title="Profile">
+            <form action={updateName}>
+              <label>Display name</label>
+              <input name="name" defaultValue={user.name ?? ""} placeholder="Your name" />
+              <label>Email</label>
+              <input value={user.email} disabled />
+              <div style={{ marginTop: 16 }}><button className="btn">Save changes</button></div>
+            </form>
+          </Panel>
+          <Panel title="Notifications">
+            <form action={updateNotificationPreferences}>
+              <label className="check"><input type="checkbox" name="usageThresholdInApp" defaultChecked={prefs.usageThresholdInApp} /> In-app usage threshold alerts</label>
+              <label className="check"><input type="checkbox" name="usageThresholdEmail" defaultChecked={prefs.usageThresholdEmail} /> Email usage threshold alerts</label>
+              <label className="check"><input type="checkbox" name="welcomeEmail" defaultChecked={prefs.welcomeEmail} /> Welcome and onboarding emails</label>
+              <label className="check"><input type="checkbox" name="marketingEmail" defaultChecked={prefs.marketingEmail} /> Product news and marketing emails</label>
+              <div style={{ marginTop: 16 }}><button className="btn secondary">Save notification preferences</button></div>
+            </form>
+          </Panel>
+        </div>
 
         <div>
           <Panel title="Workspace">

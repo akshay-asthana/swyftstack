@@ -17,6 +17,7 @@ const schema = z.object({
     .string()
     .min(1)
     .default("postgresql://swyftstack:swyftstack@localhost:5432/swyftstack_control"),
+  DIRECT_URL: z.string().default(""),
 
   // Required secrets.
   SECRET_ENCRYPTION_KEY: z.string().default(""),
@@ -37,6 +38,10 @@ const schema = z.object({
   // required; the webhook receives { from, to, subject, text } JSON.
   EMAIL_FROM: z.string().default("Swyftstack <no-reply@swyftstack.local>"),
   EMAIL_WEBHOOK_URL: z.string().default(""),
+  ZEPTOMAIL_API_URL: z.string().default(""),
+  ZEPTOMAIL_API_KEY: z.string().default(""),
+  ZEPTOMAIL_FROM_EMAIL: z.string().default(""),
+  ZEPTOMAIL_FROM_NAME: z.string().default("Swyftstack"),
 
   // Optional Google OAuth for customer sign-in. The callback can live on the
   // platform app because the user cookie is scoped to localhost, not the port.

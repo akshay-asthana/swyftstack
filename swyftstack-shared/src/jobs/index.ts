@@ -29,6 +29,8 @@ export const JOB_TYPES = [
   "backup_control_db",
   "sync_storage_usage",
   "enforce_limits",
+  "check_usage_thresholds",
+  "send_email",
 ] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 

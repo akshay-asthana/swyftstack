@@ -6,6 +6,7 @@ import { audit } from "./audit.js";
 import { evaluateUsage } from "./usage.js";
 import { resolveLimit, type LimitOverrideInput } from "./limits.js";
 import { enqueueJob } from "./jobs/index.js";
+export { checkUsageThresholds } from "./notifications.js";
 
 /** usage_type -> the limit key it is metered against. */
 const USAGE_LIMIT_MAP: Record<string, string> = {

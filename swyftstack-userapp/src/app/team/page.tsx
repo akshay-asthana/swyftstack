@@ -45,6 +45,7 @@ async function sendInviteEmail(email: string, token: string, workspace: string) 
     subject: `Join ${workspace} on Swyftstack`,
     text: `You have been invited to ${workspace} on Swyftstack.\n\nAccept the invite here:\n${link}\n\nThis link expires in 7 days.`,
   });
+  if (env.NODE_ENV !== "production") console.log(`[dev-invite-link] ${link}`);
   return link;
 }
 

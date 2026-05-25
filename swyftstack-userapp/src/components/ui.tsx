@@ -1,9 +1,9 @@
 import React from "react";
 import { Icon, type IconName } from "./icons";
 
-const OK = ["active", "running", "live", "verified", "succeeded", "completed", "accepted", "ok", "online", "healthy"];
+const OK = ["active", "running", "live", "verified", "succeeded", "completed", "accepted", "ok", "online", "healthy", "success", "info"];
 const WARN = ["provisioning", "partially_failed", "draining", "degraded", "building", "deploying", "queued", "retrying", "pending", "warning", "over_limit", "past_due", "restoring", "uploading", "uploading_dump_optional", "estimating_size", "creating_target", "switching", "trialing"];
-const BAD = ["offline", "disabled", "failed", "suspended", "deleted", "cancelled", "expired", "rolled_back", "limit_reached"];
+const BAD = ["offline", "disabled", "failed", "suspended", "deleted", "cancelled", "expired", "rolled_back", "limit_reached", "critical"];
 
 export function statusClass(status: string): "ok" | "warn" | "bad" | "muted" {
   const s = (status || "").toLowerCase();

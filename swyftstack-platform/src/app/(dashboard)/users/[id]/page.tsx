@@ -124,13 +124,21 @@ export default async function UserDetailPage({ params }: { params: { id: string 
   });
   if (!user) notFound();
 
-  const [sub, plans, agg, activity, limitOverrides, featureOverrides] = await Promise.all([
+  const [sub, plans, agg, activity, limitOverrides, featureOverrides, notifications, deliveries, prefs] = await Promise.all([
     activeSubscriptionForUser(user.id),
     prisma.plan.findMany({ where: { status: "active" }, orderBy: { priceCents: "asc" } }),
     aggregateForUser(user.id, monthStart()),
     prisma.auditLog.findMany({ where: { actorUserId: user.id }, orderBy: { createdAt: "desc" }, take: 25 }),
     prisma.limitOverride.findMany({ where: { scopeType: "user", scopeId: user.id } }),
     prisma.featureOverride.findMany({ where: { scopeType: "user", scopeId: user.id } }),
+    prisma.notification.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 20 }),
+    prisma.notificationDelivery.findMany({
+      where: { channel: "email", notification: { userId: user.id } },
+      include: { notification: true },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
+    prisma.notificationPreference.findUnique({ where: { userId: user.id } }),
   ]);
 
   const billingPhase = sub?.billingPhase ?? "—";
@@ -317,6 +325,51 @@ export default async function UserDetailPage({ params }: { params: { id: string 
     </Panel>
   );
 
+  // ---- Tab: Notifications ----
+  const notificationsTab = (
+    <div className="split">
+      <div>
+        <Panel title={`Recent notifications (${notifications.length})`} flush>
+          <Table
+            columns={["Created", "Type", "Severity", "Title", "Read"]}
+            rows={notifications.map((n) => [
+              timeAgo(n.createdAt),
+              n.type,
+              <Badge key="s" status={n.severity} />,
+              n.title,
+              n.readAt ? timeAgo(n.readAt) : "unread",
+            ])}
+          />
+        </Panel>
+      </div>
+      <div>
+        <Panel title="Notification preferences">
+          <KeyValue
+            rows={[
+              ["Usage threshold email", prefs?.usageThresholdEmail === false ? "disabled" : "enabled"],
+              ["Usage threshold in-app", prefs?.usageThresholdInApp === false ? "disabled" : "enabled"],
+              ["Welcome email", prefs?.welcomeEmail === false ? "disabled" : "enabled"],
+              ["Marketing email", prefs?.marketingEmail ? "enabled" : "disabled"],
+            ]}
+          />
+        </Panel>
+        <Panel title={`Email deliveries (${deliveries.length})`} flush>
+          <Table
+            columns={["Created", "Type", "Status", "Provider", "Attempts", "Error"]}
+            rows={deliveries.map((d) => [
+              timeAgo(d.createdAt),
+              d.notification.type,
+              <Badge key="s" status={d.status} />,
+              d.provider ?? "—",
+              d.attempts,
+              d.errorMessage ?? "—",
+            ])}
+          />
+        </Panel>
+      </div>
+    </div>
+  );
+
   // ---- Tab: Security ----
   const securityTab = (
     <>
@@ -456,6 +509,7 @@ export default async function UserDetailPage({ params }: { params: { id: string 
           { id: "orgs", label: "Organizations", icon: "org", content: orgsTab },
           { id: "projects", label: "Projects", icon: "projects", content: projectsTab },
           { id: "activity", label: "Activity", icon: "activity", content: activityTab },
+          { id: "notifications", label: "Notifications", icon: "bell", content: notificationsTab },
           { id: "security", label: "Audit & security", icon: "shield", content: securityTab },
           { id: "overrides", label: "Overrides", icon: "settings", content: overridesTab },
         ]}

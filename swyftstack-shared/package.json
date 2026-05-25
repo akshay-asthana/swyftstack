@@ -11,9 +11,10 @@
     "./services": "./src/services/index.ts"
   },
   "scripts": {
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:push": "prisma db push",
+    "prisma:generate": "node scripts/prisma-root-env.mjs generate",
+    "prisma:migrate": "node scripts/prisma-root-env.mjs migrate dev",
+    "prisma:push": "node scripts/prisma-root-env.mjs db push",
+    "db:repair": "node scripts/apply-safe-migrations.mjs",
     "seed": "tsx src/seed.ts",
     "build": "tsc -p tsconfig.json",
     "test": "vitest run"

@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { prisma } from "swyftstack-shared";
 import { logout } from "@/lib/auth";
 import { UserNav } from "./user-nav";
 import { Icon } from "./icons";
+import { timeAgo } from "./ui";
 
 async function doLogout() {
   "use server";
@@ -10,17 +12,31 @@ async function doLogout() {
   redirect("/login");
 }
 
-export function UserShell({
+async function loadNotifications(userId?: string) {
+  if (!userId) return { unread: 0, items: [] as Awaited<ReturnType<typeof prisma.notification.findMany>> };
+  const [unread, items] = await Promise.all([
+    prisma.notification.count({ where: { userId, readAt: null, dismissedAt: null } }),
+    prisma.notification.findMany({
+      where: { userId, dismissedAt: null },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    }),
+  ]);
+  return { unread, items };
+}
+
+export async function UserShell({
   user,
   workspace,
   children,
 }: {
-  user: { email: string; name: string | null; emailVerified?: boolean };
+  user: { id?: string; email: string; name: string | null; emailVerified?: boolean };
   workspace?: string;
   children: React.ReactNode;
 }) {
   const display = user.name || user.email;
   const initials = (display[0] ?? "U").toUpperCase();
+  const notifications = await loadNotifications(user.id);
 
   return (
     <div className="layout">
@@ -65,7 +81,36 @@ export function UserShell({
           <div className="row right">
             <Link className="small" href="/help">Docs</Link>
             <Link className="small" href="/help">Support</Link>
-            <button className="icon-btn" title="Notifications"><Icon name="bell" size={16} /></button>
+            <details className="notif-menu">
+              <summary className="icon-btn" title="Notifications" aria-label="Notifications">
+                <Icon name="bell" size={16} />
+                {notifications.unread > 0 && <span className="notif-badge">{notifications.unread > 9 ? "9+" : notifications.unread}</span>}
+              </summary>
+              <div className="notif-panel">
+                <div className="notif-head">
+                  <strong>Notifications</strong>
+                  <Link href="/console/notifications">View all</Link>
+                </div>
+                {notifications.items.length === 0 ? (
+                  <div className="notif-empty">No notifications yet.</div>
+                ) : (
+                  notifications.items.map((n) => (
+                    <Link
+                      key={n.id}
+                      className={`notif-item ${n.readAt ? "" : "unread"} ${n.severity}`}
+                      href={n.actionUrl || "/console/notifications"}
+                    >
+                      <span className="notif-dot" />
+                      <span className="notif-copy">
+                        <span className="notif-title">{n.title}</span>
+                        <span className="notif-msg">{n.message}</span>
+                        <span className="notif-time">{timeAgo(n.createdAt)}</span>
+                      </span>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </details>
             <div className="avatar" title={user.email}>{initials}</div>
           </div>
         </header>

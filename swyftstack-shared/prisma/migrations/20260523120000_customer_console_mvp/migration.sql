@@ -32,9 +32,16 @@ CREATE INDEX IF NOT EXISTS "email_verification_tokens_user_id_idx"
 CREATE INDEX IF NOT EXISTS "email_verification_tokens_email_idx"
   ON "email_verification_tokens"("email");
 
-ALTER TABLE "email_verification_tokens"
-  ADD CONSTRAINT "email_verification_tokens_user_id_fkey"
-  FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'email_verification_tokens_user_id_fkey'
+  ) THEN
+    ALTER TABLE "email_verification_tokens"
+      ADD CONSTRAINT "email_verification_tokens_user_id_fkey"
+      FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS "password_reset_tokens" (
   "id" UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -51,9 +58,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS "password_reset_tokens_token_hash_key"
 CREATE INDEX IF NOT EXISTS "password_reset_tokens_user_id_idx"
   ON "password_reset_tokens"("user_id");
 
-ALTER TABLE "password_reset_tokens"
-  ADD CONSTRAINT "password_reset_tokens_user_id_fkey"
-  FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'password_reset_tokens_user_id_fkey'
+  ) THEN
+    ALTER TABLE "password_reset_tokens"
+      ADD CONSTRAINT "password_reset_tokens_user_id_fkey"
+      FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS "storage_objects" (
   "id" UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -73,9 +87,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS "storage_objects_bucket_id_key_key"
 CREATE INDEX IF NOT EXISTS "storage_objects_bucket_id_updated_at_idx"
   ON "storage_objects"("bucket_id", "updated_at");
 
-ALTER TABLE "storage_objects"
-  ADD CONSTRAINT "storage_objects_bucket_id_fkey"
-  FOREIGN KEY ("bucket_id") REFERENCES "storage_buckets"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'storage_objects_bucket_id_fkey'
+  ) THEN
+    ALTER TABLE "storage_objects"
+      ADD CONSTRAINT "storage_objects_bucket_id_fkey"
+      FOREIGN KEY ("bucket_id") REFERENCES "storage_buckets"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS "platform_settings" (
   "id" UUID NOT NULL DEFAULT gen_random_uuid(),

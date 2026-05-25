@@ -162,6 +162,8 @@ a:hover { text-decoration: underline; }
 .panel-title { font-weight: 680; font-size: 14px; }
 .panel-body { padding: 18px; }
 .panel-body.flush { padding: 0; }
+.empty-inline { padding: 18px; color: var(--muted); font-size: 13px; }
+.note { background: var(--accent-soft); color: var(--accent-ink); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13px; font-weight: 550; }
 
 /* ---------- stat cards ---------- */
 .statcard {

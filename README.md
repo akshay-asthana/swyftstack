@@ -118,12 +118,18 @@ cp .env.example .env       # a working dev .env may already be present
 npm install                # install all workspaces
 npm run docker:up           # start control-plane Postgres (skip if you have one)
 npm run db:generate         # generate the Prisma client
+npm run db:repair           # apply additive app migrations safely (safe to rerun)
 npm run db:push             # apply the schema   (or: npm run db:migrate)
 npm run db:seed             # admin + plans + local node + providers + help docs
 ```
 
 Admin credentials come from `.env` (`PLATFORM_ADMIN_EMAIL` /
 `PLATFORM_ADMIN_PASSWORD`).
+
+The Prisma workspace scripts load the repo-root `.env` themselves. You no
+longer need to run `set -a; source .env; set +a` before `db:push`; shell-sourcing
+can fail when a Postgres URL contains unquoted `&` query parameters. If you do
+source `.env` manually, quote `DATABASE_URL` and `DIRECT_URL`.
 
 ## Run everything in dev
 
@@ -141,10 +147,24 @@ npm run dev:worker    # background worker + scheduler (monitoring, jobs)
 
 ```bash
 npm run db:generate   # regenerate the Prisma client after a schema change
+npm run db:repair     # apply additive app migrations without a full Prisma diff
 npm run db:push       # sync the schema to the DB (dev)
 npm run db:migrate    # create + apply a named migration (prisma migrate dev)
 npm run db:seed       # idempotent seed (safe to re-run)
 ```
+
+If `db:push` warns about the existing `invitations.token_hash` unique index,
+check for duplicates first:
+
+```sql
+select token_hash, count(*)
+from invitations
+group by token_hash
+having count(*) > 1;
+```
+
+If no rows are returned, rerun with Prisma's explicit acknowledgement:
+`npm -w swyftstack-shared run prisma:push -- --accept-data-loss`.
 
 `db:seed` is fully idempotent. It upserts the admin, Starter/Pro plans, the
 single `local-dev` node, local infrastructure providers and the six default
@@ -381,8 +401,7 @@ Old verified backups are pruned only after a new backup verifies.
 Restore requests enqueue `restore_database`; the worker creates a pre-restore
 safety backup first, then performs the MVP restore path (currently simulated
 unless provider-specific `pg_restore` is wired). Backup/restore completion or
-failure can notify verified owners through the email webhook, with dev-log
-fallback.
+failure queues transactional email through the notification delivery system.
 
 ### Object storage
 
@@ -396,6 +415,36 @@ Customer-visible storage endpoints come from Admin → Settings →
 uses the user app API (`/api/storage/object`, `/api/storage/signed`,
 `/api/storage/public`) and labels this as local-dev/API mode. Full
 S3-compatible gateway support is intentionally not claimed yet.
+
+### Notifications and transactional email
+
+The customer console has an in-app notification bell and `/console/notifications`
+inbox. Notifications are stored in `notifications`; delivery attempts are stored
+in `notification_deliveries`; per-user choices live in
+`notification_preferences`.
+
+The worker job `check_usage_thresholds` runs every 15 minutes after rollups. It
+checks effective plan limits for database storage, object storage and egress,
+then creates only the highest newly crossed threshold in the current billing
+period: 75%, 90% or 100%. Duplicate threshold notifications are blocked by a
+deterministic `usage_threshold_events.idempotency_key`.
+
+Transactional email is never sent directly from request handlers. Web requests
+create notification/email delivery rows and enqueue `send_email`; workers render
+templates and deliver them. Google OAuth first-time signup creates exactly one
+welcome notification/email using the `welcome:google:<user_id>` idempotency key.
+
+Email providers are configured from Admin → **Settings → Email providers**:
+
+- `zeptomail` provider: encrypted API token, API URL, from email/name, test
+  connection and queued test email.
+- `local_dev` provider: logs email content in the worker for development.
+- env fallback: `ZEPTOMAIL_API_URL`, `ZEPTOMAIL_API_KEY`,
+  `ZEPTOMAIL_FROM_EMAIL`, `ZEPTOMAIL_FROM_NAME`.
+
+ZeptoMail's API token is encrypted with `SECRET_ENCRYPTION_KEY` and is never
+logged. Usage-limit email is skipped for unverified users unless the message is
+explicitly essential, such as email verification or password reset.
 
 ### Teams
 
@@ -480,6 +529,7 @@ The same helper can later host email assets at `/<prefix>/email_assets/...`.
 ```bash
 # Schema / migrations
 npm run db:migrate     # prisma migrate dev
+npm run db:repair      # additive safe repair/sync for existing dev DBs
 npm run db:push        # prisma db push (remote schema sync)
 npm run db:generate    # prisma generate
 npm run db:seed        # seed plans, providers, policies, local-dev node
@@ -518,6 +568,11 @@ Then test:
 7. Open the bucket detail page; upload, list, download, make public/private,
    copy a signed URL, and delete a file.
 8. Invite a teammate at `/team`, copy the dev invite link from logs, and accept.
+9. Configure Admin → Settings → Email providers. Queue a test email, then watch
+   the `send_email` job and recent delivery status.
+10. To test thresholds, set a low plan limit or user/org limit override, create a
+    usage rollup/event above 75%, then enqueue `check_usage_thresholds` from the
+    Jobs table or let the worker scheduler run.
 
 ## Configuration (.env) — control-plane only
 
@@ -534,7 +589,9 @@ edited from the admin **Infrastructure** page.
 | `PLATFORM_ADMIN_EMAIL/PASSWORD` | Seeded bootstrap admin |
 | `PLATFORM_BASE_URL` / `USERAPP_BASE_URL` | App URLs |
 | `DEFAULT_CUSTOMER_PLAN_SLUG` | Plan assigned to new customer workspaces (default `starter`) |
-| `EMAIL_FROM` / `EMAIL_WEBHOOK_URL` | Transactional email sender/webhook; dev prints links if webhook is empty |
+| `EMAIL_FROM` / `EMAIL_WEBHOOK_URL` | Legacy queued webhook fallback for transactional email |
+| `ZEPTOMAIL_API_URL` / `ZEPTOMAIL_API_KEY` | Optional env fallback; production should use Admin → Settings email providers |
+| `ZEPTOMAIL_FROM_EMAIL` / `ZEPTOMAIL_FROM_NAME` | Optional ZeptoMail env fallback sender |
 | `DEV_LOCAL_STORAGE_ROOT` / `DEV_LOCAL_BACKUP_ROOT` | Seed paths for `local_dev` providers |
 | `DEFAULT_WORKER_*` | Fallback worker tuning if no `worker_configs` row exists |
 
@@ -543,6 +600,8 @@ edited from the admin **Infrastructure** page.
 - ORM: **Prisma**. Jobs: Postgres-backed queue, race-safe claim, backoff retry.
 - Monitoring, usage collection, rollups, backups and DB imports run in the
   worker — never in a web request handler.
+- Transactional email delivery also runs in the worker through `send_email`;
+  request handlers only queue delivery rows/jobs.
 - Node execution uses local Docker / system SSH for the MVP; service interfaces
   are written as if a remote node-agent will fulfil them later.
 - All secrets are encrypted before persistence; every state change writes an
