@@ -13,7 +13,7 @@ const NAV: { title: string; items: Item[] }[] = [
       ["/console", "Overview", "overview"],
       ["/projects", "Projects", "projects"],
       ["/databases", "Databases", "database"],
-      ["/storage", "Storage", "storage"],
+      ["/console/storage", "Storage", "storage"],
       ["/backups", "Backups", "backups"],
       ["/migrations", "Migrations", "migrations"],
       ["/usage", "Usage", "usage"],
