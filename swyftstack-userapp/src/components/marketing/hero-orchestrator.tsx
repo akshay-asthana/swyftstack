@@ -1,4 +1,4 @@
-// HeroOrchestratorVisual — premium "live production stack" preview for
+// HeroOrchestratorVisual - premium "live production stack" preview for
 // the homepage hero. Static SVG/HTML so it costs essentially zero per
 // frame. The previous version animated SVG packets along paths with
 // drop-shadow filters and was the main page-hang culprit; this version
@@ -118,7 +118,7 @@ export function HeroOrchestratorVisual() {
 }
 
 function Row({ glyph, name, size, tag }: { glyph: "img" | "csv" | "mp4"; name: string; size: string; tag: string }) {
-  const color = glyph === "img" ? "#a78bfa" : glyph === "csv" ? "#34d399" : "#fbbf24";
+  const color = glyph === "img" ? "var(--gradientcolor2)" : glyph === "csv" ? "#34d399" : "var(--gradientcolor1)";
   return (
     <div className="m-stack-file">
       <span className="glyph" style={{ color }}>{glyph === "mp4" ? "▶" : glyph}</span>

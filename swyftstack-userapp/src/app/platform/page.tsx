@@ -1,6 +1,6 @@
-// Platform overview — ties Managed PostgreSQL, object storage, static
+// Platform overview - ties Managed PostgreSQL, object storage, static
 // hosting, migration, and backups together as a single platform story.
-// Static (not CMS-backed) per the spec — the marketing content lives in
+// Static (not CMS-backed) per the spec - the marketing content lives in
 // code so designers and engineers can iterate together.
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -21,8 +21,8 @@ import { SITE_URL } from "@/components/marketing/jsonld";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Platform — Swyftstack",
-  description: "Managed PostgreSQL, S3-compatible storage, static site hosting, backups, migration, and usage controls — one platform, one dashboard, one bill.",
+  title: "Platform - Swyftstack",
+  description: "Managed PostgreSQL, S3-compatible storage, static site hosting, backups, migration, and usage controls - one platform, one dashboard, one bill.",
   alternates: { canonical: `${SITE_URL}/platform` },
 };
 
@@ -42,7 +42,7 @@ export default function PlatformPage() {
           <div className="m-eyebrow"><span className="m-eyebrow-dot" />One platform for your whole backend</div>
           <h1>Everything you need to ship. Nothing you don&rsquo;t.</h1>
           <p className="m-hero-lead">
-            Managed PostgreSQL, S3 storage, backups and migration — on one premium platform.
+            Managed PostgreSQL, S3 storage, backups and migration - on one premium platform.
           </p>
           <div className="m-hero-ctas">
             <Link className="m-btn m-btn-primary m-btn-lg" href="/signup">
@@ -82,7 +82,7 @@ export default function PlatformPage() {
                 "PostgreSQL 16 (17 in preview)",
                 "Up to 500 connections; PgBouncer included",
                 "uuid-ossp, pgcrypto, pg_trgm, citext, PostGIS, pgvector",
-                "Daily encrypted backups, 7–30 day retention",
+                "Daily encrypted backups, 7-30 day retention",
                 "Connection IP allowlisting",
                 "Per-database roles and scoped credentials",
               ].map((it, i) => (
@@ -133,7 +133,7 @@ export default function PlatformPage() {
             <div className="m-eyebrow m-mb-4"><span className="m-eyebrow-dot" />Object storage</div>
             <h2>S3 API. Without the AWS bill or console.</h2>
             <p className="m-feature-body m-mt-4">
-              PutObject, GetObject, presigned URLs — every standard S3 operation works. Every SDK in
+              PutObject, GetObject, presigned URLs - every standard S3 operation works. Every SDK in
               every language already speaks it. Public buckets get permanent CDN URLs at no extra cost;
               private buckets use signed URLs generated from your app.
             </p>
@@ -141,7 +141,7 @@ export default function PlatformPage() {
               {[
                 "AWS S3-compatible API",
                 "Public buckets CDN-fronted automatically",
-                "Configurable CORS per bucket — no XML",
+                "Configurable CORS per bucket - no XML",
                 "Signed URLs with custom expiry",
                 "Per-bucket access keys",
                 "100 GB on Starter · 1 TB on Pro",
@@ -166,7 +166,7 @@ export default function PlatformPage() {
             <div className="m-eyebrow m-mb-4"><span className="m-eyebrow-dot" />Static site hosting</div>
             <h2>Free, forever. Custom domains. Automatic HTTPS.</h2>
             <p className="m-feature-body m-mt-4">
-              Drag a folder. Push to Git. Either way, your site is live in seconds with HTTPS — no
+              Drag a folder. Push to Git. Either way, your site is live in seconds with HTTPS - no
               bandwidth cap, no build minute limit, no "free until we change our mind."
             </p>
             <ul className="m-plan-list m-mt-5">
@@ -216,11 +216,11 @@ export default function PlatformPage() {
         />
         <div className="m-grid m-grid-3">
           <FeatureCard icon={<MigrateIcon size={22} />} title="Migration in three clicks" body="Paste a connection string, watch the progress bar, copy the new URL. Source database is never touched." href="/migrate" />
-          <FeatureCard icon={<BackupIcon size={22} />} title="Verified daily backups" body="Encrypted, retention 7–30 days, restorable in one click. Weekly restore drills — untested backups aren't backups." />
-          <FeatureCard icon={<GaugeIcon size={22} />} title="Live usage metering" body="Storage, egress, vCPU-hours, connection count — updated every minute. Alerts at 80% and 95%." href="/pricing" />
+          <FeatureCard icon={<BackupIcon size={22} />} title="Verified daily backups" body="Encrypted, retention 7-30 days, restorable in one click. Weekly restore drills - untested backups aren't backups." />
+          <FeatureCard icon={<GaugeIcon size={22} />} title="Live usage metering" body="Storage, egress, vCPU-hours, connection count - updated every minute. Alerts at 80% and 95%." href="/pricing" />
           <FeatureCard icon={<TeamIcon size={22} />} title="Team workspaces" body="Up to 10 members on Pro. Project-level roles, scoped credentials, audit trail of every change." />
-          <FeatureCard icon={<LockIcon size={22} />} title="Encrypted secrets" body="API keys, connection strings, env vars — encrypted at rest, masked in the UI, revealable with explicit action." />
-          <FeatureCard icon={<TerminalIcon size={22} />} title="Audit logs" body="Every dashboard action — actor, IP, target, before/after — recorded and exportable on Pro and above." />
+          <FeatureCard icon={<LockIcon size={22} />} title="Encrypted secrets" body="API keys, connection strings, env vars - encrypted at rest, masked in the UI, revealable with explicit action." />
+          <FeatureCard icon={<TerminalIcon size={22} />} title="Audit logs" body="Every dashboard action - actor, IP, target, before/after - recorded and exportable on Pro and above." />
         </div>
       </Section>
 
@@ -229,11 +229,11 @@ export default function PlatformPage() {
         <SectionHead
           eyebrow="Developer experience"
           title="No special clients. No protocol surprises."
-          subtitle="Connect with the standard tools you already know — psql, pg_dump, boto3, AWS SDK v3, Prisma, Drizzle. We don't ship a custom layer."
+          subtitle="Connect with the standard tools you already know - psql, pg_dump, boto3, AWS SDK v3, Prisma, Drizzle. We don't ship a custom layer."
         />
         <div className="m-grid m-grid-3">
           <FeatureCard icon={<CodeIcon size={22} />} title="ORM-friendly" body="Prisma, Drizzle, TypeORM, SQLAlchemy, Sequelize, Eloquent. If it speaks PostgreSQL, it speaks Swyftstack." />
-          <FeatureCard icon={<TerminalIcon size={22} />} title="CLI-friendly" body="psql, pg_dump, pg_restore, prisma migrate — all standard tooling works unmodified against your databases." />
+          <FeatureCard icon={<TerminalIcon size={22} />} title="CLI-friendly" body="psql, pg_dump, pg_restore, prisma migrate - all standard tooling works unmodified against your databases." />
           <FeatureCard icon={<BoltIcon size={22} />} title="Connection strings, ready to paste" body="Pooled and direct URLs both available. Rotate credentials in one click; old URLs gracefully drain." />
         </div>
       </Section>

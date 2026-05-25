@@ -18,18 +18,18 @@ import { FaqJsonLd, SITE_URL } from "@/components/marketing/jsonld";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Managed PostgreSQL — deployed in seconds | Swyftstack",
+  title: "Managed PostgreSQL - deployed in seconds | Swyftstack",
   description: "PostgreSQL 16 with SSL by default, daily backups, one-click restore, PgBouncer pooling, and a connection string ready to paste in under a minute.",
   alternates: { canonical: `${SITE_URL}/postgres` },
 };
 
 const FAQ = [
   { q: "Is this real PostgreSQL or a fork?", a: "Real PostgreSQL. Same binaries from postgresql.org. We don't fork or modify the engine." },
-  { q: "Can I run pg_dump against my Swyftstack database?", a: "Yes. We don't restrict standard PostgreSQL tooling. psql, pg_dump, pg_restore, prisma migrate, alembic — all work normally." },
+  { q: "Can I run pg_dump against my Swyftstack database?", a: "Yes. We don't restrict standard PostgreSQL tooling. psql, pg_dump, pg_restore, prisma migrate, alembic - all work normally." },
   { q: "Do you support read replicas?", a: "On the roadmap for V1.1. If you need it sooner, email us and we'll move it up." },
   { q: "Do you offer point-in-time recovery?", a: "Available on Enterprise. We'll tell you honestly if your use case needs it or not." },
   { q: "Can I bring my own SSL certificate?", a: "On Enterprise. Default certificates are managed by us and auto-renewed." },
-  { q: "Can I IP-allowlist connections?", a: "Yes — connection rules in the dashboard. Default is open with strong auth; restrict to specific IPs or CIDR ranges as needed." },
+  { q: "Can I IP-allowlist connections?", a: "Yes - connection rules in the dashboard. Default is open with strong auth; restrict to specific IPs or CIDR ranges as needed." },
   { q: "Is the database actually dedicated?", a: "Pro and Enterprise plans run on dedicated PostgreSQL CPU. Starter runs on shared compute with isolation and strict quotas." },
 ];
 
@@ -69,7 +69,7 @@ export default function PostgresPage() {
           <div className="m-eyebrow"><span className="m-eyebrow-dot" />Managed PostgreSQL</div>
           <h1>Managed PostgreSQL, <span className="m-text-grad">deployed in seconds</span>.</h1>
           <p className="m-hero-lead">
-            PostgreSQL 16 with SSL, daily backups, and a connection string ready to paste — under a minute.
+            PostgreSQL 16 with SSL, daily backups, and a connection string ready to paste - under a minute.
           </p>
           <div className="m-hero-ctas">
             <Link className="m-btn m-btn-primary m-btn-lg" href="/signup">
@@ -91,7 +91,7 @@ export default function PostgresPage() {
         <SectionHead
           eyebrow="Specs"
           title="The part you actually came here for"
-          subtitle="Standard PostgreSQL, the way you'd self-host it — minus the YAML, the firewall rules, and the 3 AM alerts."
+          subtitle="Standard PostgreSQL, the way you'd self-host it - minus the YAML, the firewall rules, and the 3 AM alerts."
         />
         <div className="m-grid m-grid-3">
           <SpecCard title="PostgreSQL version" body="16 (with 17 in preview)" />
@@ -104,7 +104,7 @@ export default function PostgresPage() {
           <SpecCard title="Restore" body="Any backup, one click, into a new database or replacing the existing one" />
           <SpecCard title="Regions" body="US-East, US-West, EU-Central (more coming)" />
           <SpecCard title="Hardware" body="NVMe SSD, dedicated CPU on Pro and above" />
-          <SpecCard title="Monitoring" body="CPU, memory, disk I/O, connections, query rate — slow query log on Pro" />
+          <SpecCard title="Monitoring" body="CPU, memory, disk I/O, connections, query rate - slow query log on Pro" />
           <SpecCard title="Logs" body="Last 7 days (Starter) or 30 days (Pro). Streaming to external logging providers on Pro+" />
         </div>
       </Section>
@@ -176,9 +176,9 @@ export default function PostgresPage() {
         <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 36, alignItems: "start" }} className="m-section-grid-2">
           <CodeSnippet snippets={SNIPPETS} />
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <Mini icon={<TerminalIcon size={18} />} title="GUI clients" body="TablePlus, DBeaver, pgAdmin, DataGrip — all connect normally." />
+            <Mini icon={<TerminalIcon size={18} />} title="GUI clients" body="TablePlus, DBeaver, pgAdmin, DataGrip - all connect normally." />
             <Mini icon={<BoltIcon size={18} />} title="Connection pooling" body="PgBouncer included. Choose transaction or session mode per app." />
-            <Mini icon={<MigrateIcon size={18} />} title="Schema migrations" body="prisma migrate, drizzle-kit, alembic, Active Record migrations — all work." />
+            <Mini icon={<MigrateIcon size={18} />} title="Schema migrations" body="prisma migrate, drizzle-kit, alembic, Active Record migrations - all work." />
           </div>
         </div>
       </Section>
@@ -190,7 +190,7 @@ export default function PostgresPage() {
           title="The boring parts done well"
         />
         <div className="m-grid m-grid-3">
-          <FeatureCard icon={<GaugeIcon size={22} />} title="Monitoring" body="CPU, memory, disk I/O, active connections, query rate — all visible on the dashboard. Slow query log on Pro and above." />
+          <FeatureCard icon={<GaugeIcon size={22} />} title="Monitoring" body="CPU, memory, disk I/O, active connections, query rate - all visible on the dashboard. Slow query log on Pro and above." />
           <FeatureCard icon={<ShieldIcon size={22} />} title="Alerting" body="Email alerts at 80% and 95% of any resource limit. Webhook alerts on Pro." />
           <FeatureCard icon={<ClockIcon size={22} />} title="Maintenance windows" body="Security patches within 24 hours of upstream release. Major version upgrades are opt-in with rollback windows." />
         </div>
@@ -218,7 +218,7 @@ export default function PostgresPage() {
       <CTASection
         title="Deploy a database. Cancel in one click."
         subtitle="The full PostgreSQL feature set, ready in 47 seconds. Standard SQL, standard tooling, no platform lock-in."
-        primary={{ label: "Deploy a database — $19/mo", href: "/signup" }}
+        primary={{ label: "Deploy a database - $19/mo", href: "/signup" }}
         secondary={{ label: "Compare to your provider", href: "/migrate" }}
       />
     </MarketingShell>

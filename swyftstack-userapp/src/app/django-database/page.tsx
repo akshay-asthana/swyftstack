@@ -1,4 +1,4 @@
-// /django-database — content from MARKETING_PAGES_CONTENT.md §21.
+// /django-database - content from MARKETING_PAGES_CONTENT.md §21.
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
 import { SITE_URL } from "@/components/marketing/jsonld";
@@ -8,10 +8,10 @@ export const dynamic = "force-dynamic";
 const DESCRIPTION = "Managed PostgreSQL for Django: dj-database-url + psycopg, SSL on by default, daily backups. django-storages-compatible S3 storage included.";
 
 export const metadata: Metadata = {
-  title: "PostgreSQL database for Django — ready in minutes | Swyftstack",
+  title: "PostgreSQL database for Django - ready in minutes | Swyftstack",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/django-database` },
-  openGraph: { title: "Django database — Swyftstack", description: DESCRIPTION, url: `${SITE_URL}/django-database`, type: "article" },
+  openGraph: { title: "Django database - Swyftstack", description: DESCRIPTION, url: `${SITE_URL}/django-database`, type: "article" },
 };
 
 export default function DjangoDatabasePage() {

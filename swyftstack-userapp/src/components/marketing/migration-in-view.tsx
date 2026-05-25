@@ -1,6 +1,6 @@
 "use client";
 
-// MigrationInViewAnimation — wraps <MigrationAnimation /> so it only starts
+// MigrationInViewAnimation - wraps <MigrationAnimation /> so it only starts
 // once the section scrolls into view. Uses IntersectionObserver with a 40%
 // visibility threshold. Respects prefers-reduced-motion (the inner
 // component checks that itself).

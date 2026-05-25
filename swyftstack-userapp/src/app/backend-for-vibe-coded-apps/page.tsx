@@ -1,4 +1,4 @@
-// /backend-for-vibe-coded-apps — content from MARKETING_PAGES_CONTENT.md §4.
+// /backend-for-vibe-coded-apps - content from MARKETING_PAGES_CONTENT.md §4.
 // Friendlier copy than the dev-focused pages; targets vibe coders who built
 // their first app with an AI tool.
 import type { Metadata } from "next";
@@ -10,10 +10,10 @@ export const dynamic = "force-dynamic";
 const DESCRIPTION = "Built an app with Lovable, Bolt, Cursor, or v0? Add a real PostgreSQL database and S3-compatible storage in a few clicks. Walkthrough, no jargon.";
 
 export const metadata: Metadata = {
-  title: "Backend for AI-built apps — Lovable, Bolt, Cursor, v0 | Swyftstack",
+  title: "Backend for AI-built apps - Lovable, Bolt, Cursor, v0 | Swyftstack",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/backend-for-vibe-coded-apps` },
-  openGraph: { title: "Backend for AI-built apps — Swyftstack", description: DESCRIPTION, url: `${SITE_URL}/backend-for-vibe-coded-apps`, type: "article" },
+  openGraph: { title: "Backend for AI-built apps - Swyftstack", description: DESCRIPTION, url: `${SITE_URL}/backend-for-vibe-coded-apps`, type: "article" },
 };
 
 export default function VibeCodedPage() {
@@ -22,22 +22,22 @@ export default function VibeCodedPage() {
       eyebrow="For AI-built apps"
       headline="You built an app."
       headlineAccent="Here's what makes it real."
-      subheadline="Lovable, Bolt, Cursor, v0 — your AI tool built it. Now connect a real database and storage."
+      subheadline="Lovable, Bolt, Cursor, v0 - your AI tool built it. Now connect a real database and storage."
       primaryCta={{ label: "Deploy my first backend", href: "/signup" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
       whenLists={{
         left: {
           title: "What \"backend\" actually means",
           items: [
-            "Database — where user accounts and content live so they don't disappear when the tab closes",
-            "Storage — where uploaded files (photos, PDFs) live so they're accessible later",
-            "Connection string — one line of text you paste into your AI tool to wire them up",
+            "Database - where user accounts and content live so they don't disappear when the tab closes",
+            "Storage - where uploaded files (photos, PDFs) live so they're accessible later",
+            "Connection string - one line of text you paste into your AI tool to wire them up",
           ],
         },
         right: {
           title: "Why Swyftstack works for vibe coders",
           items: [
-            "One dashboard, one bill, two products — nothing else to learn",
+            "One dashboard, one bill, two products - nothing else to learn",
             "A connection string you can copy in 47 seconds",
             "Daily backups so a mistaken delete isn't fatal",
             "A real human who answers your emails when you get stuck",
@@ -71,7 +71,7 @@ export default function VibeCodedPage() {
           { q: "Do I need to know how to code?", a: "You need to know how to copy and paste. Your AI tool does the rest." },
           { q: "What if my app outgrows the Starter plan?", a: "Click upgrade. Same database, same connection string, more headroom." },
           { q: "Is my data safe?", a: "SSL on by default. Encrypted backups. Two-factor authentication on your account. Same security as the big players." },
-          { q: "Can I move to a different provider later?", a: "Yes. PostgreSQL is the standard — you can move anytime, ever, with no lock-in. We'll help you export." },
+          { q: "Can I move to a different provider later?", a: "Yes. PostgreSQL is the standard - you can move anytime, ever, with no lock-in. We'll help you export." },
         ],
       }}
       finalCta={{

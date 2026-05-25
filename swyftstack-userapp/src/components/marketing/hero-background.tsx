@@ -1,4 +1,4 @@
-// HeroBackgroundAnimation — premium hero background built on a single
+// HeroBackgroundAnimation - premium hero background built on a single
 // lightweight canvas (NetworkMesh) plus two static radial-gradient layers.
 //
 // We deliberately removed the previous CSS animated `filter: blur()` /
@@ -9,18 +9,23 @@
 
 import { NetworkMesh } from "./network-mesh";
 
-export function HeroBackgroundAnimation() {
+type HeroBackgroundVariant = "default" | "homeNet";
+
+export function HeroBackgroundAnimation({ variant = "default" }: { variant?: HeroBackgroundVariant }) {
+  const isHomeNet = variant === "homeNet";
+
   return (
-    <div className="m-hero-bg" aria-hidden>
-      {/* Static base gradient — gives the hero its depth without animating. */}
+    <div className={`m-hero-bg ${isHomeNet ? "m-hero-bg-home" : ""}`} aria-hidden>
+      {/* Static base gradient - gives the hero its depth without animating. */}
       <div className="m-hero-bg-base" />
       {/* The actual animated network mesh, drawn on canvas. */}
       <NetworkMesh
-        color="#a78bfa"
-        points={36}
-        maxDistance={170}
-        dotSize={1.6}
-        speed={0.32}
+        color={isHomeNet ? "#64aec8" : "#ff8008"}
+        background="transparent"
+        points={isHomeNet ? 44 : 36}
+        maxDistance={isHomeNet ? 150 : 170}
+        dotSize={isHomeNet ? 1.4 : 1.6}
+        speed={isHomeNet ? 0.28 : 0.32}
       />
       {/* Bottom fade so the mesh dissolves cleanly into the page below. */}
       <div className="m-hero-bg-fade" />

@@ -1,4 +1,4 @@
-// Marketing section primitives — wraps content with consistent spacing
+// Marketing section primitives - wraps content with consistent spacing
 // and optional eyebrow/heading. Server components, zero JS shipped.
 import Link from "next/link";
 import type { ReactNode } from "react";

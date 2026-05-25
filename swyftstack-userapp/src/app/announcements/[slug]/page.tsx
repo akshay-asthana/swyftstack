@@ -1,4 +1,4 @@
-// /announcements/[slug] — single CMS-backed announcement / news / changelog
+// /announcements/[slug] - single CMS-backed announcement / news / changelog
 // entry. Same editorial layout as blog posts so the brand stays consistent.
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -32,7 +32,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const post = await loadPost(params.slug, searchParams.preview);
   if (!post) return { title: "Not found" };
-  const title = post.seoTitle ?? `${post.title} — Swyftstack`;
+  const title = post.seoTitle ?? `${post.title} - Swyftstack`;
   const description = post.seoDescription ?? post.excerpt ?? undefined;
   const url = post.canonicalUrl ?? `${SITE_URL}/announcements/${post.slug}`;
   return {
@@ -101,7 +101,7 @@ export default async function AnnouncementPage(
         <div className="m-container" style={{ maxWidth: "var(--m-container-prose)" }}>
           {isDraft && (
             <div className="m-draft">
-              <BoltIcon size={14} /> Previewing a {post.status} announcement — not publicly visible.
+              <BoltIcon size={14} /> Previewing a {post.status} announcement - not publicly visible.
             </div>
           )}
           <span className="m-article-tag">{post.type === "changelog" ? "Changelog" : post.type === "news" ? "News" : "Announcement"}</span>

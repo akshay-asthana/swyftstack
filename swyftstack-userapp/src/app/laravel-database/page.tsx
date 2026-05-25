@@ -1,4 +1,4 @@
-// /laravel-database — content from MARKETING_PAGES_CONTENT.md §22.
+// /laravel-database - content from MARKETING_PAGES_CONTENT.md §22.
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
 import { SITE_URL } from "@/components/marketing/jsonld";
@@ -8,10 +8,10 @@ export const dynamic = "force-dynamic";
 const DESCRIPTION = "Managed PostgreSQL for Laravel. SSL by default, daily backups. S3-compatible disk works out of the box with Storage::disk().";
 
 export const metadata: Metadata = {
-  title: "PostgreSQL database for Laravel — ready in minutes | Swyftstack",
+  title: "PostgreSQL database for Laravel - ready in minutes | Swyftstack",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/laravel-database` },
-  openGraph: { title: "Laravel database — Swyftstack", description: DESCRIPTION, url: `${SITE_URL}/laravel-database`, type: "article" },
+  openGraph: { title: "Laravel database - Swyftstack", description: DESCRIPTION, url: `${SITE_URL}/laravel-database`, type: "article" },
 };
 
 export default function LaravelDatabasePage() {
@@ -20,13 +20,13 @@ export default function LaravelDatabasePage() {
       eyebrow="Laravel + Swyftstack"
       headline="PostgreSQL for Laravel,"
       headlineAccent="ready in minutes."
-      subheadline="A managed PostgreSQL Laravel will be happy with — SSL, backups, and a copyable connection string under a minute."
+      subheadline="A managed PostgreSQL Laravel will be happy with - SSL, backups, and a copyable connection string under a minute."
       primaryCta={{ label: "Deploy a database", href: "/signup" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
       snippets={{
         eyebrow: "Setup",
         title: ".env, config, php artisan migrate",
-        subtitle: "Standard Laravel idioms — nothing exotic.",
+        subtitle: "Standard Laravel idioms - nothing exotic.",
         snippets: [
           { name: ".env", language: "sh", code: `DB_CONNECTION=pgsql
 DB_HOST=your.swyftstack.host
@@ -60,7 +60,7 @@ DB_SSLMODE=require` },
       }}
       faq={{
         items: [
-          { q: "Will Eloquent work without changes?", a: "Yes. Standard PostgreSQL via pdo_pgsql — every Eloquent feature works." },
+          { q: "Will Eloquent work without changes?", a: "Yes. Standard PostgreSQL via pdo_pgsql - every Eloquent feature works." },
           { q: "Can I use queue jobs / Horizon?", a: "Yes. Queue drivers (database, redis) are independent of the primary database connection." },
           { q: "Coming from MySQL?", a: "Most Laravel apps move cleanly. Watch for case-sensitive identifiers and a few function-name differences. We can advise during migration." },
         ],

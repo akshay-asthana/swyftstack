@@ -1,4 +1,4 @@
-// /announcements — editorial index for product news and changelog. Fetches
+// /announcements - editorial index for product news and changelog. Fetches
 // only `published` rows. Same shell/theme as blog so the brand stays
 // consistent.
 import type { Metadata } from "next";
@@ -10,11 +10,11 @@ import { SITE_URL } from "@/components/marketing/jsonld";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Announcements & changelog — Swyftstack",
+  title: "Announcements & changelog - Swyftstack",
   description: "Product announcements, weekly changelog, and what shipped this week at Swyftstack.",
   alternates: { canonical: `${SITE_URL}/announcements` },
   openGraph: {
-    title: "Swyftstack — Announcements & changelog",
+    title: "Swyftstack - Announcements & changelog",
     description: "What we shipped this week, what's coming next, and the milestones along the way.",
     url: `${SITE_URL}/announcements`,
     type: "website",

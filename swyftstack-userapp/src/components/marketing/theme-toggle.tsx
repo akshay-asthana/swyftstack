@@ -1,6 +1,6 @@
 "use client";
 
-// ThemeToggle — switches the marketing site between dark (default) and
+// ThemeToggle - switches the marketing site between dark (default) and
 // light themes. Persists the user's choice in localStorage. The toggle is
 // scoped to marketing pages only: it flips a `data-m-theme` attribute on
 // the nearest `.m` root, so the console (which uses a separate stylesheet)
@@ -8,7 +8,7 @@
 //
 // To avoid a flash of the wrong theme between SSR and first paint, the
 // initial state is read synchronously inside useEffect, before any CSS
-// transitions kick in — and any CSS transitions we add to theme tokens
+// transitions kick in - and any CSS transitions we add to theme tokens
 // are disabled for the very first paint via the `m-theme-fluid` class.
 
 import { useEffect, useState } from "react";

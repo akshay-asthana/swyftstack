@@ -1,4 +1,4 @@
-// ArticleCard — premium blog/announcement card. Server component.
+// ArticleCard - premium blog/announcement card. Server component.
 import Link from "next/link";
 import { ArrowRightIcon } from "./icons";
 

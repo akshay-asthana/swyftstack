@@ -1,4 +1,4 @@
-// /migrate-from-planetscale — content from MARKETING_PAGES_CONTENT.md §15.
+// /migrate-from-planetscale - content from MARKETING_PAGES_CONTENT.md §15.
 // Includes the honest MySQL → PostgreSQL caveat.
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
@@ -6,13 +6,13 @@ import { SITE_URL } from "@/components/marketing/jsonld";
 
 export const dynamic = "force-dynamic";
 
-const DESCRIPTION = "Migrate from PlanetScale to Swyftstack. Honest disclosure: PlanetScale is MySQL, Swyftstack is PostgreSQL — most ORM-based apps move cleanly; some apps need schema work.";
+const DESCRIPTION = "Migrate from PlanetScale to Swyftstack. Honest disclosure: PlanetScale is MySQL, Swyftstack is PostgreSQL - most ORM-based apps move cleanly; some apps need schema work.";
 
 export const metadata: Metadata = {
   title: "Migrate from PlanetScale to Swyftstack | Swyftstack",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/migrate-from-planetscale` },
-  openGraph: { title: "Migrate from PlanetScale — Swyftstack", description: DESCRIPTION, url: `${SITE_URL}/migrate-from-planetscale`, type: "article" },
+  openGraph: { title: "Migrate from PlanetScale - Swyftstack", description: DESCRIPTION, url: `${SITE_URL}/migrate-from-planetscale`, type: "article" },
 };
 
 export default function FromPlanetScalePage() {
@@ -48,7 +48,7 @@ export default function FromPlanetScalePage() {
         items: [
           { n: 1, title: "Export PlanetScale schema and data",  body: "Via PlanetScale's tools, or our migration helper." },
           { n: 2, title: "We convert MySQL types to PostgreSQL", body: "Most types map directly. We flag anything that doesn't and ask you to confirm." },
-          { n: 3, title: "We restore onto Swyftstack PostgreSQL", body: "Tables, indexes, sequences — verified end-to-end." },
+          { n: 3, title: "We restore onto Swyftstack PostgreSQL", body: "Tables, indexes, sequences - verified end-to-end." },
           { n: 4, title: "You update your app",                   body: "Change the database driver, swap provider = \"mysql\" for \"postgresql\" if you're on Prisma, regenerate, redeploy." },
         ],
       }}
@@ -60,7 +60,7 @@ export default function FromPlanetScalePage() {
         ],
       }}
       finalCta={{
-        title: "Switch from MySQL to PostgreSQL — with eyes open.",
+        title: "Switch from MySQL to PostgreSQL - with eyes open.",
         subtitle: "Talk to us before you start. We'll tell you honestly if your app is a one-day migration or a one-week one.",
         primary: { label: "Talk to us", href: "/about" },
         secondary: { label: "See pricing", href: "/pricing" },

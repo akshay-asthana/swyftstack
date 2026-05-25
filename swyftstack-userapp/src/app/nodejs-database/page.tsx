@@ -1,17 +1,17 @@
-// /nodejs-database — content from MARKETING_PAGES_CONTENT.md §23.
+// /nodejs-database - content from MARKETING_PAGES_CONTENT.md §23.
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
 import { SITE_URL } from "@/components/marketing/jsonld";
 
 export const dynamic = "force-dynamic";
 
-const DESCRIPTION = "Managed PostgreSQL for Node.js: Express, Fastify, Hono, Nest. pg, Prisma, Drizzle — all work without changes. S3-compatible storage for uploads included.";
+const DESCRIPTION = "Managed PostgreSQL for Node.js: Express, Fastify, Hono, Nest. pg, Prisma, Drizzle - all work without changes. S3-compatible storage for uploads included.";
 
 export const metadata: Metadata = {
-  title: "PostgreSQL for Node.js — Express, Fastify, Hono, Nest | Swyftstack",
+  title: "PostgreSQL for Node.js - Express, Fastify, Hono, Nest | Swyftstack",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/nodejs-database` },
-  openGraph: { title: "Node.js database — Swyftstack", description: DESCRIPTION, url: `${SITE_URL}/nodejs-database`, type: "article" },
+  openGraph: { title: "Node.js database - Swyftstack", description: DESCRIPTION, url: `${SITE_URL}/nodejs-database`, type: "article" },
 };
 
 export default function NodejsDatabasePage() {
@@ -20,12 +20,12 @@ export default function NodejsDatabasePage() {
       eyebrow="Node.js + Swyftstack"
       headline="PostgreSQL for Node.js,"
       headlineAccent="ready in minutes."
-      subheadline="Express, Fastify, Hono, Nest. pg, Prisma, Drizzle — all work as-is."
+      subheadline="Express, Fastify, Hono, Nest. pg, Prisma, Drizzle - all work as-is."
       primaryCta={{ label: "Deploy a database", href: "/signup" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
       snippets={{
         eyebrow: "Setup",
-        title: "Your favourite client — same connection string",
+        title: "Your favourite client - same connection string",
         snippets: [
           { name: "pg", language: "ts", code: `import pg from "pg";
 

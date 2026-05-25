@@ -1,6 +1,6 @@
 // Product-page visual components: storage bucket, database table, backup
 // timeline, signed-URL/connection-string cards, and usage graph. All server
-// components — pure HTML + SVG, zero JS.
+// components - pure HTML + SVG, zero JS.
 //
 // Each visual is intentionally stylised: it should *evoke* the real
 // dashboard without being a screenshot. That keeps the marketing site
@@ -57,10 +57,10 @@ function badgeClass(b: string) {
 
 function FileGlyph({ kind }: { kind: "img" | "csv" | "mp4" | "pdf" }) {
   const color =
-    kind === "img" ? "#a78bfa" :
+    kind === "img" ? "var(--gradientcolor2)" :
     kind === "csv" ? "#34d399" :
     kind === "mp4" ? "#fbbf24" :
-                     "#22d3ee";
+                     "var(--gradientcolor1)";
   return (
     <span
       aria-hidden
@@ -286,10 +286,12 @@ function UsageBars({ data }: { data: number[] }) {
               height: `${h}%`,
               borderRadius: 4,
               background: recent
-                ? "linear-gradient(180deg, #a78bfa, #6d5ef6)"
-                : "linear-gradient(180deg, rgba(34,211,238,.55), rgba(34,211,238,.18))",
+                ? "linear-gradient(180deg, var(--gradientcolor2), var(--gradientcolor1))"
+                : "linear-gradient(180deg, color-mix(in srgb, var(--gradientcolor2) 55%, transparent), color-mix(in srgb, var(--gradientcolor2) 18%, transparent))",
               border: "1px solid",
-              borderColor: recent ? "rgba(167,139,250,.5)" : "rgba(34,211,238,.25)",
+              borderColor: recent
+                ? "color-mix(in srgb, var(--gradientcolor2) 45%, transparent)"
+                : "color-mix(in srgb, var(--gradientcolor2) 25%, transparent)",
             }}
             aria-hidden
           />

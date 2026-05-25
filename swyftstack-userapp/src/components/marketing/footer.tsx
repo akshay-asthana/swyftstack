@@ -1,4 +1,4 @@
-// MarketingFooter — detailed multi-column footer matched to the new mega
+// MarketingFooter - detailed multi-column footer matched to the new mega
 // menu architecture. Static server component; zero JS shipped. Links use
 // SEO-friendly slugs (no /for/* or /vs/* prefixes).
 import Link from "next/link";
@@ -14,7 +14,7 @@ export function MarketingFooter() {
               <span>Swyftstack</span>
             </Link>
             <p>
-              Production-ready database and storage for your apps — in seconds.
+              Production-ready database and storage for your apps - in seconds.
               Managed PostgreSQL, S3 storage, backups and migrations on one
               premium developer platform.
             </p>

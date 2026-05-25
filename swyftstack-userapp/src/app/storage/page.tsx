@@ -1,4 +1,4 @@
-// /storage — public marketing page for S3-compatible object storage.
+// /storage - public marketing page for S3-compatible object storage.
 // The authenticated console listing now lives at /console/storage.
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -15,13 +15,13 @@ import { FaqJsonLd, SITE_URL } from "@/components/marketing/jsonld";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Object storage — S3-compatible | Swyftstack",
-  description: "Store images, PDFs, user uploads, and anything else. S3-compatible API every framework and SDK already knows — change the endpoint, leave everything else alone.",
+  title: "Object storage - S3-compatible | Swyftstack",
+  description: "Store images, PDFs, user uploads, and anything else. S3-compatible API every framework and SDK already knows - change the endpoint, leave everything else alone.",
   alternates: { canonical: `${SITE_URL}/storage` },
 };
 
 const FAQ = [
-  { q: "Is this actually S3-compatible or just claiming to be?", a: "Actually compatible. We pass the AWS S3 test suite for the operations we support. AWS SDK v2/v3, boto3, Minio client, MinIO mc — if it speaks S3, it speaks Swyftstack." },
+  { q: "Is this actually S3-compatible or just claiming to be?", a: "Actually compatible. We pass the AWS S3 test suite for the operations we support. AWS SDK v2/v3, boto3, Minio client, MinIO mc - if it speaks S3, it speaks Swyftstack." },
   { q: "What about CORS?", a: "Configurable per bucket in the dashboard. No XML files." },
   { q: "Do public URLs expire?", a: "No. Public files have permanent URLs. Private files use signed URLs you generate with your own expiry times." },
   { q: "Is there a CDN?", a: "Yes. Public buckets are CDN-fronted automatically at no extra cost." },
@@ -110,12 +110,12 @@ export default function StorageMarketingPage() {
         <SectionHead
           eyebrow="Why we built this"
           title="The S3 API. None of the AWS yak-shaving."
-          subtitle="Every modern app needs to store files. The default is AWS S3 — works, but ships with a console you have to learn, JSON bucket policies, and a bill that's hard to predict. We made the API the same and everything else simpler."
+          subtitle="Every modern app needs to store files. The default is AWS S3 - works, but ships with a console you have to learn, JSON bucket policies, and a bill that's hard to predict. We made the API the same and everything else simpler."
         />
         <div className="m-grid m-grid-3">
-          <FeatureCard icon={<BucketIcon size={22} />} title="Same API as AWS S3" body="PutObject, GetObject, DeleteObject, ListObjects, presigned URLs, multipart upload — all the standard operations work." />
+          <FeatureCard icon={<BucketIcon size={22} />} title="Same API as AWS S3" body="PutObject, GetObject, DeleteObject, ListObjects, presigned URLs, multipart upload - all the standard operations work." />
           <FeatureCard icon={<GlobeIcon size={22} />} title="Public buckets get CDN URLs" body="Flip a toggle, your files get a fast URL that works globally. No extra config, no extra bill." />
-          <FeatureCard icon={<LockIcon size={22} />} title="Private buckets use signed URLs" body="Generate time-limited URLs from your app — same as you would on S3. Per-bucket access keys." />
+          <FeatureCard icon={<LockIcon size={22} />} title="Private buckets use signed URLs" body="Generate time-limited URLs from your app - same as you would on S3. Per-bucket access keys." />
         </div>
       </Section>
 
@@ -135,11 +135,11 @@ export default function StorageMarketingPage() {
           subtitle="Beyond the API: the controls you'd be hand-wiring on AWS, included by default."
         />
         <div className="m-grid m-grid-3">
-          <FeatureCard icon={<BoltIcon size={22} />} title="CORS without XML" body="Configurable per bucket in the dashboard. Origins, methods, headers, max-age — all in a form, not a JSON blob." />
+          <FeatureCard icon={<BoltIcon size={22} />} title="CORS without XML" body="Configurable per bucket in the dashboard. Origins, methods, headers, max-age - all in a form, not a JSON blob." />
           <FeatureCard icon={<LockIcon size={22} />} title="Per-bucket access keys" body="Scoped credentials so a leaked key never blast-radiuses across your whole storage account." />
           <FeatureCard icon={<GlobeIcon size={22} />} title="Permanent public URLs" body="No mystery expiry on assets you mean to be public. Predictable, indexable, CDN-cached." />
           <FeatureCard icon={<BucketIcon size={22} />} title="Multipart upload" body="Large file uploads (videos, dataset dumps) work over the same API your AWS SDK already uses." />
-          <FeatureCard icon={<BoltIcon size={22} />} title="Webhook notifications" body="Get notified when objects land in a bucket — wire it to your indexer or thumbnail pipeline." />
+          <FeatureCard icon={<BoltIcon size={22} />} title="Webhook notifications" body="Get notified when objects land in a bucket - wire it to your indexer or thumbnail pipeline." />
           <FeatureCard icon={<LockIcon size={22} />} title="Server-side encryption" body="AES-256 at rest by default. Customer-managed keys on Enterprise." />
         </div>
       </Section>

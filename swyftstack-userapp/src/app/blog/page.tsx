@@ -1,4 +1,4 @@
-// /blog — editorial blog index. Fetches only `published` rows from
+// /blog - editorial blog index. Fetches only `published` rows from
 // `cms_marketing_pages` so drafts/archived posts are never crawlable.
 import type { Metadata } from "next";
 import { prisma } from "swyftstack-shared";
@@ -6,12 +6,12 @@ import { MarketingShell } from "@/components/marketing/shell";
 import { ArticleCard } from "@/components/marketing/article-card";
 import { SITE_URL } from "@/components/marketing/jsonld";
 
-// ISR — re-fetch CMS rows at most every 60 seconds. Keeps SEO snappy
+// ISR - re-fetch CMS rows at most every 60 seconds. Keeps SEO snappy
 // without hammering the DB on every visit.
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Blog — Swyftstack",
+  title: "Blog - Swyftstack",
   description: "Engineering posts and product updates from the Swyftstack team. Deep-dives on managed PostgreSQL, object storage, migrations, and reliability.",
   alternates: { canonical: `${SITE_URL}/blog` },
   openGraph: {
@@ -47,7 +47,7 @@ export default async function BlogIndex() {
         <div className="m-container">
           {posts.length === 0 ? (
             <div className="m-card" style={{ textAlign: "center", padding: 48 }}>
-              <h3 style={{ fontSize: 20, marginBottom: 8 }}>No posts yet — but they&rsquo;re coming.</h3>
+              <h3 style={{ fontSize: 20, marginBottom: 8 }}>No posts yet - but they&rsquo;re coming.</h3>
               <p className="m-feature-body" style={{ maxWidth: 480, margin: "0 auto" }}>
                 Subscribe to our changelog at <a href="/announcements" style={{ color: "var(--m-text-brand)" }}>/announcements</a> in
                 the meantime.

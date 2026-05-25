@@ -1,4 +1,4 @@
-// /comparisons/[slug] — CMS-backed competitor comparison. Same shell as the
+// /comparisons/[slug] - CMS-backed competitor comparison. Same shell as the
 // rest of the marketing site so the look is consistent.
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -27,7 +27,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const post = await loadPost(params.slug, searchParams.preview);
   if (!post) return { title: "Not found" };
-  const title = post.seoTitle ?? `${post.title} — Swyftstack`;
+  const title = post.seoTitle ?? `${post.title} - Swyftstack`;
   const description = post.seoDescription ?? post.excerpt ?? undefined;
   const url = post.canonicalUrl ?? `${SITE_URL}/comparisons/${post.slug}`;
   return {

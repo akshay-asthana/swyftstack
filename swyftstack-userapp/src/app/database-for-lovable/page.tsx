@@ -1,4 +1,4 @@
-// /database-for-lovable — content from MARKETING_PAGES_CONTENT.md §5.
+// /database-for-lovable - content from MARKETING_PAGES_CONTENT.md §5.
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
 import { SITE_URL } from "@/components/marketing/jsonld";
@@ -8,10 +8,10 @@ export const dynamic = "force-dynamic";
 const DESCRIPTION = "Add a real PostgreSQL database to your Lovable app in 5 minutes. Step-by-step walkthrough with the exact menus to click and prompts to type.";
 
 export const metadata: Metadata = {
-  title: "Database for Lovable apps — 5-minute setup | Swyftstack",
+  title: "Database for Lovable apps - 5-minute setup | Swyftstack",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/database-for-lovable` },
-  openGraph: { title: "Database for Lovable — Swyftstack", description: DESCRIPTION, url: `${SITE_URL}/database-for-lovable`, type: "article" },
+  openGraph: { title: "Database for Lovable - Swyftstack", description: DESCRIPTION, url: `${SITE_URL}/database-for-lovable`, type: "article" },
 };
 
 export default function LovablePage() {
@@ -45,7 +45,7 @@ export default function LovablePage() {
       faq={{
         items: [
           { q: "What if Lovable says my code has errors after connecting?", a: "Ask Lovable to fix them: \"There are errors after connecting the database. Please fix them and make sure the code runs.\" It usually resolves in one or two iterations." },
-          { q: "My data isn't saving — what now?", a: "Ask Lovable: \"Add console logs to confirm data is being saved to the database. Also confirm the table exists.\" Then watch the logs." },
+          { q: "My data isn't saving - what now?", a: "Ask Lovable: \"Add console logs to confirm data is being saved to the database. Also confirm the table exists.\" Then watch the logs." },
           { q: "Can I move my Lovable app to Vercel later?", a: "Yes. The same DATABASE_URL works wherever Lovable lets you deploy. We're a standard Postgres host." },
         ],
       }}

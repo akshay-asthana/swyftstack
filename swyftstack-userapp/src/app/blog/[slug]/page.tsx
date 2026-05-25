@@ -1,4 +1,4 @@
-// /blog/[slug] — single CMS-backed blog post. Renders TipTap JSON via our
+// /blog/[slug] - single CMS-backed blog post. Renders TipTap JSON via our
 // own walker (no admin editor bundled). Adds BlogPosting structured data
 // and unique metadata derived from the row.
 import Link from "next/link";
@@ -29,7 +29,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const post = await loadPost(params.slug, searchParams.preview);
   if (!post) return { title: "Not found" };
-  const title = post.seoTitle ?? `${post.title} — Swyftstack`;
+  const title = post.seoTitle ?? `${post.title} - Swyftstack`;
   const description = post.seoDescription ?? post.excerpt ?? undefined;
   const url = post.canonicalUrl ?? `${SITE_URL}/blog/${post.slug}`;
   return {
@@ -97,7 +97,7 @@ export default async function BlogPost(
         <div className="m-container" style={{ maxWidth: "var(--m-container-prose)" }}>
           {isDraft && (
             <div className="m-draft">
-              <BoltIcon size={14} /> Previewing a {post.status} post — not publicly visible.
+              <BoltIcon size={14} /> Previewing a {post.status} post - not publicly visible.
             </div>
           )}
           <span className="m-article-tag">Engineering</span>

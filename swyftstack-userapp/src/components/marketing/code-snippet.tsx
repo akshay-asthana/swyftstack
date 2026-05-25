@@ -1,6 +1,6 @@
 "use client";
 
-// CodeSnippet — terminal-like multi-tab code viewer. Highlighting is a
+// CodeSnippet - terminal-like multi-tab code viewer. Highlighting is a
 // deliberately tiny regex pass so we don't ship a real syntax engine for the
 // landing page. Use one of the helpers (sql, js, py, sh, prisma) when
 // building snippet sets.

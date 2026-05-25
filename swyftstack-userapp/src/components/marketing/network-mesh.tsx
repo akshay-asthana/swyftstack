@@ -1,13 +1,13 @@
 "use client";
 
-// NetworkMesh — Vanta-NET-style animated point-and-line network on a
+// NetworkMesh - Vanta-NET-style animated point-and-line network on a
 // <canvas>. Purpose-built for the hero background:
 //   • ~36 points, lines only when point distance < threshold
 //   • Throttled to ~30fps (skip every other rAF tick)
 //   • Pauses entirely when the canvas leaves the viewport
 //   • Pauses when the tab is hidden
 //   • Honours prefers-reduced-motion (renders a single static frame)
-//   • No filters, no blur, no shadows — pure GPU-friendly canvas paint
+//   • No filters, no blur, no shadows - pure GPU-friendly canvas paint
 //
 // Why this instead of the previous CSS aurora + orbs + scanline + SMIL
 // orchestrator: animated CSS `filter: blur()` + `hue-rotate` forces the
@@ -35,7 +35,7 @@ type Props = {
 };
 
 export function NetworkMesh({
-  color = "#a78bfa",
+  color = "#ff8008",
   background = "transparent",
   points = 36,
   maxDistance = 160,

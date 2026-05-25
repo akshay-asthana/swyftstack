@@ -20,16 +20,16 @@ import { OrganizationJsonLd, SoftwareApplicationJsonLd, FaqJsonLd, SITE_URL } fr
 import { currentUser } from "@/lib/auth";
 
 // Dynamic because the navbar/CTAs vary based on auth cookie. Without auth,
-// crawlers see the signed-out variant — exactly what we want for SEO.
+// crawlers see the signed-out variant - exactly what we want for SEO.
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Swyftstack — Deploy production-ready database and storage in seconds",
+  title: "Swyftstack - Deploy production-ready database and storage in seconds",
   description:
-    "Managed PostgreSQL, S3-compatible object storage, backups and migrations on one platform — built for modern teams shipping on Vercel, Netlify and beyond.",
+    "Managed PostgreSQL, S3-compatible object storage, backups and migrations on one platform - built for modern teams shipping on Vercel, Netlify and beyond.",
   alternates: { canonical: `${SITE_URL}/` },
   openGraph: {
-    title: "Swyftstack — Production-ready backend in seconds",
+    title: "Swyftstack - Production-ready backend in seconds",
     description: "Managed PostgreSQL, object storage, backups and migrations on one premium developer platform.",
     url: `${SITE_URL}/`,
     type: "website",
@@ -45,10 +45,10 @@ export const metadata: Metadata = {
 const FAQ_ITEMS: { q: string; a: string }[] = [
   { q: "Why no free tier?", a: "Free tiers force every paying customer to subsidize freeloaders. We'd rather charge a fair price and give every customer real infrastructure with a real human answering support emails." },
   { q: "Can I bring my own auth?", a: "Yes. Most customers run NextAuth, Clerk, Auth0, or Supabase Auth alongside Swyftstack. We focus on database and storage; you pick your auth." },
-  { q: "Where is my data stored?", a: "US or EU — you pick at signup. Encrypted in transit and at rest. Backups are encrypted too." },
-  { q: "What if my app outgrows the Starter plan?", a: "Click upgrade. Same database, same connection string, more headroom — no downtime." },
+  { q: "Where is my data stored?", a: "US or EU - you pick at signup. Encrypted in transit and at rest. Backups are encrypted too." },
+  { q: "What if my app outgrows the Starter plan?", a: "Click upgrade. Same database, same connection string, more headroom - no downtime." },
   { q: "Is this real PostgreSQL or a fork?", a: "Real PostgreSQL 16, straight from postgresql.org. We don't fork or modify the engine. pg_dump, psql, and any standard client work normally." },
-  { q: "Can I move off Swyftstack later?", a: "Yes. PostgreSQL and S3-compatible storage are open standards. You can take a pg_dump or export your buckets anytime — we'll even help." },
+  { q: "Can I move off Swyftstack later?", a: "Yes. PostgreSQL and S3-compatible storage are open standards. You can take a pg_dump or export your buckets anytime - we'll even help." },
 ];
 
 const QUICKSTART = [
@@ -120,8 +120,8 @@ export default async function Homepage() {
       <FaqJsonLd items={FAQ_ITEMS} />
 
       {/* --- Hero --- */}
-      <section className="m-hero">
-        <HeroBackgroundAnimation />
+      <section className="m-hero m-hero-home">
+        <HeroBackgroundAnimation variant="homeNet" />
         <div className="m-container m-hero-inner">
           <div className="m-eyebrow">
             <span className="m-eyebrow-dot" />
@@ -131,7 +131,7 @@ export default async function Homepage() {
             Deploy production-ready database and storage <span className="m-text-grad">in seconds</span>.
           </h1>
           <p className="m-hero-lead">
-            Managed PostgreSQL, S3 storage, and verified backups — on one premium developer platform.
+            Managed PostgreSQL, S3 storage, and verified backups - on one premium developer platform.
           </p>
           <div className="m-hero-ctas">
             <Link className="m-btn m-btn-primary m-btn-lg" href={signedIn ? "/console" : "/signup"}>
@@ -183,7 +183,7 @@ export default async function Homepage() {
         <SectionHead
           eyebrow="Backend essentials"
           title="One platform. The whole backend."
-          subtitle="Each product is a first-class citizen of the dashboard — wired together, individually metered, separately addressable."
+          subtitle="Each product is a first-class citizen of the dashboard - wired together, individually metered, separately addressable."
         />
         <div className="m-grid m-grid-3">
           <FeatureCard
@@ -233,10 +233,10 @@ export default async function Homepage() {
               <span className="m-eyebrow-dot" />
               The whole project in one view
             </div>
-            <h2>Your database, bucket, backup, and usage — together.</h2>
+            <h2>Your database, bucket, backup, and usage - together.</h2>
             <p className="m-hero-lead m-mt-4" style={{ textAlign: "left", margin: "16px 0 0", maxWidth: "none" }}>
               No three-account scavenger hunt. Spin up a project, get a Postgres instance, a bucket,
-              a backup schedule, and live usage metering — all addressable from one dashboard and
+              a backup schedule, and live usage metering - all addressable from one dashboard and
               billed on a single invoice.
             </p>
             <div className="m-grid m-grid-2 m-mt-5" style={{ gap: 14 }}>
@@ -255,15 +255,15 @@ export default async function Homepage() {
         <SectionHead
           eyebrow="Move your database in three clicks"
           title="Migrate in minutes, not a wasted Saturday."
-          subtitle="Already on Supabase, Railway, Heroku, or PlanetScale? Paste your connection string. We pg_dump, restore, verify with checksums — your source database keeps serving production the whole time."
+          subtitle="Already on Supabase, Railway, Heroku, or PlanetScale? Paste your connection string. We pg_dump, restore, verify with checksums - your source database keeps serving production the whole time."
         />
         <div style={{ display: "grid", gridTemplateColumns: "1.05fr 1fr", gap: 36, alignItems: "center" }} className="m-section-grid-2">
           <MigrationInViewAnimation />
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <Mini icon={<MigrateIcon size={18} />} title="Read-only on your source" body="We pg_dump over the wire. Your existing app keeps running, untouched." />
-            <Mini icon={<ShieldIcon size={18} />} title="Checksum-verified" body="Tables, row counts, indexes — verified end-to-end before we hand you the new URL." />
-            <Mini icon={<ClockIcon size={18} />} title="Minutes, not weekends" body="Under 5 GB: 2–5 minutes. 5–50 GB: ~30 minutes. Bigger? We plan it with you." />
-            <Mini icon={<BackupIcon size={18} />} title="Rollback is free" body="If anything looks wrong, don't switch your DATABASE_URL — your old database is still serving traffic." />
+            <Mini icon={<ShieldIcon size={18} />} title="Checksum-verified" body="Tables, row counts, indexes - verified end-to-end before we hand you the new URL." />
+            <Mini icon={<ClockIcon size={18} />} title="Minutes, not weekends" body="Under 5 GB: 2-5 minutes. 5-50 GB: ~30 minutes. Bigger? We plan it with you." />
+            <Mini icon={<BackupIcon size={18} />} title="Rollback is free" body="If anything looks wrong, don't switch your DATABASE_URL - your old database is still serving traffic." />
           </div>
         </div>
         <div className="m-text-center m-mt-7">
@@ -278,7 +278,7 @@ export default async function Homepage() {
         <SectionHead
           eyebrow="Developer experience"
           title="Standard PostgreSQL. Any framework. Zero adapters."
-          subtitle="Connect with the tools you already use. We don't ship a special client or a custom protocol — your existing snippets just work."
+          subtitle="Connect with the tools you already use. We don't ship a special client or a custom protocol - your existing snippets just work."
         />
         <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 36, alignItems: "start" }} className="m-section-grid-2">
           <CodeSnippet snippets={QUICKSTART} />
@@ -286,7 +286,7 @@ export default async function Homepage() {
             <Mini icon={<CodeIcon size={18} />} title="Prisma, Drizzle, raw pg, SQLAlchemy" body="No special drivers. Your ORM, your conventions." />
             <Mini icon={<TerminalIcon size={18} />} title="psql, pg_dump, TablePlus, DBeaver" body="All standard PostgreSQL tooling works unmodified." />
             <Mini icon={<BoltIcon size={18} />} title="Connection pooling included" body="PgBouncer configured for you. Toggle transaction or session mode." />
-            <Mini icon={<GlobeIcon size={18} />} title="S3-compatible storage SDK" body="boto3, AWS SDK v3, Minio client — change the endpoint, leave the rest." />
+            <Mini icon={<GlobeIcon size={18} />} title="S3-compatible storage SDK" body="boto3, AWS SDK v3, Minio client - change the endpoint, leave the rest." />
           </div>
         </div>
       </Section>

@@ -1,4 +1,4 @@
-// ProductPage / MarketingPage — generic template shared by product, tool,
+// ProductPage / MarketingPage - generic template shared by product, tool,
 // comparison, and migration pages. Builds a hero, optional eyebrow, feature
 // grid, code/visual section, and CTA from a typed config so individual
 // route files stay short and consistent.
@@ -128,7 +128,7 @@ export function StepsBlock({
               background: "var(--m-gradient-cta)", color: "white",
               display: "inline-grid", placeItems: "center",
               fontSize: 13, fontWeight: 800,
-              boxShadow: "0 6px 16px rgba(109,94,246,.4)",
+              boxShadow: "0 6px 16px color-mix(in srgb, var(--gradientcolor1) 34%, transparent)",
             }}>{i + 1}</span>
             <span style={{ fontSize: 15, fontWeight: 680, color: "var(--m-text-strong)" }}>{s.title}</span>
           </div>

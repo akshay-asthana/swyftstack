@@ -1,4 +1,4 @@
-// /about — bespoke About page. Reflects the philosophy laid out in
+// /about - bespoke About page. Reflects the philosophy laid out in
 // MARKETING_PAGES_CONTENT.md §24, with a more editorial layout than the
 // product / alternative pages. Content is fixed in code; not CMS-backed.
 import Link from "next/link";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 const DESCRIPTION = "Why we built Swyftstack: managed PostgreSQL and S3 storage that respects your time. Predictable bills, instant dashboards, and a real human who answers your emails.";
 
 export const metadata: Metadata = {
-  title: "About Swyftstack — backend hosting that respects your time",
+  title: "About Swyftstack - backend hosting that respects your time",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/about` },
   openGraph: { title: "About Swyftstack", description: DESCRIPTION, url: `${SITE_URL}/about`, type: "website" },
@@ -24,7 +24,7 @@ const VALUES: { icon: React.ReactNode; title: string; body: string }[] = [
   {
     icon: <BoltIcon size={20} />,
     title: "Speed is a feature",
-    body: "Deploying a database in 47 seconds isn't a marketing number — it's a design constraint that shapes everything else we build. If provisioning is fast, restores are fast. If restores are fast, on-call is calmer.",
+    body: "Deploying a database in 47 seconds isn't a marketing number - it's a design constraint that shapes everything else we build. If provisioning is fast, restores are fast. If restores are fast, on-call is calmer.",
   },
   {
     icon: <LockIcon size={20} />,
@@ -39,7 +39,7 @@ const VALUES: { icon: React.ReactNode; title: string; body: string }[] = [
   {
     icon: <ShieldIcon size={20} />,
     title: "Honesty is a feature",
-    body: "If a competitor is right for your use case, we'll tell you. We'd rather lose a sale than mis-fit a customer. Read our Supabase / Railway / Heroku pages — we name the cases each one wins.",
+    body: "If a competitor is right for your use case, we'll tell you. We'd rather lose a sale than mis-fit a customer. Read our Supabase / Railway / Heroku pages - we name the cases each one wins.",
   },
 ];
 
@@ -83,7 +83,7 @@ export default function AboutPage() {
             <p>So we built that. Two products. Both simple. Both fast. Both backed by a real human who answers your emails.</p>
             <p>
               We are not trying to be the biggest backend platform. We are trying to be the one developers tell their friends
-              about — the one that quietly works while they go ship their app.
+              about - the one that quietly works while they go ship their app.
             </p>
           </div>
         </div>
@@ -115,14 +115,14 @@ export default function AboutPage() {
           <div className="m-prose">
             <h2>Why we charge for everything</h2>
             <p>
-              Free tiers force paying customers to subsidize freeloaders. We answer every support email personally — we can
+              Free tiers force paying customers to subsidize freeloaders. We answer every support email personally - we can
               only do that if we&rsquo;re paid. If $19/month (or $9 during launch) isn&rsquo;t right for you, we&rsquo;ll happily
               help you find a free alternative.
             </p>
             <h2>Why we don&rsquo;t offer self-hosting</h2>
             <p>
               The whole point of Swyftstack is that you don&rsquo;t operate infrastructure. Self-hosting would ship the same
-              complexity we&rsquo;re trying to remove. PostgreSQL itself is open source and excellent — if you want to run it
+              complexity we&rsquo;re trying to remove. PostgreSQL itself is open source and excellent - if you want to run it
               yourself, do that. We&rsquo;d be a worse choice.
             </p>
           </div>
@@ -134,7 +134,7 @@ export default function AboutPage() {
         <SectionHead
           eyebrow="Milestones"
           title="The receipts"
-          subtitle="What we shipped and when. We&rsquo;ll update this page as new milestones land — both the ones we&rsquo;re proud of and the ones we learn from."
+          subtitle="What we shipped and when. We&rsquo;ll update this page as new milestones land - both the ones we&rsquo;re proud of and the ones we learn from."
         />
         <div className="m-card" style={{ padding: 28 }}>
           {MILESTONES.map((m) => (

@@ -1,4 +1,4 @@
-// robots.txt — allow public marketing routes and the CMS-published blog /
+// robots.txt - allow public marketing routes and the CMS-published blog /
 // announcements. Block the authenticated console, all API routes, and any
 // auth-only flows.
 import type { MetadataRoute } from "next";

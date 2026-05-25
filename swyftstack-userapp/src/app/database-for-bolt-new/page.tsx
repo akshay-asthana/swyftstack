@@ -1,4 +1,4 @@
-// /database-for-bolt-new — content from MARKETING_PAGES_CONTENT.md §6.
+// /database-for-bolt-new - content from MARKETING_PAGES_CONTENT.md §6.
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
 import { SITE_URL } from "@/components/marketing/jsonld";
@@ -8,10 +8,10 @@ export const dynamic = "force-dynamic";
 const DESCRIPTION = "Add a real PostgreSQL database to your Bolt.new app. Connection survives restarts, refreshes, and redeploys. 5-minute walkthrough.";
 
 export const metadata: Metadata = {
-  title: "Database for Bolt.new apps — persistent PostgreSQL | Swyftstack",
+  title: "Database for Bolt.new apps - persistent PostgreSQL | Swyftstack",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/database-for-bolt-new` },
-  openGraph: { title: "Database for Bolt.new — Swyftstack", description: DESCRIPTION, url: `${SITE_URL}/database-for-bolt-new`, type: "article" },
+  openGraph: { title: "Database for Bolt.new - Swyftstack", description: DESCRIPTION, url: `${SITE_URL}/database-for-bolt-new`, type: "article" },
 };
 
 export default function BoltPage() {
@@ -44,9 +44,9 @@ export default function BoltPage() {
       }}
       faq={{
         items: [
-          { q: "Do I need to commit my .env to Bolt's repo?", a: "No — Bolt has a separate Secrets / Env Variables section. Use that, not committed files." },
+          { q: "Do I need to commit my .env to Bolt's repo?", a: "No - Bolt has a separate Secrets / Env Variables section. Use that, not committed files." },
           { q: "Will Bolt's free tier work with this?", a: "Yes. The database is external; Bolt only needs to connect to it." },
-          { q: "My data still resets — why?", a: "Make sure Bolt's generated code reads from DATABASE_URL and isn't falling back to SQLite or in-memory. Tell Bolt: \"Don't fall back to local storage; require DATABASE_URL.\"" },
+          { q: "My data still resets - why?", a: "Make sure Bolt's generated code reads from DATABASE_URL and isn't falling back to SQLite or in-memory. Tell Bolt: \"Don't fall back to local storage; require DATABASE_URL.\"" },
         ],
       }}
       finalCta={{

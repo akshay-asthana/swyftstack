@@ -1,6 +1,6 @@
 // Dynamic sitemap. Combines the curated list of static marketing routes with
 // every *published* row in `cms_marketing_pages`. Drafts, archived, and
-// authenticated routes are deliberately excluded — they must not be
+// authenticated routes are deliberately excluded - they must not be
 // crawlable.
 import type { MetadataRoute } from "next";
 import { prisma } from "swyftstack-shared";
@@ -56,7 +56,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: r.priority,
   }));
 
-  // CMS-backed content — only published rows. Wrapped in try/catch so a DB
+  // CMS-backed content - only published rows. Wrapped in try/catch so a DB
   // outage doesn't take the sitemap down.
   let cms: MetadataRoute.Sitemap = [];
   try {
@@ -79,7 +79,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       };
     });
   } catch {
-    // DB unavailable — fall back to the static routes only. Better to ship
+    // DB unavailable - fall back to the static routes only. Better to ship
     // an incomplete sitemap than no sitemap at all.
   }
 

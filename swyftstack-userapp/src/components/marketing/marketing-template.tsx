@@ -1,4 +1,4 @@
-// MarketingTemplate — shared layout primitive for the bulk-generated SEO
+// MarketingTemplate - shared layout primitive for the bulk-generated SEO
 // pages (alternatives, solutions, AI-tool, migrate-from). Each page passes
 // in its specific content and the template handles the shell, hero,
 // metadata structured-data slot, FAQ rendering, and final CTA so individual
@@ -28,7 +28,7 @@ export type Faq = { q: string; a: string };
 export type MarketingTemplateProps = {
   /** Pill above the H1. */
   eyebrow: string;
-  /** Hero H1 — keep short, gradient styling will wrap the optional `headlineAccent`. */
+  /** Hero H1 - keep short, gradient styling will wrap the optional `headlineAccent`. */
   headline: string;
   /** The accent fragment (gets the gradient). Optional. */
   headlineAccent?: string;
@@ -119,7 +119,7 @@ export function MarketingTemplate(p: MarketingTemplateProps) {
         <Section alt>
           <SectionHead
             eyebrow={p.comparison.eyebrow ?? "Side-by-side"}
-            title={p.comparison.title ?? "Honest comparison"}
+            title={p.comparison.title ?? "Platform comparison"}
             subtitle={p.comparison.subtitle}
           />
           <ComparisonTable columns={p.comparison.columns} rows={p.comparison.rows} />
@@ -143,7 +143,7 @@ export function MarketingTemplate(p: MarketingTemplateProps) {
                     background: "var(--m-gradient-cta)", color: "white",
                     display: "inline-grid", placeItems: "center",
                     fontWeight: 800, fontSize: 13,
-                    boxShadow: "0 6px 16px rgba(109,94,246,.4)",
+                    boxShadow: "0 6px 16px color-mix(in srgb, var(--gradientcolor1) 34%, transparent)",
                   }}>{s.n}</span>
                   <span style={{ fontWeight: 680, color: "var(--m-text-strong)", fontSize: 15 }}>{s.title}</span>
                 </div>

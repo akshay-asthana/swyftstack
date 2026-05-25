@@ -1,4 +1,4 @@
-// /database-for-v0 — content from MARKETING_PAGES_CONTENT.md §8.
+// /database-for-v0 - content from MARKETING_PAGES_CONTENT.md §8.
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
 import { SITE_URL } from "@/components/marketing/jsonld";
@@ -8,10 +8,10 @@ export const dynamic = "force-dynamic";
 const DESCRIPTION = "Connect a real PostgreSQL database to your v0 app in 5 minutes. The same DATABASE_URL works in v0 preview, local dev, and Vercel production.";
 
 export const metadata: Metadata = {
-  title: "Database for v0 apps — managed PostgreSQL | Swyftstack",
+  title: "Database for v0 apps - managed PostgreSQL | Swyftstack",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/database-for-v0` },
-  openGraph: { title: "Database for v0 — Swyftstack", description: DESCRIPTION, url: `${SITE_URL}/database-for-v0`, type: "article" },
+  openGraph: { title: "Database for v0 - Swyftstack", description: DESCRIPTION, url: `${SITE_URL}/database-for-v0`, type: "article" },
 };
 
 export default function V0Page() {
@@ -20,7 +20,7 @@ export default function V0Page() {
       eyebrow="For v0 apps"
       headline="Connect a real database to your v0 app"
       headlineAccent="in 5 minutes."
-      subheadline="v0 generates the UI. Swyftstack adds the missing piece — a managed PostgreSQL database your app can actually save data to."
+      subheadline="v0 generates the UI. Swyftstack adds the missing piece - a managed PostgreSQL database your app can actually save data to."
       primaryCta={{ label: "Get a database", href: "/signup" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
       steps={{
@@ -35,7 +35,7 @@ export default function V0Page() {
       }}
       faq={{
         items: [
-          { q: "Will my v0-generated server actions work?", a: "Yes — server actions run in the Node.js runtime by default, where Prisma/Drizzle/pg work normally." },
+          { q: "Will my v0-generated server actions work?", a: "Yes - server actions run in the Node.js runtime by default, where Prisma/Drizzle/pg work normally." },
           { q: "What about the v0 preview environment?", a: "Same DATABASE_URL works in v0 preview, your local terminal, and Vercel production. Add it in each environment." },
           { q: "Do I need a separate Vercel Postgres add-on?", a: "No. Swyftstack replaces it. We're a standard Postgres host." },
         ],

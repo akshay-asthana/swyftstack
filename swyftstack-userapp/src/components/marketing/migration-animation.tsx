@@ -1,6 +1,6 @@
 "use client";
 
-// MigrationAnimation — the headline interactive on the homepage. User types
+// MigrationAnimation - the headline interactive on the homepage. User types
 // (or accepts the prefilled value), clicks Migrate, sees the progress bar
 // fill across ~2s, then a success state with a fresh Swyftstack connection
 // string. Respects prefers-reduced-motion. Loops by resetting after a beat

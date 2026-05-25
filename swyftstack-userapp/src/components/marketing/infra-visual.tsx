@@ -1,4 +1,4 @@
-// InfrastructureVisual — a stylized "single control plane" overview showing
+// InfrastructureVisual - a stylized "single control plane" overview showing
 // a project bundling a database, bucket, backup, and live usage. Pure SVG
 // + CSS so it ships zero JS and renders crisp on retina.
 

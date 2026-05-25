@@ -7,16 +7,22 @@
  * theme.css + marketing.css.
  * ============================================================ */
 
+:root {
+  /* Edit these two colors to test marketing gradients across the app. */
+  --gradientcolor1: #ff8008;
+  --gradientcolor2: #ffc837;
+}
+
 .m {
   /* ---- brand ---- */
-  --m-brand: #6d5ef6;
-  --m-brand-hi: #8c7bff;
-  --m-brand-lo: #5040e0;
-  --m-brand-ink: #2a1f99;
-  --m-accent: #22d3ee;            /* cyan */
-  --m-accent-2: #a78bfa;          /* violet */
-  --m-accent-3: #34d399;          /* emerald */
-  --m-accent-warm: #fbbf24;       /* amber for highlights */
+  --m-brand: var(--gradientcolor1);
+  --m-brand-hi: var(--gradientcolor2);
+  --m-brand-lo: #c45a00;
+  --m-brand-ink: #111827;
+  --m-accent: var(--gradientcolor2);
+  --m-accent-2: var(--gradientcolor1);
+  --m-accent-3: var(--gradientcolor2);
+  --m-accent-warm: var(--gradientcolor1);
 
   /* ---- backgrounds (dark theme, premium infra feel) ---- */
   --m-bg: #07080d;
@@ -24,20 +30,20 @@
   --m-bg-2: #11131c;
   --m-bg-3: #161927;
   --m-bg-elevated: #1a1d2a;
-  --m-bg-glass: rgba(20, 23, 35, .72);
+  --m-bg-glass: rgba(20, 23, 35, 0.72);
 
   /* ---- surfaces (used on cards/panels over backgrounds) ---- */
   --m-surface: #12141d;
   --m-surface-2: #181b27;
   --m-surface-3: #1e2230;
   --m-surface-hover: #20233236;
-  --m-surface-glass: rgba(255, 255, 255, .04);
-  --m-surface-glass-strong: rgba(255, 255, 255, .07);
+  --m-surface-glass: rgba(255, 255, 255, 0.04);
+  --m-surface-glass-strong: rgba(255, 255, 255, 0.07);
 
   /* ---- borders ---- */
-  --m-border: rgba(255, 255, 255, .07);
-  --m-border-strong: rgba(255, 255, 255, .12);
-  --m-border-brand: rgba(109, 94, 246, .35);
+  --m-border: rgba(255, 255, 255, 0.07);
+  --m-border-strong: rgba(255, 255, 255, 0.12);
+  --m-border-brand: color-mix(in srgb, var(--gradientcolor1) 42%, transparent);
 
   /* ---- text ---- */
   --m-text: #f3f4f8;
@@ -46,7 +52,7 @@
   --m-text-muted: #8a90a4;
   --m-text-faint: #5d6376;
   --m-text-inverse: #0b0d15;
-  --m-text-brand: #b6a8ff;
+  --m-text-brand: #ffc837;
 
   /* ---- status ---- */
   --m-ok: #34d399;
@@ -56,25 +62,51 @@
 
   /* ---- gradients ---- */
   --m-gradient-hero:
-    radial-gradient(900px 520px at 12% -10%, rgba(109, 94, 246, .35), transparent 60%),
-    radial-gradient(700px 420px at 92% 10%, rgba(34, 211, 238, .22), transparent 60%),
-    radial-gradient(620px 360px at 50% 110%, rgba(167, 139, 250, .22), transparent 60%);
-  --m-gradient-brand: linear-gradient(135deg, var(--m-brand) 0%, var(--m-accent-2) 60%, var(--m-accent) 100%);
-  --m-gradient-cta: linear-gradient(135deg, #6d5ef6 0%, #a78bfa 50%, #22d3ee 100%);
-  --m-gradient-card: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+    radial-gradient(
+      900px 520px at 12% -10%,
+      color-mix(in srgb, var(--gradientcolor1) 26%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      700px 420px at 92% 10%,
+      color-mix(in srgb, var(--gradientcolor2) 18%, transparent),
+      transparent 60%
+    );
+  --m-gradient-brand: linear-gradient(135deg, var(--gradientcolor1) 0%, var(--gradientcolor2) 100%);
+  --m-gradient-cta: linear-gradient(135deg, var(--gradientcolor1) 0%, var(--gradientcolor2) 100%);
+  --m-gradient-heading-text: linear-gradient(180deg, #ffffff 0%, #c7f9f2 100%);
+  --m-gradient-card: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.01)
+  );
   --m-gradient-mesh:
-    radial-gradient(at 20% 20%, rgba(109,94,246,.18), transparent 50%),
-    radial-gradient(at 80% 30%, rgba(34,211,238,.14), transparent 50%),
-    radial-gradient(at 40% 80%, rgba(167,139,250,.16), transparent 50%);
-  --m-gradient-divider: linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent);
+    radial-gradient(at 20% 20%, color-mix(in srgb, var(--gradientcolor1) 16%, transparent), transparent 50%),
+    radial-gradient(at 80% 30%, color-mix(in srgb, var(--gradientcolor2) 14%, transparent), transparent 50%);
+  --m-gradient-divider: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.08),
+    transparent
+  );
+  --m-mm-bg: linear-gradient(
+    180deg,
+    rgba(12, 17, 24, 0.96),
+    rgba(8, 12, 20, 0.96)
+  );
 
   /* ---- shadows ---- */
-  --m-shadow-sm: 0 1px 2px rgba(0,0,0,.32);
-  --m-shadow: 0 8px 24px rgba(0,0,0,.36);
-  --m-shadow-lg: 0 24px 60px rgba(0,0,0,.5);
-  --m-shadow-glow: 0 0 0 1px rgba(109,94,246,.35), 0 16px 60px rgba(109,94,246,.28);
-  --m-shadow-glow-cyan: 0 0 0 1px rgba(34,211,238,.3), 0 16px 60px rgba(34,211,238,.22);
-  --m-shadow-card: 0 1px 0 rgba(255,255,255,.04) inset, 0 18px 48px rgba(0,0,0,.45);
+  --m-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.32);
+  --m-shadow: 0 8px 24px rgba(0, 0, 0, 0.36);
+  --m-shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.5);
+  --m-shadow-glow:
+    0 0 0 1px color-mix(in srgb, var(--gradientcolor1) 32%, transparent),
+    0 16px 60px color-mix(in srgb, var(--gradientcolor1) 22%, transparent);
+  --m-shadow-glow-cyan:
+    0 0 0 1px color-mix(in srgb, var(--gradientcolor2) 30%, transparent),
+    0 16px 60px color-mix(in srgb, var(--gradientcolor2) 20%, transparent);
+  --m-shadow-card:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 18px 48px rgba(0, 0, 0, 0.45);
 
   /* ---- radii ---- */
   --m-r-xs: 6px;
@@ -97,8 +129,12 @@
   --m-space-10: 128px;
 
   /* ---- typography ---- */
-  --m-font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-  --m-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "JetBrains Mono", "Fira Code", monospace;
+  --m-font:
+    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", sans-serif;
+  --m-font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, "JetBrains Mono", "Fira Code",
+    monospace;
 
   --m-text-display: clamp(40px, 6.4vw, 72px);
   --m-text-h1: clamp(34px, 5vw, 56px);
@@ -121,15 +157,15 @@
 
   /* ---- nav ---- */
   --m-nav-h: 64px;
-  --m-nav-bg: rgba(11, 13, 21, .72);
-  --m-nav-border: rgba(255, 255, 255, .07);
+  --m-nav-bg: rgba(11, 13, 21, 0.72);
+  --m-nav-border: rgba(255, 255, 255, 0.07);
 
   /* ---- focus ---- */
-  --m-focus: 0 0 0 3px rgba(109,94,246,.45);
+  --m-focus: 0 0 0 3px color-mix(in srgb, var(--gradientcolor1) 42%, transparent);
 
   /* ---- chart palette ---- */
-  --m-chart-1: #6d5ef6;
-  --m-chart-2: #22d3ee;
+  --m-chart-1: var(--gradientcolor1);
+  --m-chart-2: var(--gradientcolor2);
   --m-chart-3: #34d399;
   --m-chart-4: #fbbf24;
   --m-chart-5: #f472b6;
@@ -139,21 +175,44 @@
 
   /* ---- animation / orchestrator ---- */
   --m-gradient-aurora:
-    radial-gradient(60% 60% at 20% 30%, rgba(109, 94, 246, .35), transparent 60%),
-    radial-gradient(50% 50% at 80% 25%, rgba(34, 211, 238, .28), transparent 60%),
-    radial-gradient(45% 60% at 50% 90%, rgba(167, 139, 250, .25), transparent 60%);
-  --m-gradient-connection: linear-gradient(90deg, rgba(109,94,246,.0), rgba(109,94,246,.85), rgba(34,211,238,.85), rgba(109,94,246,.0));
-  --m-gradient-orb: radial-gradient(closest-side, rgba(167,139,250,.7), rgba(109,94,246,.25) 60%, transparent 75%);
-  --m-gradient-orb-cyan: radial-gradient(closest-side, rgba(34,211,238,.55), rgba(34,211,238,.18) 60%, transparent 75%);
+    radial-gradient(
+      60% 60% at 20% 30%,
+      color-mix(in srgb, var(--gradientcolor1) 30%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      50% 50% at 80% 25%,
+      color-mix(in srgb, var(--gradientcolor2) 24%, transparent),
+      transparent 60%
+    );
+  --m-gradient-connection: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--gradientcolor1) 85%, transparent),
+    color-mix(in srgb, var(--gradientcolor2) 85%, transparent),
+    transparent
+  );
+  --m-gradient-orb: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--gradientcolor1) 65%, transparent),
+    color-mix(in srgb, var(--gradientcolor1) 22%, transparent) 60%,
+    transparent 75%
+  );
+  --m-gradient-orb-cyan: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--gradientcolor2) 55%, transparent),
+    color-mix(in srgb, var(--gradientcolor2) 18%, transparent) 60%,
+    transparent 75%
+  );
   --m-anim-fast: 180ms;
   --m-anim: 320ms;
   --m-anim-slow: 600ms;
-  --m-ease: cubic-bezier(.4, .16, .18, 1);
-  --m-ease-out: cubic-bezier(.16, .84, .32, 1);
+  --m-ease: cubic-bezier(0.4, 0.16, 0.18, 1);
+  --m-ease-out: cubic-bezier(0.16, 0.84, 0.32, 1);
 }
 
 /* ============================================================
- * Light theme — applied by toggling [data-m-theme="light"] on the
+ * Light theme - applied by toggling [data-m-theme="light"] on the
  * `.m` root. Same token names; just different values.
  * ============================================================ */
 .m[data-m-theme="light"] {
@@ -164,18 +223,18 @@
   --m-bg-2: #eceef3;
   --m-bg-3: #e3e6ed;
   --m-bg-elevated: #ffffff;
-  --m-bg-glass: rgba(255, 255, 255, .82);
+  --m-bg-glass: rgba(255, 255, 255, 0.82);
 
   --m-surface: #ffffff;
   --m-surface-2: #f7f8fc;
   --m-surface-3: #f1f2f7;
-  --m-surface-hover: rgba(15, 18, 30, .04);
-  --m-surface-glass: rgba(15, 18, 30, .03);
-  --m-surface-glass-strong: rgba(15, 18, 30, .06);
+  --m-surface-hover: rgba(15, 18, 30, 0.04);
+  --m-surface-glass: rgba(15, 18, 30, 0.03);
+  --m-surface-glass-strong: rgba(15, 18, 30, 0.06);
 
-  --m-border: rgba(15, 18, 30, .08);
-  --m-border-strong: rgba(15, 18, 30, .14);
-  --m-border-brand: rgba(109, 94, 246, .4);
+  --m-border: rgba(15, 18, 30, 0.08);
+  --m-border-strong: rgba(15, 18, 30, 0.14);
+  --m-border-brand: color-mix(in srgb, var(--gradientcolor1) 38%, transparent);
 
   --m-text: #1a1d2a;
   --m-text-strong: #0a0c14;
@@ -183,25 +242,49 @@
   --m-text-muted: #5d6376;
   --m-text-faint: #8a90a4;
   --m-text-inverse: #ffffff;
-  --m-text-brand: #4f3fe0;
+  --m-text-brand: #a94700;
 
   --m-gradient-hero:
-    radial-gradient(900px 520px at 12% -10%, rgba(109, 94, 246, .22), transparent 60%),
-    radial-gradient(700px 420px at 92% 10%, rgba(34, 211, 238, .16), transparent 60%),
-    radial-gradient(620px 360px at 50% 110%, rgba(167, 139, 250, .16), transparent 60%);
-  --m-gradient-card: linear-gradient(180deg, rgba(15,18,30,.02), rgba(15,18,30,.005));
+    radial-gradient(
+      900px 520px at 12% -10%,
+      color-mix(in srgb, var(--gradientcolor1) 15%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      700px 420px at 92% 10%,
+      color-mix(in srgb, var(--gradientcolor2) 14%, transparent),
+      transparent 60%
+    );
+  --m-gradient-heading-text: linear-gradient(180deg, #07131f 0%, #334155 100%);
+  --m-gradient-card: linear-gradient(
+    180deg,
+    rgba(15, 18, 30, 0.02),
+    rgba(15, 18, 30, 0.005)
+  );
   --m-gradient-mesh:
-    radial-gradient(at 20% 20%, rgba(109,94,246,.1), transparent 50%),
-    radial-gradient(at 80% 30%, rgba(34,211,238,.08), transparent 50%),
-    radial-gradient(at 40% 80%, rgba(167,139,250,.08), transparent 50%);
-  --m-gradient-divider: linear-gradient(90deg, transparent, rgba(15,18,30,.1), transparent);
+    radial-gradient(at 20% 20%, color-mix(in srgb, var(--gradientcolor1) 10%, transparent), transparent 50%),
+    radial-gradient(at 80% 30%, color-mix(in srgb, var(--gradientcolor2) 12%, transparent), transparent 50%);
+  --m-gradient-divider: linear-gradient(
+    90deg,
+    transparent,
+    rgba(15, 18, 30, 0.1),
+    transparent
+  );
+  --m-mm-bg: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.97),
+    rgba(247, 249, 252, 0.97)
+  );
 
-  --m-shadow-sm: 0 1px 2px rgba(15,18,30,.06);
-  --m-shadow: 0 8px 24px rgba(15,18,30,.08);
-  --m-shadow-lg: 0 24px 60px rgba(15,18,30,.12);
-  --m-shadow-glow: 0 0 0 1px rgba(109,94,246,.35), 0 16px 60px rgba(109,94,246,.18);
-  --m-shadow-card: 0 1px 0 rgba(255,255,255,.6) inset, 0 12px 36px rgba(15,18,30,.07);
+  --m-shadow-sm: 0 1px 2px rgba(15, 18, 30, 0.06);
+  --m-shadow: 0 8px 24px rgba(15, 18, 30, 0.08);
+  --m-shadow-lg: 0 24px 60px rgba(15, 18, 30, 0.12);
+  --m-shadow-glow:
+    0 0 0 1px color-mix(in srgb, var(--gradientcolor1) 28%, transparent),
+    0 16px 60px color-mix(in srgb, var(--gradientcolor1) 14%, transparent);
+  --m-shadow-card:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 12px 36px rgba(15, 18, 30, 0.07);
 
-  --m-nav-bg: rgba(255, 255, 255, .82);
-  --m-nav-border: rgba(15, 18, 30, .08);
+  --m-nav-bg: rgba(255, 255, 255, 0.82);
+  --m-nav-border: rgba(15, 18, 30, 0.08);
 }

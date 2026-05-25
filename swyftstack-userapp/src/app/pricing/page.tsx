@@ -1,7 +1,7 @@
 // Public pricing page. Reads live plans from the DB when available so the
 // page stays in sync with what the admin can sell. Falls back to the
 // content-file pricing if the plans table is empty. The "Choose plan"
-// action remains a server action — signed-out visitors get routed through
+// action remains a server action - signed-out visitors get routed through
 // /signup, signed-in visitors land on a real subscription.
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -19,11 +19,11 @@ import { FaqJsonLd, SITE_URL } from "@/components/marketing/jsonld";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Pricing — Swyftstack",
+  title: "Pricing - Swyftstack",
   description: "Honest pricing for managed PostgreSQL, object storage, and static site hosting. Starter $19/mo. Pro $99/mo. Enterprise: talk to us.",
   alternates: { canonical: `${SITE_URL}/pricing` },
   openGraph: {
-    title: "Pricing — Swyftstack",
+    title: "Pricing - Swyftstack",
     description: "Pick a plan. Pay monthly or save with annual. Upgrade or cancel anytime.",
     url: `${SITE_URL}/pricing`,
   },
@@ -31,12 +31,12 @@ export const metadata: Metadata = {
 
 const FAQ_ITEMS = [
   { q: "Why no free tier?", a: "Free tiers attract users who get poor support and force paying customers to subsidize them. We'd rather charge a fair price and treat every project seriously." },
-  { q: "How does the launch offer work?", a: "The first 500 customers get Starter at $9/mo or Growth at $49/mo for their first two months. After that you roll onto our standard pricing automatically — no contract, no surprise upsell." },
+  { q: "How does the launch offer work?", a: "The first 500 customers get Starter at $9/mo or Growth at $49/mo for their first two months. After that you roll onto our standard pricing automatically - no contract, no surprise upsell." },
   { q: "What happens when I hit a usage limit?", a: "We email you at 80% and 95%. Your database keeps serving traffic. Upgrade in one click." },
   { q: "Can I change plans?", a: "Yes. Upgrades are instant. Downgrades take effect at the end of your billing cycle. No phone call required." },
   { q: "Do you charge for inbound traffic?", a: "No. Only egress counts toward your bandwidth limit." },
   { q: "How much do I save with annual?", a: "21% on Starter, 16% on Growth. Invoiced up front so finance can expense it." },
-  { q: "Is there a discount for nonprofits or students?", a: "Yes — email support@swyftstack.com with a few sentences about what you're building and we'll set you up." },
+  { q: "Is there a discount for nonprofits or students?", a: "Yes - email support@swyftstack.com with a few sentences about what you're building and we'll set you up." },
 ];
 
 // Static plan content from the marketing copy. Used when the DB has no

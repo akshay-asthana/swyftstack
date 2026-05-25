@@ -50,7 +50,7 @@ export function SoftwareApplicationJsonLd() {
           priceCurrency: "USD",
         },
         description:
-          "Managed PostgreSQL, S3-compatible object storage, and static site hosting — deployed in minutes from a single dashboard.",
+          "Managed PostgreSQL, S3-compatible object storage, and static site hosting - deployed in minutes from a single dashboard.",
       }}
     />
   );
