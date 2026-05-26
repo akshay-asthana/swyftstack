@@ -1,11 +1,12 @@
 import { headers } from "next/headers";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { prisma } from "swyftstack-shared";
 import { MarketingShell } from "@/components/marketing/shell";
 import { Section } from "@/components/marketing/sections";
 import { SITE_URL } from "@/components/marketing/jsonld";
+import { isEarlyAccessMode } from "@/lib/early-access";
 
 export const dynamic = "force-dynamic";
 
@@ -40,16 +41,10 @@ function str(formData: FormData, key: string): string {
 
 async function requestAccess(formData: FormData) {
   "use server";
+  if (!isEarlyAccessMode()) notFound();
   const email = str(formData, "email").toLowerCase();
   const name = str(formData, "name");
-  const company = str(formData, "company");
-  const role = str(formData, "role");
-  const country = str(formData, "country");
-  // Required: email, name, company, role, country. We explicitly ask for the
-  // country even though we capture an IP-derived country header, because the
-  // IP value can be missing/wrong (VPNs, dev hits) and we want the requester's
-  // self-reported value for compliance/onboarding decisions.
-  if (!email || !name || !company || !role || !country) {
+  if (!email || !name) {
     redirect("/request-early-access?error=required");
   }
 
@@ -57,9 +52,9 @@ async function requestAccess(formData: FormData) {
     data: {
       email,
       name,
-      company,
-      role,
-      country,
+      company: str(formData, "company") || null,
+      role: str(formData, "role") || null,
+      country: str(formData, "country") || null,
       phone: str(formData, "phone") || null,
       ...requestLocation(),
       metadata: {
@@ -76,6 +71,7 @@ export default function RequestEarlyAccessPage({
 }: {
   searchParams: { submitted?: string; error?: string };
 }) {
+  if (!isEarlyAccessMode()) notFound();
   const submitted = searchParams.submitted === "1";
   const error = searchParams.error === "required";
 
@@ -102,29 +98,28 @@ export default function RequestEarlyAccessPage({
               <Link className="m-btn m-btn-secondary" href="/">Back to home</Link>
             </div>
           ) : (
-            <form action={requestAccess}>
+            <form action={requestAccess} className="m-form">
               <div className="m-grid m-grid-2">
                 <div>
-                  <label>Name</label>
+                  <label>Name <span className="m-req" aria-hidden>*</span></label>
                   <input name="name" required autoComplete="name" />
                 </div>
                 <div>
-                  <label>Email</label>
+                  <label>Email <span className="m-req" aria-hidden>*</span></label>
                   <input name="email" type="email" required autoComplete="email" />
                 </div>
                 <div>
-                  <label>Company</label>
-                  <input name="company" required autoComplete="organization" />
+                  <label>Company <span className="m-muted">(optional)</span></label>
+                  <input name="company" autoComplete="organization" />
                 </div>
                 <div>
-                  <label>Role</label>
-                  <input name="role" required autoComplete="organization-title" />
+                  <label>Role <span className="m-muted">(optional)</span></label>
+                  <input name="role" autoComplete="organization-title" />
                 </div>
                 <div>
-                  <label>Country</label>
+                  <label>Country <span className="m-muted">(optional)</span></label>
                   <input
                     name="country"
-                    required
                     autoComplete="country-name"
                     placeholder="e.g. United States"
                   />
@@ -136,7 +131,7 @@ export default function RequestEarlyAccessPage({
               </div>
               {error && (
                 <div className="err">
-                  Please fill in name, email, company, role, and country.
+                  Please fill in your name and email.
                 </div>
               )}
               <div style={{ marginTop: 18 }}>

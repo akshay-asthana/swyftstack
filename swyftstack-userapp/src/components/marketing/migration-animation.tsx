@@ -5,8 +5,10 @@
 // fill across ~2s, then a success state with a fresh Swyftstack connection
 // string. Respects prefers-reduced-motion. Loops by resetting after a beat
 // so the animation is still useful for visitors who don't interact.
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRightIcon, CheckIcon, MigrateIcon, PostgresIcon } from "./icons";
+import swyftstackLogo from "@/brand-assets/swyftstack-logo.png";
 
 type Phase = "idle" | "connecting" | "dumping" | "restoring" | "verifying" | "done";
 
@@ -117,7 +119,7 @@ export function MigrationAnimation({ autoplay = true }: { autoplay?: boolean } =
           {(isRunning || phase === "done") && <span className="m-migration-dot" />}
         </div>
         <div className="m-migration-pill">
-          <span className="m-brand-mark" style={{ width: 22, height: 22, fontSize: 11 }}>S</span>
+          <Image src={swyftstackLogo} alt="" width={22} height={22} className="m-brand-mark" />
           <div style={{ minWidth: 0 }}>
             <div className="label">Destination</div>
             <div className="name">Swyftstack PostgreSQL 16</div>

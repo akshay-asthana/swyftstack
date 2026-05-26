@@ -38,12 +38,21 @@ export function loadRootEnv(): void {
   loaded = true;
 
   const file = findRootEnv(process.cwd());
-  if (!file) return;
+  if (file) {
+    for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
+      const parsed = parseEnvLine(line);
+      if (!parsed) continue;
+      const [key, value] = parsed;
+      process.env[key] ??= value;
+    }
+  }
 
-  for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
-    const parsed = parseEnvLine(line);
-    if (!parsed) continue;
-    const [key, value] = parsed;
-    process.env[key] ??= value;
+  // Prisma's schema references both DATABASE_URL and DIRECT_URL. Hosts that
+  // only supply a single connection string (Vercel + Supabase pooler, etc.)
+  // would otherwise crash Prisma client construction with
+  // "Environment variable not found: DIRECT_URL". Fall back to DATABASE_URL
+  // when blank so a single URL is enough.
+  if (process.env.DATABASE_URL && !process.env.DIRECT_URL) {
+    process.env.DIRECT_URL = process.env.DATABASE_URL;
   }
 }

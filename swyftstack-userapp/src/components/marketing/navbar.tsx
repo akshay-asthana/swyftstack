@@ -9,9 +9,11 @@
 // timeout that is cancelled when the cursor enters either the trigger or
 // the panel itself - that gap is bridged by an invisible padding-top on
 // `.m-mm-wrap`, so the cursor never actually leaves the controlled region.
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import swyftstackLogo from "@/brand-assets/swyftstack-logo.png";
 import {
   ArrowRightIcon,
   BoltIcon,
@@ -160,7 +162,7 @@ export function MarketingNavbar({ signedIn, earlyAccess = false }: { signedIn: b
     <header className="m-nav" role="banner">
       <div className="m-nav-inner" ref={navRef}>
         <Link className="m-brand" href="/" aria-label="Swyftstack home">
-          <span className="m-brand-mark">S</span>
+          <Image src={swyftstackLogo} alt="" width={30} height={30} className="m-brand-mark" priority />
           <span>Swyftstack</span>
         </Link>
 
@@ -197,9 +199,11 @@ export function MarketingNavbar({ signedIn, earlyAccess = false }: { signedIn: b
             </Link>
           ) : (
             <>
-              <Link className="m-btn m-btn-ghost m-btn-sm m-nav-only-desktop" href={earlyAccess ? "/request-early-access" : "/login"}>
-                {earlyAccess ? "Request access" : "Sign in"}
-              </Link>
+              {!earlyAccess && (
+                <Link className="m-btn m-btn-ghost m-btn-sm m-nav-only-desktop" href="/login">
+                  Sign in
+                </Link>
+              )}
               <Link className="m-btn m-btn-primary m-btn-sm" href={earlyAccess ? "/request-early-access" : "/signup"}>
                 {earlyAccess ? "Request early access" : "Start building"} <ArrowRightIcon size={14} />
               </Link>
@@ -230,9 +234,11 @@ export function MarketingNavbar({ signedIn, earlyAccess = false }: { signedIn: b
             <Link className="m-btn m-btn-primary m-btn-block" href="/console">Open console</Link>
           ) : (
             <>
-              <Link className="m-btn m-btn-secondary m-btn-block" href={earlyAccess ? "/request-early-access" : "/login"}>
-                {earlyAccess ? "Request access" : "Sign in"}
-              </Link>
+              {!earlyAccess && (
+                <Link className="m-btn m-btn-secondary m-btn-block" href="/login">
+                  Sign in
+                </Link>
+              )}
               <Link className="m-btn m-btn-primary m-btn-block" href={earlyAccess ? "/request-early-access" : "/signup"}>
                 {earlyAccess ? "Request early access" : "Start building"}
               </Link>

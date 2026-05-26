@@ -1,7 +1,9 @@
 // MarketingFooter - detailed multi-column footer matched to the new mega
 // menu architecture. Static server component; zero JS shipped. Links use
 // SEO-friendly slugs (no /for/* or /vs/* prefixes).
+import Image from "next/image";
 import Link from "next/link";
+import swyftstackLogo from "@/brand-assets/swyftstack-logo.png";
 
 export function MarketingFooter() {
   return (
@@ -10,7 +12,7 @@ export function MarketingFooter() {
         <div className="m-footer-grid">
           <div className="m-footer-brand">
             <Link className="m-brand" href="/">
-              <span className="m-brand-mark">S</span>
+              <Image src={swyftstackLogo} alt="" width={30} height={30} className="m-brand-mark" />
               <span>Swyftstack</span>
             </Link>
             <p>

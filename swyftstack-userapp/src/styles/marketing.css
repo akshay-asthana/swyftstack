@@ -94,29 +94,20 @@ body:has(.m) {
   justify-self: start;
 }
 .m-brand-mark {
-  width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
-  background: var(--m-gradient-brand);
-  display: grid; place-items: center;
-  color: white; font-weight: 800; font-size: 14px;
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--gradientcolor1) 38%, transparent);
+  width: 30px; height: 30px; flex-shrink: 0;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 16px color-mix(in srgb, var(--gradientcolor1) 32%, transparent));
 }
 .m-nav-links {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(104px, 1fr));
+  display: flex;
   align-items: center;
   justify-content: center;
   justify-self: center;
-  gap: 6px;
-  width: clamp(440px, 38vw, 540px);
+  gap: 2px;
 }
 .m-nav-links > * {
   position: relative;
   min-width: 0;
-}
-.m-nav-links > a,
-.m-nav-links > div > .m-nav-item {
-  width: 100%;
-  justify-content: center;
 }
 .m-nav-links a.active { color: var(--m-text-strong); }
 .m-nav-cta { display: flex; align-items: center; gap: 10px; justify-self: end; }
@@ -397,6 +388,54 @@ body:has(.m) {
 .m-text-grad {
   background: var(--m-gradient-cta);
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+
+/* ============================================================
+ * Marketing forms (scoped to .m so the inputs follow the marketing
+ * theme tokens, not the console's globals.css palette). Without this
+ * scope, light-mode marketing pages inherited dark console surface
+ * colors on <input>/<label>, leaving the request-early-access form
+ * unreadable in light mode.
+ * ============================================================ */
+.m label {
+  display: block;
+  font-size: 12.5px;
+  color: var(--m-text-2);
+  margin: 12px 0 6px;
+  font-weight: 600;
+}
+.m input,
+.m select,
+.m textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 12px;
+  font: inherit;
+  color: var(--m-text-strong);
+  background: var(--m-surface);
+  border: 1px solid var(--m-border-strong);
+  border-radius: var(--m-r-sm);
+  transition: border-color var(--m-anim-fast) var(--m-ease), box-shadow var(--m-anim-fast) var(--m-ease);
+}
+.m input::placeholder,
+.m textarea::placeholder { color: var(--m-text-faint); }
+.m input:focus,
+.m select:focus,
+.m textarea:focus {
+  outline: none;
+  border-color: var(--m-border-brand);
+  box-shadow: var(--m-focus);
+}
+.m .m-req { color: var(--gradientcolor1); margin-left: 2px; font-weight: 720; }
+.m .m-muted { color: var(--m-text-muted); font-weight: 500; }
+.m .err {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: var(--m-r-sm);
+  background: color-mix(in srgb, var(--m-bad) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--m-bad) 28%, transparent);
+  color: var(--m-bad);
+  font-size: 13px;
 }
 
 /* ============================================================
@@ -977,10 +1016,10 @@ body:has(.m) {
 .m-nav-v2 { /* shares .m-nav-* but uses controlled JS state */ }
 .m-nav-item {
   position: relative;
-  padding: 8px 12px; border-radius: var(--m-r-sm);
+  padding: 7px 9px; border-radius: var(--m-r-sm);
   color: var(--m-text-2); font-weight: 550; font-size: 14px;
   background: transparent; border: none; cursor: pointer; user-select: none;
-  display: inline-flex; align-items: center; gap: 5px;
+  display: inline-flex; align-items: center; gap: 4px;
   transition: background var(--m-anim-fast) var(--m-ease), color var(--m-anim-fast) var(--m-ease);
 }
 .m-nav-item:hover, .m-nav-item.active, .m-nav-item[aria-expanded="true"] {
