@@ -21,13 +21,16 @@ export function HeroBackgroundAnimation({ variant = "default" }: { variant?: Her
       {/* The actual animated network mesh, drawn on canvas. The home variant
           reads --vantacolor from theme.css so it can be retuned per theme.
           The default (non-home) variant uses --gradientcolor1 so a brand
-          recolor in theme.css ripples through the rest of the hero set too. */}
+          recolor in theme.css ripples through the rest of the hero set too.
+          Sparser by design - the user asked to "reduce the number of nodes
+          and lines" so it feels like a subtle infrastructure backdrop, not
+          a busy graph. */}
       <NetworkMesh
         color={isHomeNet ? "var(--vantacolor)" : "var(--gradientcolor1)"}
         background="transparent"
-        points={isHomeNet ? 70 : 52}
-        maxDistance={isHomeNet ? 190 : 190}
-        dotSize={isHomeNet ? 2.0 : 2.0}
+        points={isHomeNet ? 32 : 28}
+        maxDistance={isHomeNet ? 220 : 210}
+        dotSize={isHomeNet ? 2.2 : 2.0}
         speed={isHomeNet ? 0.3 : 0.32}
       />
       {/* Bottom fade so the mesh dissolves cleanly into the page below. */}

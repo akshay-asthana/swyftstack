@@ -152,8 +152,8 @@ export function NetworkMesh({
       }
 
       // Draw lines between points within `maxDistance`. Opacity tapers off
-      // with distance so far-away connections fade naturally. Brighter base
-      // alpha so the mesh actually reads against the dark hero background.
+      // with distance so far-away connections fade naturally. Tuned to read
+      // clearly on both the dark and light hero backgrounds.
       for (let i = 0; i < pts.length; i++) {
         const a = pts[i];
         for (let j = i + 1; j < pts.length; j++) {
@@ -162,9 +162,9 @@ export function NetworkMesh({
           const dy = a.y - b.y;
           const dSq = dx * dx + dy * dy;
           if (dSq > maxSq) continue;
-          const alpha = (1 - dSq / maxSq) * 0.95;
+          const alpha = (1 - dSq / maxSq) * 0.75;
           ctx!.strokeStyle = `rgba(${rgbStr},${alpha.toFixed(3)})`;
-          ctx!.lineWidth = 1.1;
+          ctx!.lineWidth = 1;
           ctx!.beginPath();
           ctx!.moveTo(a.x, a.y);
           ctx!.lineTo(b.x, b.y);
@@ -172,16 +172,15 @@ export function NetworkMesh({
         }
       }
 
-      // Draw dots last so they sit on top of lines. A soft halo plus a bright
-      // core gives the points enough presence to read on a near-black field
-      // without needing a CSS filter.
+      // Draw dots last so they sit on top of lines. Halo + bright core gives
+      // the points presence on either background tone.
       for (let i = 0; i < pts.length; i++) {
         const p = pts[i];
-        ctx!.fillStyle = `rgba(${rgbStr},0.28)`;
+        ctx!.fillStyle = `rgba(${rgbStr},0.22)`;
         ctx!.beginPath();
-        ctx!.arc(p.x, p.y, dotSize * 2.4, 0, Math.PI * 2);
+        ctx!.arc(p.x, p.y, dotSize * 2.2, 0, Math.PI * 2);
         ctx!.fill();
-        ctx!.fillStyle = `rgba(${rgbStr},1)`;
+        ctx!.fillStyle = `rgba(${rgbStr},0.95)`;
         ctx!.beginPath();
         ctx!.arc(p.x, p.y, dotSize, 0, Math.PI * 2);
         ctx!.fill();

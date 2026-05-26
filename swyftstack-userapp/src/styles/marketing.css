@@ -283,8 +283,13 @@ body:has(.m) {
   pointer-events: none;
 }
 .m-hero::after {
+  /* Only fade at the very bottom edge of the hero into the page background.
+   * The previous radial gradient (centered at 50% 100%) covered the SIDES of
+   * the hero too, painting `var(--m-bg)` over the canvas in those areas and
+   * making the network mesh disappear "near the text". A pure linear gradient
+   * at the bottom keeps the canvas fully visible across the rest of the hero. */
   content: ""; position: absolute; inset: 0;
-  background: radial-gradient(800px 400px at 50% 100%, transparent, var(--m-bg) 70%);
+  background: linear-gradient(180deg, rgba(0,0,0,0) 80%, var(--m-bg) 100%);
   z-index: 1; pointer-events: none;
 }
 .m-hero-inner { position: relative; z-index: 2; text-align: center; max-width: 1120px; margin: 0 auto; }
@@ -320,56 +325,51 @@ body:has(.m) {
 .m-hero-visual { margin: 56px auto 0; max-width: 1024px; }
 
 /* ============================================================
- * Homepage hero (.m-hero.m-hero-home) - the dark Vanta-field variant.
+ * Homepage hero (.m-hero.m-hero-home) - theme-aware Vanta-field variant.
  *
- * Design goals (and what we explicitly DON'T do):
- *   1. The section background is ALWAYS dark in both themes. `--vantabackground`
- *      is the source of truth; the !important + hardcoded fallback below
- *      guarantee the dark field paints even if the variable doesn't resolve
- *      (cache, FOUC, etc.).
- *   2. The ::before pseudo must stay transparent so the <NetworkMesh> canvas
- *      shows through. A previous version painted a solid color here, which
- *      was the root cause of the "Vanta isn't visible" report.
- *   3. The H1 renders as solid white. We do NOT use
- *      `-webkit-text-fill-color: transparent` here - paired with a strong
- *      text-shadow it produces the outlined / blurred look in light theme.
- *      The accent span (`.m-text-grad`) uses the brand gradient and is
- *      restored separately so the "in seconds" pop stays vivid.
+ * Design:
+ *   - In dark theme: dark bg, light heading text, vivid orange accent.
+ *   - In light theme: light bg, dark heading text, same orange accent.
+ *   - The Vanta network mesh paints in both themes (color is tuned by
+ *     --vantacolor in theme.css so it stays visible against either bg).
  * ============================================================ */
-.m-hero-home,
-.m[data-m-theme="light"] .m-hero-home,
-.m .m-hero.m-hero-home {
-  background: #07080d !important;
-  background: var(--vantabackground, #07080d) !important;
+.m-hero-home {
+  background: var(--m-bg);
   margin-left: calc(50% - 50vw);
   margin-right: 0;
   width: 100vw;
 }
-.m-hero-home::before,
-.m[data-m-theme="light"] .m-hero-home::before {
+.m-hero-home::before {
   background: transparent !important;
 }
-.m-hero-home::after,
-.m[data-m-theme="light"] .m-hero-home::after {
-  background: linear-gradient(180deg, rgba(0,0,0,0) 70%, #07080d 100%) !important;
+/* Soft bottom fade to the page background of the active theme - keeps the
+ * transition into the next section seamless and (since the page bg matches
+ * the hero bg) introduces zero contrast jump. */
+.m-hero-home::after {
+  background: linear-gradient(180deg, rgba(0,0,0,0) 70%, var(--m-bg) 100%) !important;
 }
 .m-hero-home .m-hero-inner {
   max-width: 1160px;
 }
 
-/* Headline: solid white text, NOT a clipped gradient. The accent span keeps
- * the warm brand gradient. */
-.m-hero-home h1,
-.m[data-m-theme="light"] .m-hero-home h1 {
+/* Headline: theme-following solid text. Dark text on light bg in light
+ * theme, white text on dark bg in dark theme. NO background-clip / no
+ * text-shadow (the previous combo was perceived as blurred). The accent
+ * span keeps the warm brand gradient. */
+.m-hero-home h1 {
   background: none !important;
   -webkit-background-clip: initial !important;
           background-clip: initial !important;
   -webkit-text-fill-color: #ffffff !important;
   color: #ffffff !important;
-  text-shadow: 0 2px 24px rgba(0, 0, 0, .55);
+  text-shadow: none !important;
 }
-/* Re-apply the brand gradient to the accent span only. We have to repeat the
- * declaration here because the parent h1 forces a solid white fill above. */
+.m[data-m-theme="light"] .m-hero-home h1 {
+  -webkit-text-fill-color: var(--m-text-strong) !important;
+  color: var(--m-text-strong) !important;
+}
+/* Brand-gradient accent span - same color in both themes for brand
+ * consistency. */
 .m-hero-home h1 .m-text-grad,
 .m[data-m-theme="light"] .m-hero-home h1 .m-text-grad {
   background: linear-gradient(135deg, #ff8008 0%, #ffc837 100%) !important;
@@ -379,45 +379,18 @@ body:has(.m) {
   -webkit-text-fill-color: transparent !important;
   color: transparent !important;
   text-shadow: none !important;
-  filter: drop-shadow(0 0 22px rgba(255, 128, 8, .35));
 }
 
-.m-hero-home .m-hero-lead,
-.m[data-m-theme="light"] .m-hero-home .m-hero-lead {
-  color: rgba(226, 232, 240, .92) !important;
+.m-hero-home .m-hero-lead {
+  color: var(--m-text-2);
   display: block;
   width: min(940px, 100%);
   margin-left: auto !important;
   margin-right: auto !important;
   text-align: center !important;
-  text-shadow: 0 2px 20px rgba(0, 0, 0, .55);
-  opacity: 1 !important;
 }
-.m-hero-home .m-hero-trust,
-.m[data-m-theme="light"] .m-hero-home .m-hero-trust {
-  color: rgba(203, 213, 225, .82) !important;
-}
-.m-hero-home .m-eyebrow {
-  background: rgba(2, 6, 23, .64);
-  border-color: rgba(100, 174, 200, .42);
-  color: #d7f9ff;
-  box-shadow: 0 12px 40px rgba(100, 174, 200, .14);
-}
-.m-hero-home .m-eyebrow-dot {
-  background: #64aec8;
-  box-shadow: 0 0 12px rgba(100, 174, 200, .9);
-}
-.m-hero-home .m-btn-secondary,
-.m[data-m-theme="light"] .m-hero-home .m-btn-secondary {
-  background: rgba(7, 8, 13, .76) !important;
-  color: #ffffff !important;
-  border-color: rgba(255,255,255,.36) !important;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, .22);
-  opacity: 1 !important;
-}
-.m-hero-home .m-btn-secondary:hover {
-  background: rgba(15, 23, 42, .85) !important;
-  border-color: rgba(255,255,255,.46) !important;
+.m-hero-home .m-hero-trust {
+  color: var(--m-text-muted);
 }
 
 /* gradient text helper */
@@ -1171,8 +1144,10 @@ details[open] > .m-md-summary::after { content: "−"; }
     radial-gradient(900px 480px at 18% 10%, color-mix(in srgb, var(--gradientcolor1) 22%, transparent), transparent 60%),
     radial-gradient(700px 420px at 88% 0%, color-mix(in srgb, var(--gradientcolor2) 18%, transparent), transparent 60%);
 }
+/* Home hero base layer matches the page bg of the active theme - the
+ * NetworkMesh canvas paints on top of this with theme-appropriate alpha. */
 .m-hero-bg-home .m-hero-bg-base {
-  background: var(--vantabackground);
+  background: var(--m-bg);
 }
 .m-hero-bg > div,
 .m-hero-bg > canvas {
@@ -1186,15 +1161,17 @@ details[open] > .m-md-summary::after { content: "−"; }
   z-index: 2;
 }
 .m-hero-bg-fade {
+  /* Only a soft fade at the bottom into the page background. The previous
+   * version included a `rgba(11,13,21,.4)` radial at the top that darkened
+   * the area where hero text sits and hid the canvas mesh "near the text". */
   position: absolute; inset: 0;
-  background:
-    radial-gradient(900px 320px at 50% 100%, transparent, var(--m-bg) 75%),
-    radial-gradient(700px 280px at 50% 0%, rgba(11,13,21,.4), transparent 70%);
+  background: linear-gradient(180deg, rgba(0,0,0,0) 78%, var(--m-bg) 100%);
 }
+/* Bottom-only fade into the page bg of the active theme. NO top vignette -
+ * the previous one darkened the area where the hero text sits and made the
+ * mesh invisible "behind the text". */
 .m-hero-bg-home .m-hero-bg-fade {
-  background:
-    radial-gradient(900px 340px at 50% 100%, rgba(0,0,0,0), var(--m-bg) 78%),
-    radial-gradient(720px 300px at 50% 0%, rgba(0,0,0,.35), rgba(0,0,0,0) 70%);
+  background: linear-gradient(180deg, rgba(0,0,0,0) 80%, var(--m-bg) 100%);
 }
 
 /* ============================================================
@@ -1218,8 +1195,50 @@ details[open] > .m-md-summary::after { content: "−"; }
   border: 1px solid var(--m-border-strong);
   border-radius: var(--m-r-lg);
   overflow: hidden;
-  box-shadow: var(--m-shadow-card), 0 24px 80px rgba(0,0,0,.5);
+  /* Softer shadow than the previous 0 24px 80px rgba(0,0,0,.5) - that
+   * version painted a heavy dark halo around the mockup in light theme
+   * which read as a black smudge against the white page. */
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .35);
   text-align: left;
+}
+/* Light-theme variant of the dashboard mockup. Flips the local palette so
+ * the screenshot reads as a clean light dashboard against the page bg
+ * (instead of a dark card floating in a sea of white). Each child element
+ * inherits the redefined variables, so we only need to override colors,
+ * background, and border here. */
+.m[data-m-theme="light"] .m-stack {
+  --m-text: #1a1d2a;
+  --m-text-strong: #0a0c14;
+  --m-text-2: #3c4150;
+  --m-text-muted: #5d6376;
+  --m-text-faint: #8a90a4;
+  --m-bg-2: #ffffff;
+  --m-bg-3: #f7f8fc;
+  --m-border: rgba(15, 18, 30, .08);
+  --m-border-strong: rgba(15, 18, 30, .14);
+  --m-surface-glass-strong: rgba(15, 18, 30, .04);
+  background: linear-gradient(180deg, #ffffff, #f7f8fc);
+  border-color: rgba(15, 18, 30, .12);
+  box-shadow: 0 12px 36px rgba(15, 18, 30, .12);
+}
+/* In light theme, swap the surface tints on inner panels to a light wash
+ * so the dark `rgba(255,255,255,.025)` swatches don't sit as gray blocks
+ * on the white card. */
+.m[data-m-theme="light"] .m-stack .m-stack-card,
+.m[data-m-theme="light"] .m-stack .m-stack-pill,
+.m[data-m-theme="light"] .m-stack .m-stack-metric,
+.m[data-m-theme="light"] .m-stack .m-stack-path,
+.m[data-m-theme="light"] .m-stack .m-stack-file .glyph,
+.m[data-m-theme="light"] .m-stack .m-stack-file .tag,
+.m[data-m-theme="light"] .m-stack .m-stack-card-tag {
+  background: rgba(15, 18, 30, .03);
+}
+.m[data-m-theme="light"] .m-stack .m-stack-conn {
+  background: rgba(15, 18, 30, .04);
+  color: var(--m-text);
+}
+.m[data-m-theme="light"] .m-stack .m-stack-chrome {
+  background: linear-gradient(180deg, rgba(15, 18, 30, .03), transparent);
 }
 .m-stack-chrome {
   display: flex; align-items: center; gap: 8px;

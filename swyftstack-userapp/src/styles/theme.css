@@ -12,14 +12,16 @@
   --gradientcolor1: #ff8008;
   --gradientcolor2: #ffc837;
   --vantabackground: #07080d;
-  /* Network-mesh point/line color used by the homepage Vanta-style canvas. */
-  --vantacolor: #64aec8;
+  /* Network-mesh point/line color used by the homepage Vanta-style canvas.
+   * A soft orange that reads against both the dark and light hero
+   * backgrounds. Edit here to retune. */
+  --vantacolor: #ffb070;
 }
 
-/* Light-theme override for the Vanta network color. Edit here to tune the
- * homepage hero mesh in light mode without touching the dark default. */
+/* Light-theme override: bump the orange slightly more saturated so it still
+ * reads against the white-ish page bg without being garish. */
 .m[data-m-theme="light"] {
-  --vantacolor: #64aec8;
+  --vantacolor: #ff8c3e;
 }
 
 .m {
