@@ -10,6 +10,7 @@
     "swyftstack-userapp"
   ],
   "scripts": {
+    "postinstall": "npm -w swyftstack-shared run prisma:generate",
     "db:generate": "npm -w swyftstack-shared run prisma:generate",
     "db:migrate": "npm -w swyftstack-shared run prisma:migrate",
     "db:push": "npm -w swyftstack-shared run prisma:push",
