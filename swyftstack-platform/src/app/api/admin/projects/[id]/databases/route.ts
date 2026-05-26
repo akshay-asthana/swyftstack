@@ -8,7 +8,10 @@ import {
   wouldExceed,
   audit,
   databaseClusterService,
+  formatPublicId,
   type LimitOverrideInput,
+  uuidFromPublicId,
+  withPublicId,
 } from "swyftstack-shared";
 import { authorize, json } from "@/lib/api";
 
@@ -16,9 +19,15 @@ import { authorize, json } from "@/lib/api";
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const a = await authorize(req);
   if (!a.ok) return a.res;
+  let projectId: string;
+  try {
+    projectId = uuidFromPublicId(params.id, "project");
+  } catch {
+    return json({ error: "invalid project id" }, { status: 400 });
+  }
 
   const project = await prisma.project.findUnique({
-    where: { id: params.id },
+    where: { id: projectId },
     include: {
       organization: { include: { subscriptions: { include: { plan: { include: { limits: true } } } } } },
       databases: true,
@@ -80,5 +89,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     targetType: "database",
     targetId: db.id,
   });
-  return json({ database: db, jobId }, { status: 201 });
+  return json({
+    database: {
+      ...withPublicId("database", db),
+      projectId: formatPublicId("project", db.projectId),
+      nodeId: db.nodeId ? formatPublicId("node", db.nodeId) : null,
+      databaseClusterId: db.databaseClusterId,
+    },
+    jobId,
+  }, { status: 201 });
 }

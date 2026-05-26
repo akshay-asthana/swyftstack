@@ -18,14 +18,17 @@ export function HeroBackgroundAnimation({ variant = "default" }: { variant?: Her
     <div className={`m-hero-bg ${isHomeNet ? "m-hero-bg-home" : ""}`} aria-hidden>
       {/* Static base gradient - gives the hero its depth without animating. */}
       <div className="m-hero-bg-base" />
-      {/* The actual animated network mesh, drawn on canvas. */}
+      {/* The actual animated network mesh, drawn on canvas. The home variant
+          reads --vantacolor from theme.css so it can be retuned per theme.
+          The default (non-home) variant uses --gradientcolor1 so a brand
+          recolor in theme.css ripples through the rest of the hero set too. */}
       <NetworkMesh
-        color={isHomeNet ? "#64aec8" : "#ff8008"}
+        color={isHomeNet ? "var(--vantacolor)" : "var(--gradientcolor1)"}
         background="transparent"
-        points={isHomeNet ? 44 : 36}
-        maxDistance={isHomeNet ? 150 : 170}
-        dotSize={isHomeNet ? 1.4 : 1.6}
-        speed={isHomeNet ? 0.28 : 0.32}
+        points={isHomeNet ? 70 : 52}
+        maxDistance={isHomeNet ? 190 : 190}
+        dotSize={isHomeNet ? 2.0 : 2.0}
+        speed={isHomeNet ? 0.3 : 0.32}
       />
       {/* Bottom fade so the mesh dissolves cleanly into the page below. */}
       <div className="m-hero-bg-fade" />

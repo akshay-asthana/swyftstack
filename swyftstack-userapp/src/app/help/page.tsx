@@ -14,7 +14,7 @@ export default async function HelpPage() {
   });
 
   return (
-    <UserShell user={user} workspace={org?.name}>
+    <UserShell user={user} organizationName={org?.name}>
       <div className="page-head">
         <div>
           <h1 className="h1">Help &amp; Support</h1>
@@ -66,7 +66,7 @@ export default async function HelpPage() {
 
       <Panel title="Contact support">
         <p className="small" style={{ margin: 0 }}>
-          Need a hand? Email <code>support@swyftstack.dev</code> with your workspace name
+          Need a hand? Email <code>support@swyftstack.dev</code> with your organization name
           {org ? <> (<strong>{org.name}</strong>)</> : null} and we&apos;ll get back to you.
         </p>
       </Panel>

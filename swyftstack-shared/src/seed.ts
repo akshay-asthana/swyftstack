@@ -3,7 +3,7 @@
 // provisioning policies. Fully idempotent — re-running it NEVER creates
 // duplicate local nodes (it dedupes and upserts by the stable `local-dev` key).
 import { prisma } from "./db.js";
-import { env } from "./env.js";
+import { env, isProductionEnv } from "./env.js";
 import { hashPassword, encryptSecret } from "./crypto.js";
 import { PLAN_PRESETS } from "./constants.js";
 import { PROVIDER_HELP_DOCS } from "./provider-help.js";
@@ -222,7 +222,7 @@ async function main() {
     emailProvider = existing
       ? await prisma.emailProvider.update({ where: { id: existing.id }, data })
       : await prisma.emailProvider.create({ data: { name: "zeptomail-env-bootstrap", ...data } });
-  } else if (!emailProvider && env.NODE_ENV !== "production") {
+  } else if (!emailProvider && !isProductionEnv()) {
     emailProvider = await prisma.emailProvider.create({
       data: {
         name: "local-dev-email",

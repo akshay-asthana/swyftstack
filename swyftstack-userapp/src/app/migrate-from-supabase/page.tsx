@@ -37,7 +37,7 @@ export default function FromSupabasePage() {
         right: {
           title: "What Swyftstack ships instead",
           items: [
-            "Flat $19/mo Starter ($9 launch price), $99/mo Growth ($49 launch)",
+            "Flat $19/mo Starter and $99/mo Growth",
             "Instant dashboard with masked connection strings",
             "Bring your own auth, no Supabase Auth lock-in",
             "Daily encrypted backups + one-click restore",
@@ -74,7 +74,6 @@ export default function FromSupabasePage() {
         ],
         rows: [
           { label: "Monthly price",       cells: ["", "$25", "$19"] },
-          { label: "Launch price (2 mo)", cells: ["", "-", "$9"] },
           { label: "Database storage",    cells: ["", "8 GB", "10 GB"] },
           { label: "Object storage",      cells: ["", "100 GB", "100 GB"] },
           { label: "Egress included",     cells: ["", "250 GB", "500 GB"] },

@@ -1,7 +1,7 @@
 // Authenticated console storage listing. Moved here from /storage to free
 // the top-level slug for the public marketing page (/storage).
 import Link from "next/link";
-import { prisma } from "swyftstack-shared";
+import { formatPublicId, prisma } from "swyftstack-shared";
 import { requireUser } from "@/lib/auth";
 import { UserShell } from "@/components/user-shell";
 import { Badge, Panel, Table, bytes, timeAgo } from "@/components/ui";
@@ -17,9 +17,9 @@ export default async function ConsoleStoragePage() {
     include: { project: { include: { organization: true } } },
     orderBy: { createdAt: "desc" },
   });
-  const workspace = buckets[0]?.project.organization.name;
+  const organizationName = buckets[0]?.project.organization.name;
   return (
-    <UserShell user={user} workspace={workspace}>
+    <UserShell user={user} organizationName={organizationName}>
       <div className="page-head">
         <div>
           <h1 className="h1">Storage</h1>
@@ -33,13 +33,13 @@ export default async function ConsoleStoragePage() {
           empty="No storage buckets yet."
           rows={buckets.map((b) => [
             <strong key="n">{b.bucketName}</strong>,
-            <Link key="p" href={`/projects/${b.projectId}`}>{b.project.name}</Link>,
+            <Link key="p" href={`/projects/${formatPublicId("project", b.projectId)}`}>{b.project.name}</Link>,
             <Badge key="s" status={b.status} />,
             bytes(b.currentStorageBytes),
             b.objectCount.toString(),
             bytes(b.currentEgressBytes),
             timeAgo(b.createdAt),
-            <Link key="l" className="btn sm secondary" href={`/projects/${b.projectId}/storage/${b.id}`}>Open</Link>,
+            <Link key="l" className="btn sm secondary" href={`/projects/${formatPublicId("project", b.projectId)}/storage/${formatPublicId("bucket", b.id)}`}>Open</Link>,
           ])}
         />
       </Panel>

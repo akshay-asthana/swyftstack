@@ -66,11 +66,11 @@ export default async function NotificationsPage({
   ]);
 
   return (
-    <UserShell user={user} workspace={org?.name}>
+    <UserShell user={user} organizationName={org?.name}>
       <div className="page-head">
         <div>
           <h1 className="h1">Notifications</h1>
-          <p className="sub">Usage alerts, onboarding notes, and system messages for your workspace.</p>
+          <p className="sub">Usage alerts, onboarding notes, and system messages for your organization.</p>
         </div>
         <form action={markAllRead}>
           <button className="btn secondary" type="submit" disabled={unread === 0}>Mark all read</button>

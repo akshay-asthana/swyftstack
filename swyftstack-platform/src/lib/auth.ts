@@ -3,7 +3,7 @@
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { prisma, env, verifyPassword } from "swyftstack-shared";
+import { prisma, env, isProductionEnv, verifyPassword } from "swyftstack-shared";
 
 const COOKIE = "swyftstack_admin_session";
 const MAX_AGE = 60 * 60 * 8; // 8h
@@ -38,7 +38,7 @@ export async function login(email: string, password: string): Promise<boolean> {
   cookies().set(COOKIE, sign(payload), {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: isProductionEnv((process.env as Record<string, string | undefined>).NODE_ENV),
     path: "/",
     maxAge: MAX_AGE,
   });

@@ -18,6 +18,7 @@ import {
 } from "@/components/marketing/icons";
 import { OrganizationJsonLd, SoftwareApplicationJsonLd, FaqJsonLd, SITE_URL } from "@/components/marketing/jsonld";
 import { currentUser } from "@/lib/auth";
+import { authTarget } from "@/lib/early-access";
 
 // Dynamic because the navbar/CTAs vary based on auth cookie. Without auth,
 // crawlers see the signed-out variant - exactly what we want for SEO.
@@ -43,7 +44,6 @@ export const metadata: Metadata = {
 };
 
 const FAQ_ITEMS: { q: string; a: string }[] = [
-  { q: "Why no free tier?", a: "Free tiers force every paying customer to subsidize freeloaders. We'd rather charge a fair price and give every customer real infrastructure with a real human answering support emails." },
   { q: "Can I bring my own auth?", a: "Yes. Most customers run NextAuth, Clerk, Auth0, or Supabase Auth alongside Swyftstack. We focus on database and storage; you pick your auth." },
   { q: "Where is my data stored?", a: "US or EU - you pick at signup. Encrypted in transit and at rest. Backups are encrypted too." },
   { q: "What if my app outgrows the Starter plan?", a: "Click upgrade. Same database, same connection string, more headroom - no downtime." },
@@ -112,6 +112,7 @@ const WORKFLOW = [
 export default async function Homepage() {
   const user = await currentUser();
   const signedIn = !!user;
+  const signupHref = authTarget("/signup");
 
   return (
     <MarketingShell>
@@ -125,7 +126,7 @@ export default async function Homepage() {
         <div className="m-container m-hero-inner">
           <div className="m-eyebrow">
             <span className="m-eyebrow-dot" />
-            Now with first-class team workspaces and audit logs
+            Now with first-class organizations and audit logs
           </div>
           <h1>
             Deploy production-ready database and storage <span className="m-text-grad">in seconds</span>.
@@ -134,7 +135,7 @@ export default async function Homepage() {
             Production-grade PostgreSQL, S3-compatible storage, and verified backups from one clean dashboard.
           </p>
           <div className="m-hero-ctas">
-            <Link className="m-btn m-btn-primary m-btn-lg" href={signedIn ? "/console" : "/signup"}>
+            <Link className="m-btn m-btn-primary m-btn-lg" href={signedIn ? "/console" : signupHref}>
               {signedIn ? "Open console" : "Deploy your first database"} <ArrowRightIcon size={16} />
             </Link>
             <Link className="m-btn m-btn-secondary m-btn-lg" href="/migrate">
@@ -242,7 +243,7 @@ export default async function Homepage() {
             <div className="m-grid m-grid-2 m-mt-5" style={{ gap: 14 }}>
               <Mini icon={<TerminalIcon size={18} />} title="Connection strings, ready to paste" body="Auto-rotated, masked in the UI, copyable everywhere." />
               <Mini icon={<LockIcon size={18} />} title="Scoped credentials" body="Per-bucket access keys. Per-database roles. No shared admin." />
-              <Mini icon={<GaugeIcon size={18} />} title="Live metering" body="Storage, egress, vCPU-hours updated every minute." />
+              <Mini icon={<GaugeIcon size={18} />} title="Live metering" body="Storage and egress updated every minute." />
               <Mini icon={<BoltIcon size={18} />} title="Provisioning in seconds" body="No queue, no waiting room. Click, copy, ship." />
             </div>
           </div>
@@ -319,7 +320,7 @@ export default async function Homepage() {
           <Stat val="47s" label="Average database deploy" />
           <Stat val="99.95%" label="Uptime on Pro" />
           <Stat val="30d" label="Backup retention on Pro" />
-          <Stat val="10+" label="Team members per workspace" />
+          <Stat val="10+" label="Team members per organization" />
         </div>
         <div className="m-grid m-grid-4 m-mt-7">
           <ScaleCard label="Solo founders" body="Ship the prototype your investors keep asking about. $9/mo with the launch offer." />

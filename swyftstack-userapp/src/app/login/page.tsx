@@ -3,6 +3,7 @@ import Link from "next/link";
 import { login, currentUser } from "@/lib/auth";
 import { env } from "swyftstack-shared";
 import { Icon } from "@/components/icons";
+import { isEarlyAccessMode } from "@/lib/early-access";
 
 const ERRORS: Record<string, string> = {
   "1": "Invalid credentials.",
@@ -20,6 +21,7 @@ function safeNext(value: string | undefined): string {
 
 export default async function LoginPage({ searchParams }: { searchParams: { error?: string; next?: string } }) {
   const next = safeNext(searchParams.next);
+  if (isEarlyAccessMode()) redirect("/request-early-access");
   if (await currentUser()) redirect(next);
   const googleUrl = new URL("/api/auth/google/start", env.PLATFORM_BASE_URL);
   googleUrl.searchParams.set("next", next);
@@ -45,7 +47,7 @@ export default async function LoginPage({ searchParams }: { searchParams: { erro
             <div className="brand-sub">Cloud Platform</div>
           </div>
         </div>
-        <p className="sub" style={{ margin: "8px 0 16px" }}>Sign in to your workspace.</p>
+        <p className="sub" style={{ margin: "8px 0 16px" }}>Sign in to your organization.</p>
         <a className="btn google" href={googleUrl.toString()}>Continue with Google</a>
         <div className="divider"><span>or</span></div>
         <input type="hidden" name="next" value={next} />

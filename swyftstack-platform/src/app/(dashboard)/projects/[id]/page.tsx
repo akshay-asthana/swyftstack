@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { prisma, enqueueJob, audit } from "swyftstack-shared";
+import { formatPublicId, prisma, enqueueJob, audit, uuidFromPublicId } from "swyftstack-shared";
 import {
   Badge, bytes, Panel, KeyValue, Table, StatCard, Breadcrumbs, EmptyState,
   ProgressBar, timeAgo, MiniStat,
@@ -17,22 +17,23 @@ function str(fd: FormData, k: string): string {
 
 async function suspendProject(formData: FormData) {
   "use server";
-  const id = str(formData, "id");
+  const id = uuidFromPublicId(str(formData, "id"), "project");
   await enqueueJob("suspend_project", { projectId: id });
   await audit({ actorType: "admin", action: "project.suspend_requested", targetType: "project", targetId: id });
-  revalidatePath(`/projects/${id}`);
+  revalidatePath(`/projects/${formatPublicId("project", id)}`);
 }
 async function unsuspendProject(formData: FormData) {
   "use server";
-  const id = str(formData, "id");
+  const id = uuidFromPublicId(str(formData, "id"), "project");
   await prisma.project.update({ where: { id }, data: { status: "active" } });
   await audit({ actorType: "admin", action: "project.unsuspended", targetType: "project", targetId: id });
-  revalidatePath(`/projects/${id}`);
+  revalidatePath(`/projects/${formatPublicId("project", id)}`);
 }
 
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
+  const projectId = uuidFromPublicId(params.id, "project");
   const project = await prisma.project.findUnique({
-    where: { id: params.id },
+    where: { id: projectId },
     include: {
       organization: {
         include: {
@@ -56,6 +57,8 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
     },
   });
   if (!project) notFound();
+  const projectPublicId = formatPublicId("project", project.id);
+  const organizationPublicId = formatPublicId("organization", project.organizationId);
 
   const [agg, auditLogs, deployments, backups] = await Promise.all([
     aggregateForProjects([project.id], monthStart()),
@@ -84,7 +87,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
           rows={[
             ["Name", project.name],
             ["Slug", project.slug],
-            ["Organization", <Link key="o" href={`/organizations/${project.organizationId}`}>{project.organization.name}</Link>],
+            ["Organization", <Link key="o" href={`/organizations/${organizationPublicId}`}>{project.organization.name}</Link>],
             ["Owner", project.organization.owner?.email ?? "—"],
             ["Status", <Badge key="s" status={project.status} />],
             ["Region", project.region ?? "—"],
@@ -222,9 +225,9 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
     <Panel title={`Team members (${project.members.length})`} flush>
       <Table
         columns={["Member", "Email", "Role", ""]}
-        rows={project.members.map((m) => [
-          m.user.name ?? "—", m.user.email, m.role,
-          <Link key="l" className="btn sm secondary" href={`/users/${m.userId}`}>Open user</Link>,
+          rows={project.members.map((m) => [
+            m.user.name ?? "—", m.user.email, m.role,
+          <Link key="l" className="btn sm secondary" href={`/users/${formatPublicId("user", m.userId)}`}>Open user</Link>,
         ])}
       />
     </Panel>
@@ -315,7 +318,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
       <Breadcrumbs
         items={[
           { label: "Projects", href: "/projects" },
-          { label: project.organization.name, href: `/organizations/${project.organizationId}` },
+          { label: project.organization.name, href: `/organizations/${organizationPublicId}` },
           { label: project.name },
         ]}
       />
@@ -327,11 +330,11 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
         <div className="row">
           {project.status === "active" ? (
             <form action={suspendProject}>
-              <input type="hidden" name="id" value={project.id} />
+              <input type="hidden" name="id" value={projectPublicId} />
               <ConfirmButton message={`Suspend ${project.name}? Apps will stop.`} className="btn danger">Suspend project</ConfirmButton>
             </form>
           ) : (
-            <form action={unsuspendProject}><input type="hidden" name="id" value={project.id} /><button className="btn secondary">Unsuspend project</button></form>
+            <form action={unsuspendProject}><input type="hidden" name="id" value={projectPublicId} /><button className="btn secondary">Unsuspend project</button></form>
           )}
         </div>
       </div>

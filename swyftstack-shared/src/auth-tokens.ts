@@ -1,5 +1,5 @@
 import { prisma } from "./db.js";
-import { env } from "./env.js";
+import { env, isProductionEnv } from "./env.js";
 import { hashPassword, hashToken, randomSecret } from "./crypto.js";
 import { sendTransactionalEmail } from "./email.js";
 
@@ -39,7 +39,7 @@ export async function sendVerificationEmail(userId: string): Promise<string> {
       `Verify your email address with this link:\n${link}\n\n` +
       `This link expires in 24 hours.`,
   });
-  if (env.NODE_ENV !== "production") console.log(`[dev-verification-link] ${link}`);
+  if (!isProductionEnv()) console.log(`[dev-verification-link] ${link}`);
   return link;
 }
 
@@ -97,7 +97,7 @@ export async function sendPasswordResetEmail(email: string): Promise<string | nu
       `Use this link to reset your Swyftstack password:\n${link}\n\n` +
       `This link expires in 1 hour. If you did not request it, you can ignore this email.`,
   });
-  if (env.NODE_ENV !== "production") console.log(`[dev-password-reset-link] ${link}`);
+  if (!isProductionEnv()) console.log(`[dev-password-reset-link] ${link}`);
   return link;
 }
 

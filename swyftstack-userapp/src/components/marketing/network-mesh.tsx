@@ -91,17 +91,47 @@ export function NetworkMesh({
     }
     seed();
 
-    // Parse the hex colour once so we can build rgba strings cheaply.
+    // Resolve `color` to an "r,g,b" string. Supports:
+    //   • hex ("#64aec8" / "64aec8" / "#abc")
+    //   • CSS variables ("var(--vantacolor)") - resolved against :root and wrap
+    //   • named/rgb()/hsl() - we let the browser do the parsing
     function hexToRgb(hex: string): { r: number; g: number; b: number } {
       const h = hex.replace("#", "");
-      const v = h.length === 3
-        ? h.split("").map((c) => c + c).join("")
-        : h;
+      const v = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
       const n = parseInt(v, 16);
       return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
     }
-    const rgb = hexToRgb(color.startsWith("#") ? color : `#${color}`);
-    const rgbStr = `${rgb.r},${rgb.g},${rgb.b}`;
+    function resolveColor(input: string): string {
+      let raw = input.trim();
+      const varMatch = raw.match(/^var\((--[a-zA-Z0-9-_]+)\)$/);
+      if (varMatch) {
+        // Try the element first (covers scoped overrides on .m[data-m-theme=light]),
+        // then fall back to :root so variables defined globally still resolve.
+        let v = getComputedStyle(wrap!).getPropertyValue(varMatch[1]).trim();
+        if (!v) v = getComputedStyle(document.documentElement).getPropertyValue(varMatch[1]).trim();
+        if (v) raw = v;
+      }
+      if (raw.startsWith("#") || /^[0-9a-fA-F]{3,8}$/.test(raw)) {
+        const rgb = hexToRgb(raw.startsWith("#") ? raw : `#${raw}`);
+        return `${rgb.r},${rgb.g},${rgb.b}`;
+      }
+      // Fall back: let the browser parse via a probe element appended to wrap
+      // (so inline CSS variables resolve in the same scope as the mesh).
+      const probe = document.createElement("span");
+      probe.style.color = raw;
+      probe.style.display = "none";
+      wrap!.appendChild(probe);
+      const computed = getComputedStyle(probe).color;
+      probe.remove();
+      const m = computed.match(/rgba?\(([^)]+)\)/);
+      if (m) {
+        const parts = m[1].split(",").map((p) => parseFloat(p.trim()));
+        return `${parts[0] | 0},${parts[1] | 0},${parts[2] | 0}`;
+      }
+      // Last-ditch fallback: a bright cyan that reads on both dark and light fields.
+      return "120,200,230";
+    }
+    const rgbStr = resolveColor(color);
     const maxSq = maxDistance * maxDistance;
 
     function step() {
@@ -122,7 +152,8 @@ export function NetworkMesh({
       }
 
       // Draw lines between points within `maxDistance`. Opacity tapers off
-      // with distance so far-away connections fade naturally.
+      // with distance so far-away connections fade naturally. Brighter base
+      // alpha so the mesh actually reads against the dark hero background.
       for (let i = 0; i < pts.length; i++) {
         const a = pts[i];
         for (let j = i + 1; j < pts.length; j++) {
@@ -131,9 +162,9 @@ export function NetworkMesh({
           const dy = a.y - b.y;
           const dSq = dx * dx + dy * dy;
           if (dSq > maxSq) continue;
-          const alpha = (1 - dSq / maxSq) * 0.55;
+          const alpha = (1 - dSq / maxSq) * 0.95;
           ctx!.strokeStyle = `rgba(${rgbStr},${alpha.toFixed(3)})`;
-          ctx!.lineWidth = 0.8;
+          ctx!.lineWidth = 1.1;
           ctx!.beginPath();
           ctx!.moveTo(a.x, a.y);
           ctx!.lineTo(b.x, b.y);
@@ -141,10 +172,16 @@ export function NetworkMesh({
         }
       }
 
-      // Draw dots last so they sit on top of lines.
-      ctx!.fillStyle = `rgba(${rgbStr},0.85)`;
+      // Draw dots last so they sit on top of lines. A soft halo plus a bright
+      // core gives the points enough presence to read on a near-black field
+      // without needing a CSS filter.
       for (let i = 0; i < pts.length; i++) {
         const p = pts[i];
+        ctx!.fillStyle = `rgba(${rgbStr},0.28)`;
+        ctx!.beginPath();
+        ctx!.arc(p.x, p.y, dotSize * 2.4, 0, Math.PI * 2);
+        ctx!.fill();
+        ctx!.fillStyle = `rgba(${rgbStr},1)`;
         ctx!.beginPath();
         ctx!.arc(p.x, p.y, dotSize, 0, Math.PI * 2);
         ctx!.fill();

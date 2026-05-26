@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { prisma, audit, FEATURE_KEYS, LIMIT_KEYS } from "swyftstack-shared";
+import { formatPublicId, prisma, audit, FEATURE_KEYS, LIMIT_KEYS, uuidFromPublicId } from "swyftstack-shared";
 import {
   Badge, bytes, Panel, KeyValue, Table, StatCard, Breadcrumbs, EmptyState,
   timeAgo, MiniStat,
@@ -14,19 +14,22 @@ export const dynamic = "force-dynamic";
 function str(fd: FormData, k: string): string {
   return String(fd.get(k) ?? "").trim();
 }
+const orgHref = (id: string) => `/organizations/${formatPublicId("organization", id)}`;
+const projectHref = (id: string) => `/projects/${formatPublicId("project", id)}`;
+const userHref = (id: string) => `/users/${formatPublicId("user", id)}`;
 
 async function setStatus(formData: FormData, status: "active" | "suspended") {
-  const id = str(formData, "id");
+  const id = uuidFromPublicId(str(formData, "id"), "organization");
   await prisma.organization.update({ where: { id }, data: { status } });
   await audit({ actorType: "admin", action: `organization.${status}`, targetType: "organization", targetId: id });
-  revalidatePath(`/organizations/${id}`);
+  revalidatePath(orgHref(id));
 }
 async function suspendOrg(fd: FormData) { "use server"; await setStatus(fd, "suspended"); }
 async function unsuspendOrg(fd: FormData) { "use server"; await setStatus(fd, "active"); }
 
 async function saveLimitOverride(formData: FormData) {
   "use server";
-  const id = str(formData, "id");
+  const id = uuidFromPublicId(str(formData, "id"), "organization");
   const limitKey = str(formData, "limitKey");
   const raw = str(formData, "limitValue");
   if (!limitKey) return;
@@ -36,17 +39,17 @@ async function saveLimitOverride(formData: FormData) {
     create: { scopeType: "organization", scopeId: id, limitKey, limitValue: raw ? BigInt(raw) : null, reason: str(formData, "reason") || null },
   });
   await audit({ actorType: "admin", action: "organization.limit_override", targetType: "organization", targetId: id });
-  revalidatePath(`/organizations/${id}`);
+  revalidatePath(orgHref(id));
 }
 async function deleteLimitOverride(formData: FormData) {
   "use server";
-  const id = str(formData, "id");
+  const id = uuidFromPublicId(str(formData, "id"), "organization");
   await prisma.limitOverride.delete({ where: { id: str(formData, "overrideId") } }).catch(() => undefined);
-  revalidatePath(`/organizations/${id}`);
+  revalidatePath(orgHref(id));
 }
 async function saveFeatureOverride(formData: FormData) {
   "use server";
-  const id = str(formData, "id");
+  const id = uuidFromPublicId(str(formData, "id"), "organization");
   const featureKey = str(formData, "featureKey");
   if (!featureKey) return;
   await prisma.featureOverride.upsert({
@@ -55,18 +58,19 @@ async function saveFeatureOverride(formData: FormData) {
     create: { scopeType: "organization", scopeId: id, featureKey, enabled: formData.get("enabled") === "on", reason: str(formData, "reason") || null },
   });
   await audit({ actorType: "admin", action: "organization.feature_override", targetType: "organization", targetId: id });
-  revalidatePath(`/organizations/${id}`);
+  revalidatePath(orgHref(id));
 }
 async function deleteFeatureOverride(formData: FormData) {
   "use server";
-  const id = str(formData, "id");
+  const id = uuidFromPublicId(str(formData, "id"), "organization");
   await prisma.featureOverride.delete({ where: { id: str(formData, "overrideId") } }).catch(() => undefined);
-  revalidatePath(`/organizations/${id}`);
+  revalidatePath(orgHref(id));
 }
 
 export default async function OrgDetailPage({ params }: { params: { id: string } }) {
+  const organizationId = uuidFromPublicId(params.id, "organization");
   const org = await prisma.organization.findUnique({
-    where: { id: params.id },
+    where: { id: organizationId },
     include: {
       owner: true,
       members: { include: { user: true } },
@@ -78,6 +82,7 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
     },
   });
   if (!org) notFound();
+  const orgPublicId = formatPublicId("organization", org.id);
 
   const projectIds = org.projects.map((p) => p.id);
   const [agg, activity, auditLogs, limitOverrides, featureOverrides] = await Promise.all([
@@ -104,8 +109,9 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
         <KeyValue
           rows={[
             ["Name", org.name],
-            ["Owner", org.owner ? <Link key="o" href={`/users/${org.owner.id}`}>{org.owner.email}</Link> : "—"],
+            ["Owner", org.owner ? <Link key="o" href={userHref(org.owner.id)}>{org.owner.email}</Link> : "—"],
             ["Status", <Badge key="s" status={org.status} />],
+            ["App deployment", <Badge key="ad" status={org.enableAppDeployment ? "active" : "disabled"} />],
             ["Members", org.members.length],
             ["Projects", org.projects.length],
             ["Created", org.createdAt.toISOString().slice(0, 16).replace("T", " ")],
@@ -133,7 +139,7 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
         rows={org.members.map((m) => [
           m.user.name ?? "—", m.user.email,
           <Badge key="r" status="muted" />,
-          <Link key="l" className="btn sm secondary" href={`/users/${m.userId}`}>Open user</Link>,
+            <Link key="l" className="btn sm secondary" href={userHref(m.userId)}>Open user</Link>,
         ])}
       />
     </Panel>
@@ -147,10 +153,10 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
         <Table
           columns={["Project", "Status", "Apps", "DBs", "Buckets", ""]}
           rows={org.projects.map((p) => [
-            <Link key="n" href={`/projects/${p.id}`}>{p.name}</Link>,
+            <Link key="n" href={projectHref(p.id)}>{p.name}</Link>,
             <Badge key="s" status={p.status} />,
             p._count.apps, p._count.databases, p._count.buckets,
-            <Link key="l" className="btn sm secondary" href={`/projects/${p.id}`}>Open</Link>,
+            <Link key="l" className="btn sm secondary" href={projectHref(p.id)}>Open</Link>,
           ])}
         />
       )}
@@ -230,7 +236,7 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
               o.limitKey,
               o.limitValue == null ? "unlimited" : String(o.limitValue),
               <form key="d" action={deleteLimitOverride}>
-                <input type="hidden" name="id" value={org.id} />
+                <input type="hidden" name="id" value={orgPublicId} />
                 <input type="hidden" name="overrideId" value={o.id} />
                 <ConfirmButton message="Remove override?" className="btn sm danger">Remove</ConfirmButton>
               </form>,
@@ -244,7 +250,7 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
               o.featureKey,
               <Badge key="e" status={o.enabled ? "active" : "disabled"} />,
               <form key="d" action={deleteFeatureOverride}>
-                <input type="hidden" name="id" value={org.id} />
+                <input type="hidden" name="id" value={orgPublicId} />
                 <input type="hidden" name="overrideId" value={o.id} />
                 <ConfirmButton message="Remove override?" className="btn sm danger">Remove</ConfirmButton>
               </form>,
@@ -255,7 +261,7 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
       <div>
         <Panel title="Add limit override">
           <form action={saveLimitOverride}>
-            <input type="hidden" name="id" value={org.id} />
+            <input type="hidden" name="id" value={orgPublicId} />
             <label>Limit key</label>
             <select name="limitKey">{LIMIT_KEYS.map((k) => <option key={k} value={k}>{k}</option>)}</select>
             <label>Value (blank = unlimited)</label>
@@ -267,7 +273,7 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
         </Panel>
         <Panel title="Add feature override">
           <form action={saveFeatureOverride}>
-            <input type="hidden" name="id" value={org.id} />
+            <input type="hidden" name="id" value={orgPublicId} />
             <label>Feature key</label>
             <select name="featureKey">{FEATURE_KEYS.map((k) => <option key={k} value={k}>{k}</option>)}</select>
             <label className="check" style={{ marginTop: 10 }}>
@@ -292,10 +298,10 @@ export default async function OrgDetailPage({ params }: { params: { id: string }
         </div>
         <div className="row">
           {org.status === "suspended" ? (
-            <form action={unsuspendOrg}><input type="hidden" name="id" value={org.id} /><button className="btn secondary">Unsuspend</button></form>
+            <form action={unsuspendOrg}><input type="hidden" name="id" value={orgPublicId} /><button className="btn secondary">Unsuspend</button></form>
           ) : (
             <form action={suspendOrg}>
-              <input type="hidden" name="id" value={org.id} />
+              <input type="hidden" name="id" value={orgPublicId} />
               <ConfirmButton message={`Suspend ${org.name}? All projects stop scheduling.`} className="btn danger">Suspend</ConfirmButton>
             </form>
           )}

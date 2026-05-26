@@ -1,7 +1,7 @@
 import { prisma } from "./db.js";
 import { Prisma } from "./generated/prisma/index.js";
 import { decryptSecret, encryptSecret } from "./crypto.js";
-import { env } from "./env.js";
+import { env, isProductionEnv } from "./env.js";
 import {
   renderEmailTemplate,
   type EmailTemplateKey,
@@ -228,7 +228,7 @@ export async function activeEmailProvider(): Promise<EmailProvider> {
     };
     if (row.provider === "zeptomail") return new ZeptoMailEmailProvider(config);
     if (row.provider === "webhook") return new WebhookEmailProvider(config);
-    if (env.NODE_ENV === "production") {
+    if (isProductionEnv()) {
       throw new Error("The local_dev email provider cannot be active in production.");
     }
     return new LocalDevEmailProvider();
@@ -256,7 +256,7 @@ export async function activeEmailProvider(): Promise<EmailProvider> {
     });
   }
 
-  if (env.NODE_ENV === "production") {
+  if (isProductionEnv()) {
     throw new Error("No active email provider configured. Add ZeptoMail in Settings or set ZEPTOMAIL_* env vars.");
   }
   return new LocalDevEmailProvider();
@@ -318,7 +318,7 @@ export async function sendTransactionalEmail(message: TransactionalEmail): Promi
     },
   });
   await queueEmailDelivery(delivery.id);
-  if (env.NODE_ENV !== "production") {
+  if (!isProductionEnv()) {
     console.log(`[email-queued] ${message.to} "${message.subject}" delivery=${delivery.id}`);
   }
 }

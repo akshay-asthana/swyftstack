@@ -13,6 +13,7 @@ import {
   NoClusterAvailableError,
   NoStorageProviderAvailableError,
   StorageBucketLimitReachedError,
+  formatPublicId,
 } from "swyftstack-shared";
 import { requireUser } from "@/lib/auth";
 import { UserShell } from "@/components/user-shell";
@@ -24,7 +25,7 @@ function slugify(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
-async function loadWorkspace(userId: string) {
+async function loadOrganization(userId: string) {
   return prisma.organization.findFirst({
     where: { ownerUserId: userId },
     orderBy: { createdAt: "asc" },
@@ -41,12 +42,12 @@ async function loadWorkspace(userId: string) {
 async function createProject(formData: FormData) {
   "use server";
   const user = await requireUser();
-  const workspace = await loadWorkspace(user.id);
-  const subscription = workspace?.subscriptions[0];
-  if (!workspace || !subscription) redirect("/pricing?next=/projects/new");
+  const organization = await loadOrganization(user.id);
+  const subscription = organization?.subscriptions[0];
+  if (!organization || !subscription) redirect("/pricing?next=/projects/new");
 
   const maxProjects = subscription.plan.limits?.maxProjects;
-  if (maxProjects !== null && maxProjects !== undefined && workspace._count.projects >= maxProjects) {
+  if (maxProjects !== null && maxProjects !== undefined && organization._count.projects >= maxProjects) {
     redirect("/pricing?next=/projects/new");
   }
 
@@ -61,13 +62,13 @@ async function createProject(formData: FormData) {
   const baseSlug = slugify(name) || "project";
   let slug = baseSlug;
   let i = 2;
-  while (await prisma.project.findUnique({ where: { organizationId_slug: { organizationId: workspace.id, slug } } })) {
+  while (await prisma.project.findUnique({ where: { organizationId_slug: { organizationId: organization.id, slug } } })) {
     slug = `${baseSlug}-${i++}`;
   }
 
   const project = await prisma.project.create({
     data: {
-      organizationId: workspace.id, name, slug, createdBy: user.id,
+      organizationId: organization.id, name, slug, createdBy: user.id,
       status: (databaseMode !== "none" || bucketName) ? "provisioning" : "active",
       members: { create: { userId: user.id, role: "owner" } },
     },
@@ -96,7 +97,7 @@ async function createProject(formData: FormData) {
         );
       }
     } else if (databaseMode === "import") {
-      if (!/^postgres(ql)?:\/\//i.test(sourceUrl)) redirect(`/projects/${project.id}?error=import_url#import-db`);
+      if (!/^postgres(ql)?:\/\//i.test(sourceUrl)) redirect(`/projects/${formatPublicId("project", project.id)}?error=import_url#import-db`);
       const imp = await prisma.databaseImport.create({
         data: {
           projectId: project.id,
@@ -122,26 +123,26 @@ async function createProject(formData: FormData) {
     }
   } catch (err) {
     await prisma.project.update({ where: { id: project.id }, data: { status: "partially_failed" } });
-    if (err instanceof DatabaseLimitReachedError) redirect(`/projects/${project.id}?error=db_limit`);
-    if (err instanceof NoClusterAvailableError) redirect(`/projects/${project.id}?error=no_cluster`);
-    if (err instanceof StorageBucketLimitReachedError) redirect(`/projects/${project.id}?error=bucket_limit`);
-    if (err instanceof NoStorageProviderAvailableError) redirect(`/projects/${project.id}?error=no_storage_provider`);
+    if (err instanceof DatabaseLimitReachedError) redirect(`/projects/${formatPublicId("project", project.id)}?error=db_limit`);
+    if (err instanceof NoClusterAvailableError) redirect(`/projects/${formatPublicId("project", project.id)}?error=no_cluster`);
+    if (err instanceof StorageBucketLimitReachedError) redirect(`/projects/${formatPublicId("project", project.id)}?error=bucket_limit`);
+    if (err instanceof NoStorageProviderAvailableError) redirect(`/projects/${formatPublicId("project", project.id)}?error=no_storage_provider`);
     throw err;
   }
-  redirect(`/projects/${project.id}`);
+  redirect(`/projects/${formatPublicId("project", project.id)}`);
 }
 
 export default async function NewProjectPage() {
   const user = await requireUser();
-  const workspace = await loadWorkspace(user.id);
-  const subscription = workspace?.subscriptions[0];
-  if (!workspace || !subscription) redirect("/pricing?next=/projects/new");
+  const organization = await loadOrganization(user.id);
+  const subscription = organization?.subscriptions[0];
+  if (!organization || !subscription) redirect("/pricing?next=/projects/new");
 
   const limit = subscription.plan.limits?.maxProjects;
-  const remaining = limit == null ? "Unlimited" : Math.max(0, limit - workspace._count.projects);
+  const remaining = limit == null ? "Unlimited" : Math.max(0, limit - organization._count.projects);
 
   return (
-    <UserShell user={user} workspace={workspace.name}>
+    <UserShell user={user} organizationName={organization.name}>
       <div className="page-head">
         <div>
           <h1 className="h1">Create a project</h1>
@@ -157,7 +158,7 @@ export default async function NewProjectPage() {
             <label>Project name</label>
             <input name="name" required autoFocus placeholder="Production API" />
             <p className="small muted" style={{ margin: "6px 0 0" }}>
-              Region is chosen automatically by Swyftstack's provisioning defaults.
+              Region is chosen automatically by Swyftstack&apos;s provisioning defaults.
             </p>
             <div className="section-title" style={{ marginTop: 18 }}>Database</div>
             <label>Create or import database</label>
@@ -192,7 +193,7 @@ export default async function NewProjectPage() {
           <div className="panel-title" style={{ marginBottom: 10 }}>Current plan</div>
           <div className="stat-value" style={{ fontSize: 20 }}>{subscription.plan.name}</div>
           <p className="small" style={{ margin: "6px 0 0" }}>
-            {workspace._count.projects} of {limit ?? "∞"} projects used · {remaining} remaining
+            {organization._count.projects} of {limit ?? "∞"} projects used · {remaining} remaining
           </p>
           <p className="small">Need more? <Link href="/pricing?next=/projects/new">Upgrade your plan</Link>.</p>
         </div>

@@ -58,7 +58,7 @@ export default async function AcceptInvitePage({
           <div className="brand-mark"><Icon name="users" size={18} /></div>
           <div>
             <div className="brand-name">Accept invite</div>
-            <div className="brand-sub">Join a Swyftstack workspace</div>
+            <div className="brand-sub">Join a Swyftstack organization</div>
           </div>
         </div>
         {invalid ? (
@@ -69,7 +69,7 @@ export default async function AcceptInvitePage({
         ) : (
           <>
             <p className="sub">
-              You&apos;ve been invited to {invite.project?.name ?? invite.organization?.name ?? "a workspace"} as <strong>{invite.role}</strong>.
+              You&apos;ve been invited to {invite.project?.name ?? invite.organization?.name ?? "an organization"} as <strong>{invite.role}</strong>.
             </p>
             {user && user.email.toLowerCase() !== invite.email.toLowerCase() && (
               <div className="err">This invite was sent to {invite.email}. Sign in with that email to accept.</div>

@@ -64,7 +64,7 @@ const MENU: Record<Exclude<MenuKey, null>, MenuConfig> = {
         items: [
           { href: "/postgres", icon: <PostgresIcon size={16} />, title: "Managed PostgreSQL", desc: "PG 16, SSL, daily backups, 47-second deploys." },
           { href: "/storage", icon: <BucketIcon size={16} />, title: "Object storage", desc: "S3-compatible API. CDN-fronted public buckets." },
-          { href: "/static-sites", icon: <GlobeIcon size={16} />, title: "Static site hosting", desc: "Custom domains, auto-HTTPS.", badge: "Free" },
+          { href: "/static-sites", icon: <GlobeIcon size={16} />, title: "Static site deployment", desc: "Push a folder. Get a CDN-fronted HTTPS URL.", badge: "Free" },
           { href: "/migrate", icon: <MigrateIcon size={16} />, title: "Migration hub", desc: "Move your database in three clicks." },
         ],
       },
@@ -104,7 +104,7 @@ const MENU: Record<Exclude<MenuKey, null>, MenuConfig> = {
   },
 };
 
-export function MarketingNavbar({ signedIn }: { signedIn: boolean }) {
+export function MarketingNavbar({ signedIn, earlyAccess = false }: { signedIn: boolean; earlyAccess?: boolean }) {
   const pathname = usePathname();
   const [openMenu, setOpenMenu] = useState<MenuKey>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -182,7 +182,6 @@ export function MarketingNavbar({ signedIn }: { signedIn: boolean }) {
           <NavTrigger
             label="Resources"
             menuKey="resources"
-            align="right"
             openMenu={openMenu}
             onOpen={openImmediately}
             onScheduleClose={scheduleClose}
@@ -198,9 +197,11 @@ export function MarketingNavbar({ signedIn }: { signedIn: boolean }) {
             </Link>
           ) : (
             <>
-              <Link className="m-btn m-btn-ghost m-btn-sm m-nav-only-desktop" href="/login">Sign in</Link>
-              <Link className="m-btn m-btn-primary m-btn-sm" href="/signup">
-                Start building <ArrowRightIcon size={14} />
+              <Link className="m-btn m-btn-ghost m-btn-sm m-nav-only-desktop" href={earlyAccess ? "/request-early-access" : "/login"}>
+                {earlyAccess ? "Request access" : "Sign in"}
+              </Link>
+              <Link className="m-btn m-btn-primary m-btn-sm" href={earlyAccess ? "/request-early-access" : "/signup"}>
+                {earlyAccess ? "Request early access" : "Start building"} <ArrowRightIcon size={14} />
               </Link>
             </>
           )}
@@ -229,8 +230,12 @@ export function MarketingNavbar({ signedIn }: { signedIn: boolean }) {
             <Link className="m-btn m-btn-primary m-btn-block" href="/console">Open console</Link>
           ) : (
             <>
-              <Link className="m-btn m-btn-secondary m-btn-block" href="/login">Sign in</Link>
-              <Link className="m-btn m-btn-primary m-btn-block" href="/signup">Start building</Link>
+              <Link className="m-btn m-btn-secondary m-btn-block" href={earlyAccess ? "/request-early-access" : "/login"}>
+                {earlyAccess ? "Request access" : "Sign in"}
+              </Link>
+              <Link className="m-btn m-btn-primary m-btn-block" href={earlyAccess ? "/request-early-access" : "/signup"}>
+                {earlyAccess ? "Request early access" : "Start building"}
+              </Link>
             </>
           )}
         </div>

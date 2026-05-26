@@ -375,11 +375,36 @@ model LoginEvent {
   @@map("login_events")
 }
 
+model EarlyAccessRequest {
+  id         String   @id @default(uuid()) @db.Uuid
+  email      String
+  name       String
+  company    String?
+  role       String?
+  country    String?
+  phone      String?
+  ipAddress  String?  @map("ip_address")
+  ipCountry  String?  @map("ip_country")
+  ipRegion   String?  @map("ip_region")
+  ipCity     String?  @map("ip_city")
+  ipTimezone String?  @map("ip_timezone")
+  ipLatitude String?  @map("ip_latitude")
+  ipLongitude String? @map("ip_longitude")
+  userAgent  String?  @map("user_agent")
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([email])
+  @@index([createdAt])
+  @@map("early_access_requests")
+}
+
 model Organization {
   id          String    @id @default(uuid()) @db.Uuid
   name        String
   ownerUserId String?   @map("owner_user_id") @db.Uuid
   status      OrgStatus @default(active)
+  enableAppDeployment Boolean @default(false) @map("enable_app_deployment")
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 

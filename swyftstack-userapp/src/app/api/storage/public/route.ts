@@ -1,10 +1,10 @@
-import { prisma, readStorageObject } from "swyftstack-shared";
+import { prisma, readStorageObject, uuidFromPublicId } from "swyftstack-shared";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const bucketId = url.searchParams.get("bucketId") ?? "";
+  const bucketId = uuidFromPublicId(url.searchParams.get("bucketId") ?? "", "bucket");
   const key = url.searchParams.get("key") ?? "";
   const object = await prisma.storageObject.findUnique({
     where: { bucketId_key: { bucketId, key } },

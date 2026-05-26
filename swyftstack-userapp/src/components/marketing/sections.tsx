@@ -3,6 +3,12 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowRightIcon, CheckIcon } from "./icons";
+import { authTarget, isEarlyAccessMode } from "@/lib/early-access";
+
+function marketingHref(href: string): string {
+  if (!isEarlyAccessMode()) return href;
+  return href.startsWith("/signup") || href.startsWith("/login") ? authTarget("/signup") : href;
+}
 
 export function Section({
   alt,
@@ -115,6 +121,8 @@ export function CTASection({
     ? { label: "Open console", href: "/console" }
     : { label: "Deploy your first database", href: "/signup" });
   const sec = secondary ?? { label: "See pricing", href: "/pricing" };
+  const primaryHref = marketingHref(pri.href);
+  const secondaryHref = marketingHref(sec.href);
   return (
     <section className="m-cta-section">
       <div className="m-container">
@@ -122,10 +130,10 @@ export function CTASection({
           <h2>{title}</h2>
           {subtitle && <p>{subtitle}</p>}
           <div className="m-cta-row">
-            <Link href={pri.href} className="m-btn m-btn-primary m-btn-lg">
+            <Link href={primaryHref} className="m-btn m-btn-primary m-btn-lg">
               {pri.label} <ArrowRightIcon size={16} />
             </Link>
-            <Link href={sec.href} className="m-btn m-btn-secondary m-btn-lg">{sec.label}</Link>
+            <Link href={secondaryHref} className="m-btn m-btn-secondary m-btn-lg">{sec.label}</Link>
           </div>
         </div>
       </div>

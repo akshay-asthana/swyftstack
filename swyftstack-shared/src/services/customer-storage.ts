@@ -11,6 +11,7 @@ import { provisioningPolicyService } from "./provisioning-policy.js";
 import { platformSettingsService } from "./platform-settings.js";
 import { planResourceService } from "./plan-resource.js";
 import { reconcileProjectProvisioning } from "./project-status.js";
+import { formatPublicId } from "../public-ids.js";
 
 const GB = BigInt(1024) ** BigInt(3);
 const DEFAULT_STORAGE_LIMIT = BigInt(25) * GB;
@@ -343,10 +344,11 @@ export function signStorageUrl(input: {
 }): string {
   const expires = Math.floor(Date.now() / 1000) + (input.expiresInSeconds ?? 900);
   const key = normalizeObjectKey(input.key);
-  const payload = `${input.bucketId}:${input.action}:${expires}:${key}`;
+  const publicBucketId = formatPublicId("bucket", input.bucketId);
+  const payload = `${publicBucketId}:${input.action}:${expires}:${key}`;
   const sig = crypto.createHmac("sha256", env.AUTH_SECRET).update(payload).digest("base64url");
   const url = new URL("/api/storage/signed", env.USERAPP_BASE_URL);
-  url.searchParams.set("bucketId", input.bucketId);
+  url.searchParams.set("bucketId", publicBucketId);
   url.searchParams.set("key", key);
   url.searchParams.set("action", input.action);
   url.searchParams.set("expires", String(expires));

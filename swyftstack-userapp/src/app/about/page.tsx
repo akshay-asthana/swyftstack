@@ -8,6 +8,7 @@ import { Section, SectionHead, CTASection } from "@/components/marketing/section
 import { HeroBackgroundAnimation } from "@/components/marketing/hero-background";
 import { OrganizationJsonLd, SITE_URL } from "@/components/marketing/jsonld";
 import { ArrowRightIcon, BoltIcon, ClockIcon, LockIcon, ShieldIcon } from "@/components/marketing/icons";
+import { authTarget } from "@/lib/early-access";
 
 export const dynamic = "force-dynamic";
 
@@ -164,7 +165,7 @@ export default function AboutPage() {
             Most replies come within an hour during working hours, and within a day otherwise.
           </p>
           <div className="m-row m-mt-5" style={{ justifyContent: "center" }}>
-            <Link className="m-btn m-btn-primary m-btn-lg" href="/signup">
+            <Link className="m-btn m-btn-primary m-btn-lg" href={authTarget("/signup")}>
               Try Swyftstack <ArrowRightIcon size={16} />
             </Link>
             <Link className="m-btn m-btn-secondary m-btn-lg" href="/security">

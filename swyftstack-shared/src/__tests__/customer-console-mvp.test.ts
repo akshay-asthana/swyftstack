@@ -53,7 +53,7 @@ describe("customer console MVP primitives", () => {
 
   it("creates verifiable signed storage URLs", () => {
     const signed = signStorageUrl({
-      bucketId: "11111111-1111-1111-1111-111111111111",
+      bucketId: "11111111-1111-4111-8111-111111111111",
       key: "folder/file.txt",
       action: "download",
       expiresInSeconds: 60,

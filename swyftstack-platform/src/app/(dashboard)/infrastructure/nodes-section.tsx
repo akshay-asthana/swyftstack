@@ -7,6 +7,7 @@ import {
   audit,
   encryptSecret,
   env,
+  isProductionEnv,
   isLocalControlPlaneNode,
   localNodeService,
   nodeDeletionService,
@@ -22,7 +23,7 @@ import {
 import { Badge, bytes, StatCard, Modal, timeAgo } from "@/components/ui";
 import { DataTable, RowMenu, type DTRow } from "@/components/client";
 
-const DEV_MODE = env.NODE_ENV !== "production";
+const DEV_MODE = !isProductionEnv();
 const NODES_TAB = "/infrastructure?tab=nodes";
 
 export const NODE_ERRORS: Record<string, string> = {

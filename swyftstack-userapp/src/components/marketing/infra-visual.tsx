@@ -52,7 +52,7 @@ export function InfrastructureVisual() {
         <UsageRow label="Database storage" value="0.42 / 10 GB" pct={4.2} />
         <UsageRow label="Object storage" value="8.7 / 100 GB" pct={8.7} />
         <UsageRow label="Egress" value="124 / 500 GB" pct={24.8} />
-        <UsageRow label="vCPU-hours" value="186 / 600" pct={31} />
+        <UsageRow label="Backup storage" value="18 / 100 GB" pct={18} />
       </div>
     </div>
   );

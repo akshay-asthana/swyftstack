@@ -220,10 +220,10 @@ SELECT bit_xor(
         "S3-compatible object storage, CDN-fronted by default for public buckets.",
         "Three-click migration from Supabase, Railway, Heroku, PlanetScale, Render, Neon, and any standard PostgreSQL provider.",
         "Per-project usage controls with email alerts at 80% and 95% of any limit.",
-        "Team workspaces with scoped credentials and audit logs.",
+        "Organizations with scoped credentials and audit logs.",
       ]),
-      h(2, "Launch offer"),
-      p("The first 500 customers get Starter at $9/month or Pro at $49/month for their first two months. After that, our published pricing kicks in - and never goes up unless you tell us to upgrade."),
+      h(2, "Simple pricing"),
+      p("Starter is $19/month and Pro is $99/month. Published pricing stays predictable, and you can upgrade when your project needs more room."),
       h(2, "Why we built this"),
       p("Every year cloud platforms add more features, more dashboards, more tabs. Meanwhile, the actual thing most developers want hasn't changed: a database for their app, and somewhere to store user files. We built that. Two products, both simple, both fast, both backed by a real human answering your emails."),
       quote("Ready in minutes. Cancel in one click. Backed by a real human."),
@@ -232,15 +232,15 @@ SELECT bit_xor(
 
   {
     type: "announcement",
-    slug: "team-workspaces-and-audit-logs",
+    slug: "organizations-and-audit-logs",
     status: "published",
-    title: "Team workspaces, scoped credentials, and audit logs are now generally available",
-    excerpt: "First-class team support landed today: workspace-level permissions, per-project ownership, scoped credentials, and a fully exportable audit log on Pro and above.",
+    title: "Organizations, scoped credentials, and audit logs are now generally available",
+    excerpt: "First-class team support landed today: organization-level permissions, per-project ownership, scoped credentials, and a fully exportable audit log on Pro and above.",
     publishedAt: new Date("2026-05-15T08:00:00.000Z"),
     contentJson: doc(
       h(2, "What shipped"),
       ul([
-        "Workspaces with multiple members, individual roles, and per-project ownership.",
+        "Organizations with multiple members, individual roles, and per-project ownership.",
         "Per-bucket access keys and per-database roles for scoped credentials.",
         "Audit logs covering every state change in the dashboard, with actor, IP, and target.",
         "Exportable audit logs (JSON / CSV) on Pro and Enterprise.",
@@ -286,7 +286,7 @@ SELECT bit_xor(
     excerpt: "A short note on why our published pricing is a promise, not a starting point - and what we'll do if costs change on our end.",
     publishedAt: new Date("2026-04-30T08:00:00.000Z"),
     contentJson: doc(
-      p("A few customers have asked us, in private, whether our launch pricing is a bait-and-switch."),
+      p("A few customers have asked us, in private, whether our published pricing is a bait-and-switch."),
       p("It isn't. Here's the rule we operate by: your price doesn't change unless you change your plan. If our underlying cloud costs ever rise enough that our published price stops working, new customers will see a new price - but existing customers will keep theirs."),
       p("That's not a press release, it's just how a developer-tools company should work."),
     ),

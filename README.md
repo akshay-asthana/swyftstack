@@ -1,7 +1,7 @@
 # Swyftstack — Infra Control Plane
 
 Admin-first orchestration platform for a small PaaS/DBaaS. Manages VPS worker
-nodes and allocates app hosting, PostgreSQL databases, object storage, usage
+nodes and allocates compute workloads, PostgreSQL databases, object storage, usage
 limits, backups, logs, and migrations to users/projects. Multi-node by design.
 
 See `RESOURCES_FOR_REFERENCE/` for the architecture (`PLATFORM_OVERVIEW.md`) and
@@ -142,6 +142,28 @@ npm run dev:worker    # background worker + scheduler (monitoring, jobs)
 ```
 
 `dev:platform` / `dev:workers` / `dev:userapp` are aliases.
+
+## Independent deploys
+
+Each runtime can be built and started on its own. Deployments should install
+the root workspace, run `npm run db:generate`, then execute only the target
+workspace command:
+
+```bash
+npm run build:platform   # admin control plane Next.js app
+npm run start:platform
+
+npm run build:userapp    # customer-facing Next.js app
+npm run start:userapp
+
+npm run build:workers    # job worker / scheduler runtime
+npm run start:workers
+```
+
+`swyftstack-shared` is intentionally a workspace dependency used by all three
+runtimes. Keep shared environment such as `DATABASE_URL`, encryption keys, and
+storage credentials in each deploy target, then add app-specific public URLs
+only to the runtime that needs them.
 
 ## Migrations & seeds
 
@@ -588,7 +610,7 @@ edited from the admin **Infrastructure** page.
 | `INTERNAL_API_TOKEN` | Bearer token for worker → control-plane calls |
 | `PLATFORM_ADMIN_EMAIL/PASSWORD` | Seeded bootstrap admin |
 | `PLATFORM_BASE_URL` / `USERAPP_BASE_URL` | App URLs |
-| `DEFAULT_CUSTOMER_PLAN_SLUG` | Plan assigned to new customer workspaces (default `starter`) |
+| `DEFAULT_CUSTOMER_PLAN_SLUG` | Plan assigned to new customer organizations (default `starter`) |
 | `EMAIL_FROM` / `EMAIL_WEBHOOK_URL` | Legacy queued webhook fallback for transactional email |
 | `ZEPTOMAIL_API_URL` / `ZEPTOMAIL_API_KEY` | Optional env fallback; production should use Admin → Settings email providers |
 | `ZEPTOMAIL_FROM_EMAIL` / `ZEPTOMAIL_FROM_NAME` | Optional ZeptoMail env fallback sender |

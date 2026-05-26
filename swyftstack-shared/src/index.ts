@@ -6,6 +6,7 @@ export * from "./permissions.js";
 export * from "./usage.js";
 export * from "./dbsql.js";
 export * from "./backup-state.js";
+export * from "./public-ids.js";
 export * from "./session.js";
 export * from "./onboarding.js";
 export * from "./auth-tokens.js";
@@ -15,7 +16,7 @@ export * from "./notifications.js";
 export * from "./node-discovery.js";
 export * from "./ssh-key.js";
 export * from "./provider-help.js";
-export { env } from "./env.js";
+export { env, isProductionEnv } from "./env.js";
 export {
   encryptSecret,
   decryptSecret,

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
-  audit, prisma, hashPassword, FEATURE_KEYS, LIMIT_KEYS,
+  audit, formatPublicId, prisma, hashPassword, FEATURE_KEYS, LIMIT_KEYS, uuidFromPublicId,
 } from "swyftstack-shared";
 import {
   Badge, bytes, Panel, KeyValue, Table, StatCard, Breadcrumbs, EmptyState,
@@ -17,6 +17,9 @@ export const dynamic = "force-dynamic";
 function str(fd: FormData, k: string): string {
   return String(fd.get(k) ?? "").trim();
 }
+const userHref = (id: string) => `/users/${formatPublicId("user", id)}`;
+const orgHref = (id: string) => `/organizations/${formatPublicId("organization", id)}`;
+const projectHref = (id: string) => `/projects/${formatPublicId("project", id)}`;
 function money(cents: number | null | undefined): string {
   return cents == null ? "—" : `$${(cents / 100).toFixed(2)}`;
 }
@@ -24,7 +27,7 @@ function money(cents: number | null | undefined): string {
 // ---- server actions ----------------------------------------------------
 async function updateUser(formData: FormData) {
   "use server";
-  const id = str(formData, "id");
+  const id = uuidFromPublicId(str(formData, "id"), "user");
   const password = String(formData.get("password") ?? "");
   await prisma.user.update({
     where: { id },
@@ -37,32 +40,32 @@ async function updateUser(formData: FormData) {
     },
   });
   await audit({ actorType: "admin", action: "user.edited", targetType: "user", targetId: id });
-  revalidatePath(`/users/${id}`);
+  revalidatePath(userHref(id));
 }
 
 async function assignPlan(formData: FormData) {
   "use server";
-  const id = str(formData, "id");
+  const id = uuidFromPublicId(str(formData, "id"), "user");
   await assignPlanToUser(id, str(formData, "planId"));
   await audit({ actorType: "admin", action: "user.plan_assigned", targetType: "user", targetId: id });
-  revalidatePath(`/users/${id}`);
+  revalidatePath(userHref(id));
 }
 
 async function endTrial(formData: FormData) {
   "use server";
-  const id = str(formData, "id");
+  const id = uuidFromPublicId(str(formData, "id"), "user");
   const subId = str(formData, "subId");
   await prisma.subscription.update({
     where: { id: subId },
     data: { status: "active", billingPhase: "regular", trialEndAt: new Date() },
   });
   await audit({ actorType: "admin", action: "user.trial_ended", targetType: "user", targetId: id });
-  revalidatePath(`/users/${id}`);
+  revalidatePath(userHref(id));
 }
 
 async function saveLimitOverride(formData: FormData) {
   "use server";
-  const userId = str(formData, "id");
+  const userId = uuidFromPublicId(str(formData, "id"), "user");
   const limitKey = str(formData, "limitKey");
   const raw = str(formData, "limitValue");
   if (!limitKey) return;
@@ -75,19 +78,19 @@ async function saveLimitOverride(formData: FormData) {
     },
   });
   await audit({ actorType: "admin", action: "user.limit_override", targetType: "user", targetId: userId });
-  revalidatePath(`/users/${userId}`);
+  revalidatePath(userHref(userId));
 }
 
 async function deleteLimitOverride(formData: FormData) {
   "use server";
-  const userId = str(formData, "id");
+  const userId = uuidFromPublicId(str(formData, "id"), "user");
   await prisma.limitOverride.delete({ where: { id: str(formData, "overrideId") } }).catch(() => undefined);
-  revalidatePath(`/users/${userId}`);
+  revalidatePath(userHref(userId));
 }
 
 async function saveFeatureOverride(formData: FormData) {
   "use server";
-  const userId = str(formData, "id");
+  const userId = uuidFromPublicId(str(formData, "id"), "user");
   const featureKey = str(formData, "featureKey");
   if (!featureKey) return;
   await prisma.featureOverride.upsert({
@@ -99,20 +102,21 @@ async function saveFeatureOverride(formData: FormData) {
     },
   });
   await audit({ actorType: "admin", action: "user.feature_override", targetType: "user", targetId: userId });
-  revalidatePath(`/users/${userId}`);
+  revalidatePath(userHref(userId));
 }
 
 async function deleteFeatureOverride(formData: FormData) {
   "use server";
-  const userId = str(formData, "id");
+  const userId = uuidFromPublicId(str(formData, "id"), "user");
   await prisma.featureOverride.delete({ where: { id: str(formData, "overrideId") } }).catch(() => undefined);
-  revalidatePath(`/users/${userId}`);
+  revalidatePath(userHref(userId));
 }
 
 // ---- page --------------------------------------------------------------
 export default async function UserDetailPage({ params }: { params: { id: string } }) {
+  const userId = uuidFromPublicId(params.id, "user");
   const user = await prisma.user.findUnique({
-    where: { id: params.id },
+    where: { id: userId },
     include: {
       ownedOrganizations: { include: { _count: { select: { projects: true, members: true } } } },
       orgMemberships: { include: { organization: true } },
@@ -123,6 +127,7 @@ export default async function UserDetailPage({ params }: { params: { id: string 
     },
   });
   if (!user) notFound();
+  const userPublicId = formatPublicId("user", user.id);
 
   const [sub, plans, agg, activity, limitOverrides, featureOverrides, notifications, deliveries, prefs] = await Promise.all([
     activeSubscriptionForUser(user.id),
@@ -171,7 +176,7 @@ export default async function UserDetailPage({ params }: { params: { id: string 
             ["Trial ends", timeAgo(sub?.trialEndAt)],
             ["Trial price", money(sub?.trialPriceCents)],
             ["Regular price", money(sub?.regularPriceCents ?? sub?.plan.priceCents)],
-            ["Workspace", sub?.organization.name ?? "—"],
+            ["Organization", sub?.organization.name ?? "—"],
           ]}
         />
       </Panel>
@@ -184,7 +189,7 @@ export default async function UserDetailPage({ params }: { params: { id: string 
       <div>
         <Panel title="Edit account">
           <form action={updateUser}>
-            <input type="hidden" name="id" value={user.id} />
+            <input type="hidden" name="id" value={userPublicId} />
             <div className="form-grid">
               <div><label>Name</label><input name="name" defaultValue={user.name ?? ""} /></div>
               <div><label>New password</label><input name="password" type="password" minLength={8} /></div>
@@ -205,7 +210,7 @@ export default async function UserDetailPage({ params }: { params: { id: string 
         </Panel>
         <Panel title="Assign / change plan">
           <form action={assignPlan}>
-            <input type="hidden" name="id" value={user.id} />
+            <input type="hidden" name="id" value={userPublicId} />
             <label>Plan</label>
             <select name="planId" defaultValue={sub?.planId ?? ""}>
               <option value="">No plan</option>
@@ -219,7 +224,7 @@ export default async function UserDetailPage({ params }: { params: { id: string 
           </form>
           {sub?.status === "trialing" && (
             <form action={endTrial} style={{ marginTop: 10 }}>
-              <input type="hidden" name="id" value={user.id} />
+              <input type="hidden" name="id" value={userPublicId} />
               <input type="hidden" name="subId" value={sub.id} />
               <button className="btn secondary" type="submit">End trial now</button>
             </form>
@@ -279,7 +284,7 @@ export default async function UserDetailPage({ params }: { params: { id: string 
             m.organization.name,
             <Badge key="r" status="muted" />,
             <Badge key="s" status={m.organization.status} />,
-            <Link key="l" className="btn sm secondary" href={`/organizations/${m.organization.id}`}>Open</Link>,
+            <Link key="l" className="btn sm secondary" href={orgHref(m.organization.id)}>Open</Link>,
           ])}
         />
       )}
@@ -299,7 +304,7 @@ export default async function UserDetailPage({ params }: { params: { id: string 
             m.project.organization.name,
             m.role,
             <Badge key="s" status={m.project.status} />,
-            <Link key="l" className="btn sm secondary" href={`/projects/${m.project.id}`}>Open</Link>,
+            <Link key="l" className="btn sm secondary" href={projectHref(m.project.id)}>Open</Link>,
           ])}
         />
       )}
@@ -430,7 +435,7 @@ export default async function UserDetailPage({ params }: { params: { id: string 
               o.limitValue == null ? "unlimited" : String(o.limitValue),
               o.reason ?? "—",
               <form key="d" action={deleteLimitOverride}>
-                <input type="hidden" name="id" value={user.id} />
+                <input type="hidden" name="id" value={userPublicId} />
                 <input type="hidden" name="overrideId" value={o.id} />
                 <ConfirmButton message="Remove this limit override?" className="btn sm danger">Remove</ConfirmButton>
               </form>,
@@ -445,7 +450,7 @@ export default async function UserDetailPage({ params }: { params: { id: string 
               <Badge key="e" status={o.enabled ? "active" : "disabled"} />,
               o.reason ?? "—",
               <form key="d" action={deleteFeatureOverride}>
-                <input type="hidden" name="id" value={user.id} />
+                <input type="hidden" name="id" value={userPublicId} />
                 <input type="hidden" name="overrideId" value={o.id} />
                 <ConfirmButton message="Remove this feature override?" className="btn sm danger">Remove</ConfirmButton>
               </form>,
@@ -456,7 +461,7 @@ export default async function UserDetailPage({ params }: { params: { id: string 
       <div>
         <Panel title="Add limit override">
           <form action={saveLimitOverride}>
-            <input type="hidden" name="id" value={user.id} />
+            <input type="hidden" name="id" value={userPublicId} />
             <label>Limit key</label>
             <select name="limitKey">{LIMIT_KEYS.map((k) => <option key={k} value={k}>{k}</option>)}</select>
             <label>Value (blank = unlimited)</label>
@@ -468,7 +473,7 @@ export default async function UserDetailPage({ params }: { params: { id: string 
         </Panel>
         <Panel title="Add feature override">
           <form action={saveFeatureOverride}>
-            <input type="hidden" name="id" value={user.id} />
+            <input type="hidden" name="id" value={userPublicId} />
             <label>Feature key</label>
             <select name="featureKey">{FEATURE_KEYS.map((k) => <option key={k} value={k}>{k}</option>)}</select>
             <label className="check" style={{ marginTop: 10 }}>

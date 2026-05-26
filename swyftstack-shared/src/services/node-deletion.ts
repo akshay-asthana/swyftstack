@@ -5,7 +5,7 @@
 //   forceDeleteNodeInDev — escape hatch for dev/superadmin, confirmation gated.
 import { prisma } from "../db.js";
 import { audit } from "../audit.js";
-import { env } from "../env.js";
+import { env, isProductionEnv } from "../env.js";
 
 export class NodeProtectedError extends Error {
   constructor(action: string) {
@@ -149,7 +149,7 @@ export const nodeDeletionService = {
     nodeId: string,
     opts: { confirm: boolean; actorUserId?: string },
   ): Promise<void> {
-    if (env.NODE_ENV === "production") {
+    if (isProductionEnv()) {
       throw new Error("Force delete is disabled in production.");
     }
     if (!opts.confirm) {

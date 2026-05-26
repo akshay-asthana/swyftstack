@@ -11,6 +11,7 @@ import {
   ArrowRightIcon, BoltIcon, BucketIcon, GlobeIcon, LockIcon,
 } from "@/components/marketing/icons";
 import { FaqJsonLd, SITE_URL } from "@/components/marketing/jsonld";
+import { authTarget } from "@/lib/early-access";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,6 @@ const FAQ = [
   { q: "Do public URLs expire?", a: "No. Public files have permanent URLs. Private files use signed URLs you generate with your own expiry times." },
   { q: "Is there a CDN?", a: "Yes. Public buckets are CDN-fronted automatically at no extra cost." },
   { q: "Can I use it as a Terraform/IaC target?", a: "Yes. Use the AWS provider with an `endpoint` override pointing at storage.swyftstack.com." },
-  { q: "Can I store backups here?", a: "Yes. Swyftstack PostgreSQL backups already go to your account's storage by default. Bring-your-own buckets supported on Pro." },
 ];
 
 const SNIPPETS = [
@@ -89,7 +89,7 @@ export default function StorageMarketingPage() {
             Same S3 API your SDK already speaks. Change one line, you&rsquo;re done.
           </p>
           <div className="m-hero-ctas">
-            <Link className="m-btn m-btn-primary m-btn-lg" href="/signup">
+            <Link className="m-btn m-btn-primary m-btn-lg" href={authTarget("/signup")}>
               Start storing files <ArrowRightIcon size={16} />
             </Link>
             <Link className="m-btn m-btn-secondary m-btn-lg" href="/pricing">See pricing</Link>
@@ -154,7 +154,7 @@ export default function StorageMarketingPage() {
           </p>
           <div className="m-row m-mt-5" style={{ justifyContent: "center" }}>
             <Link className="m-btn m-btn-primary m-btn-lg" href="/pricing">See pricing</Link>
-            <Link className="m-btn m-btn-secondary m-btn-lg" href="/signup">Start storing files</Link>
+            <Link className="m-btn m-btn-secondary m-btn-lg" href={authTarget("/signup")}>Start storing files</Link>
           </div>
         </div>
       </Section>

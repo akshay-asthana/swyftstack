@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { prisma } from "swyftstack-shared";
+import { formatPublicId, prisma } from "swyftstack-shared";
 import { requireUser } from "@/lib/auth";
 import { UserShell } from "@/components/user-shell";
 import { Panel, Table, Badge } from "@/components/ui";
@@ -27,7 +27,7 @@ export default async function ProjectsPage() {
   });
 
   return (
-    <UserShell user={user} workspace={ownedOrg?.name}>
+    <UserShell user={user} organizationName={ownedOrg?.name}>
       <div className="page-head">
         <div>
           <h1 className="h1">Projects</h1>
@@ -46,7 +46,7 @@ export default async function ProjectsPage() {
       ) : (
         <Panel title={`${memberships.length} project${memberships.length === 1 ? "" : "s"}`} flush>
           <Table
-            columns={["Project", "Workspace", "Role", "Status", "Apps", "DBs", "Buckets", ""]}
+            columns={["Project", "Organization", "Role", "Status", "Apps", "DBs", "Buckets", ""]}
             rows={memberships.map((m) => [
               <strong key="n">{m.project.name}</strong>,
               m.project.organization.name,
@@ -55,7 +55,7 @@ export default async function ProjectsPage() {
               m.project._count.apps,
               m.project._count.databases,
               m.project._count.buckets,
-              <Link key="o" href={`/projects/${m.project.id}`}>Open →</Link>,
+              <Link key="o" href={`/projects/${formatPublicId("project", m.project.id)}`}>Open →</Link>,
             ])}
           />
         </Panel>

@@ -9,6 +9,7 @@ import { MigrationInViewAnimation } from "@/components/marketing/migration-in-vi
 import { HeroBackgroundAnimation } from "@/components/marketing/hero-background";
 import { ArrowRightIcon, BackupIcon, CheckIcon, ClockIcon, MigrateIcon, ShieldIcon } from "@/components/marketing/icons";
 import { FaqJsonLd, SITE_URL } from "@/components/marketing/jsonld";
+import { authTarget } from "@/lib/early-access";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,7 @@ export default function MigrateHub() {
             Paste a connection string. We pg_dump, restore, verify with checksums, hand you a new URL.
           </p>
           <div className="m-hero-ctas">
-            <Link className="m-btn m-btn-primary m-btn-lg" href="/signup">
+            <Link className="m-btn m-btn-primary m-btn-lg" href={authTarget("/signup")}>
               Start a migration <ArrowRightIcon size={16} />
             </Link>
             <Link className="m-btn m-btn-secondary m-btn-lg" href="/postgres">See PostgreSQL specs</Link>

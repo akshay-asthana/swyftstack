@@ -7,6 +7,7 @@ import {
   provisioningPolicyService,
   provisionStorageBucket, NoStorageProviderAvailableError, StorageBucketLimitReachedError,
   can, permissionsFor, maskDbUrl, BANDWIDTH_IN_TYPES, BANDWIDTH_OUT_TYPES,
+  formatPublicId, uuidFromPublicId,
   type Role,
 } from "swyftstack-shared";
 import { requireUser } from "@/lib/auth";
@@ -27,6 +28,7 @@ const ERRORS: Record<string, string> = {
   import_name: "Enter a name for the imported database.",
   bucket_limit: "Your plan does not allow another storage bucket.",
   no_storage_provider: "No object storage provider is available right now.",
+  deployment_disabled: "App deployment is not enabled for this organization yet.",
 };
 
 const monthStart = () => {
@@ -36,28 +38,43 @@ const monthStart = () => {
 
 async function requireMembership(projectId: string) {
   const user = await requireUser();
+  const resolvedProjectId = uuidFromPublicId(projectId, "project");
   const membership = await prisma.projectMember.findUnique({
-    where: { projectId_userId: { projectId, userId: user.id } },
+    where: { projectId_userId: { projectId: resolvedProjectId, userId: user.id } },
   });
   if (!membership) notFound();
-  return { user, role: membership.role as Role };
+  return { user, role: membership.role as Role, projectId: resolvedProjectId };
 }
+
+const projectHref = (projectId: string) => `/projects/${formatPublicId("project", projectId)}`;
+const dbHref = (projectId: string, dbId: string) =>
+  `${projectHref(projectId)}/databases/${formatPublicId("database", dbId)}`;
+const bucketHref = (projectId: string, bucketId: string) =>
+  `${projectHref(projectId)}/storage/${formatPublicId("bucket", bucketId)}`;
 
 // ---- create app ----
 async function createApp(formData: FormData) {
   "use server";
-  const projectId = String(formData.get("projectId") ?? "");
-  const { user, role } = await requireMembership(projectId);
-  if (!can(role, "app.deploy")) redirect(`/projects/${projectId}?error=forbidden`);
+  const projectRef = String(formData.get("projectId") ?? "");
+  const { user, role, projectId } = await requireMembership(projectRef);
+  const href = projectHref(projectId);
+  if (!can(role, "app.deploy")) redirect(`${href}?error=forbidden`);
+  const projectAccess = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { organization: { select: { enableAppDeployment: true } } },
+  });
+  if (!projectAccess?.organization.enableAppDeployment) {
+    redirect(`${href}?error=deployment_disabled`);
+  }
 
   const name = String(formData.get("name") ?? "").trim();
   const type = String(formData.get("type") ?? "nextjs");
   const repoUrl = String(formData.get("repoUrl") ?? "").trim() || null;
   const branch = String(formData.get("branch") ?? "").trim() || null;
-  if (!name) redirect(`/projects/${projectId}?error=name#new-app`);
+  if (!name) redirect(`${href}?error=name#new-app`);
 
   const dup = await prisma.app.findUnique({ where: { projectId_name: { projectId, name } }, select: { id: true } });
-  if (dup) redirect(`/projects/${projectId}?error=dup_app#new-app`);
+  if (dup) redirect(`${href}?error=dup_app#new-app`);
 
   // §10/§11 — placement flows through the admin provisioning policy, with a
   // fallback to the first active app node if no policy/healthy target exists.
@@ -86,15 +103,16 @@ async function createApp(formData: FormData) {
   await enqueueJob("deploy_app", { deploymentId: deployment.id }, { priority: 40 });
   await projectActivity(projectId, "app.created", user.id, { appId: app.id, name });
   revalidatePath(`/projects/${projectId}`);
-  redirect(`/projects/${projectId}`);
+  redirect(href);
 }
 
 // ---- create database (§10) ----
 async function createDatabase(formData: FormData) {
   "use server";
-  const projectId = String(formData.get("projectId") ?? "");
-  const { user, role } = await requireMembership(projectId);
-  if (!can(role, "db.create")) redirect(`/projects/${projectId}?error=forbidden`);
+  const projectRef = String(formData.get("projectId") ?? "");
+  const { user, role, projectId } = await requireMembership(projectRef);
+  const href = projectHref(projectId);
+  if (!can(role, "db.create")) redirect(`${href}?error=forbidden`);
 
   const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
   try {
@@ -104,10 +122,10 @@ async function createDatabase(formData: FormData) {
       name: String(formData.get("name") ?? "").trim() || `${project.slug}-db`,
     });
     await projectActivity(projectId, "database.create_requested", user.id, { databaseId: db.id });
-    redirect(`/projects/${projectId}/databases/${db.id}`);
+    redirect(dbHref(projectId, db.id));
   } catch (err) {
-    if (err instanceof DatabaseLimitReachedError) redirect(`/projects/${projectId}?error=db_limit`);
-    if (err instanceof NoClusterAvailableError) redirect(`/projects/${projectId}?error=no_cluster`);
+    if (err instanceof DatabaseLimitReachedError) redirect(`${href}?error=db_limit`);
+    if (err instanceof NoClusterAvailableError) redirect(`${href}?error=no_cluster`);
     throw err;
   }
 }
@@ -115,20 +133,21 @@ async function createDatabase(formData: FormData) {
 // ---- import database from external URL (§11) ----
 async function importDatabase(formData: FormData) {
   "use server";
-  const projectId = String(formData.get("projectId") ?? "");
-  const { user, role } = await requireMembership(projectId);
-  if (!can(role, "db.create")) redirect(`/projects/${projectId}?error=forbidden`);
+  const projectRef = String(formData.get("projectId") ?? "");
+  const { user, role, projectId } = await requireMembership(projectRef);
+  const href = projectHref(projectId);
+  if (!can(role, "db.create")) redirect(`${href}?error=forbidden`);
 
   const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
   const targetName = String(formData.get("targetName") ?? "").trim();
-  if (!/^postgres(ql)?:\/\//i.test(sourceUrl)) redirect(`/projects/${projectId}?error=import_url#import-db`);
-  if (!targetName) redirect(`/projects/${projectId}?error=import_name#import-db`);
+  if (!/^postgres(ql)?:\/\//i.test(sourceUrl)) redirect(`${href}?error=import_url#import-db`);
+  if (!targetName) redirect(`${href}?error=import_name#import-db`);
 
   const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
   try {
     await assertDatabaseLimit(project.organizationId);
   } catch {
-    redirect(`/projects/${projectId}?error=db_limit`);
+    redirect(`${href}?error=db_limit`);
   }
 
   const imp = await prisma.databaseImport.create({
@@ -145,16 +164,17 @@ async function importDatabase(formData: FormData) {
   });
   await enqueueJob("import_database_from_url", { importId: imp.id }, { priority: 40 });
   await projectActivity(projectId, "database.import_requested", user.id, { importId: imp.id });
-  redirect(`/projects/${projectId}`);
+  redirect(href);
 }
 
 async function createBucket(formData: FormData) {
   "use server";
-  const projectId = String(formData.get("projectId") ?? "");
-  const { user, role } = await requireMembership(projectId);
-  if (!can(role, "storage.create")) redirect(`/projects/${projectId}?error=forbidden`);
+  const projectRef = String(formData.get("projectId") ?? "");
+  const { user, role, projectId } = await requireMembership(projectRef);
+  const href = projectHref(projectId);
+  if (!can(role, "storage.create")) redirect(`${href}?error=forbidden`);
   const bucketName = String(formData.get("bucketName") ?? "").trim();
-  if (!bucketName) redirect(`/projects/${projectId}?error=name#new-bucket`);
+  if (!bucketName) redirect(`${href}?error=name#new-bucket`);
 
   try {
     const bucket = await provisionStorageBucket({
@@ -163,10 +183,10 @@ async function createBucket(formData: FormData) {
       isPublic: formData.get("bucketPublic") === "on",
     });
     await projectActivity(projectId, "storage.bucket_requested", user.id, { bucketId: bucket.id });
-    redirect(`/projects/${projectId}/storage/${bucket.id}`);
+    redirect(bucketHref(projectId, bucket.id));
   } catch (err) {
-    if (err instanceof StorageBucketLimitReachedError) redirect(`/projects/${projectId}?error=bucket_limit`);
-    if (err instanceof NoStorageProviderAvailableError) redirect(`/projects/${projectId}?error=no_storage_provider`);
+    if (err instanceof StorageBucketLimitReachedError) redirect(`${href}?error=bucket_limit`);
+    if (err instanceof NoStorageProviderAvailableError) redirect(`${href}?error=no_storage_provider`);
     throw err;
   }
 }
@@ -202,10 +222,10 @@ export default async function ProjectDetail({
 }: {
   params: { id: string }; searchParams: { error?: string };
 }) {
-  const { user, role } = await requireMembership(params.id);
+  const { user, role, projectId } = await requireMembership(params.id);
 
   const project = await prisma.project.findUnique({
-    where: { id: params.id },
+    where: { id: projectId },
     include: {
       organization: true,
       apps: { include: { node: true, deployments: { orderBy: { createdAt: "desc" }, take: 1 } }, orderBy: { createdAt: "desc" } },
@@ -218,6 +238,7 @@ export default async function ProjectDetail({
     },
   });
   if (!project) notFound();
+  const projectPublicId = formatPublicId("project", project.id);
 
   const usage = await prisma.usageEvent.groupBy({
     by: ["usageType"],
@@ -231,7 +252,7 @@ export default async function ProjectDetail({
   const bwOut = sumOf(BANDWIDTH_OUT_TYPES);
 
   const perms = permissionsFor(role);
-  const canDeploy = can(role, "app.deploy");
+  const canDeploy = can(role, "app.deploy") && project.organization.enableAppDeployment;
   const canDb = can(role, "db.create");
   const canStorage = can(role, "storage.create");
   const error = searchParams.error ? ERRORS[searchParams.error] ?? "Something went wrong." : null;
@@ -271,7 +292,7 @@ export default async function ProjectDetail({
           <Badge key="s" status={d.status} />,
           bytes(d.currentSizeBytes),
           d.backups[0] ? <Badge key="b" status={d.backups[0].status} /> : "none",
-          <Link key="l" className="btn sm secondary" href={`/projects/${project.id}/databases/${d.id}`}>
+          <Link key="l" className="btn sm secondary" href={dbHref(project.id, d.id)}>
             Connection details
           </Link>,
         ])}
@@ -296,7 +317,7 @@ export default async function ProjectDetail({
           b.isPublic ? "public" : "private",
           bytes(b.currentStorageBytes),
           b.objectCount.toString(),
-          <Link key="l" className="btn sm secondary" href={`/projects/${project.id}/storage/${b.id}`}>
+          <Link key="l" className="btn sm secondary" href={bucketHref(project.id, b.id)}>
             Open bucket
           </Link>,
         ])}
@@ -331,7 +352,7 @@ export default async function ProjectDetail({
                 )}
                 {imp.databaseId && imp.status === "completed" && (
                   <Link className="btn sm secondary" style={{ marginTop: 8 }}
-                    href={`/projects/${project.id}/databases/${imp.databaseId}`}>
+                    href={dbHref(project.id, imp.databaseId)}>
                     Open imported database
                   </Link>
                 )}
@@ -378,7 +399,7 @@ export default async function ProjectDetail({
   );
 
   return (
-    <UserShell user={user} workspace={project.organization.name}>
+    <UserShell user={user} organizationName={project.organization.name}>
       <div className="page-head">
         <div>
           <div className="row" style={{ gap: 10 }}>
@@ -426,7 +447,7 @@ export default async function ProjectDetail({
           <div className="modal-head"><strong>Create a storage bucket</strong><a href="#" className="modal-close">×</a></div>
           <div className="modal-body">
             <form action={createBucket}>
-              <input type="hidden" name="projectId" value={project.id} />
+              <input type="hidden" name="projectId" value={projectPublicId} />
               <label>Bucket name</label>
               <input name="bucketName" placeholder={`${project.slug}-assets`} required />
               <label className="check" style={{ marginTop: 10 }}>
@@ -450,7 +471,7 @@ export default async function ProjectDetail({
           <div className="modal-head"><strong>Deploy a new app</strong><a href="#" className="modal-close">×</a></div>
           <div className="modal-body">
             <form action={createApp}>
-              <input type="hidden" name="projectId" value={project.id} />
+              <input type="hidden" name="projectId" value={projectPublicId} />
               <label>App name</label>
               <input name="name" placeholder="marketing-site" required />
               <label>Framework / type</label>
@@ -476,7 +497,7 @@ export default async function ProjectDetail({
           <div className="modal-head"><strong>Create a database</strong><a href="#" className="modal-close">×</a></div>
           <div className="modal-body">
             <form action={createDatabase}>
-              <input type="hidden" name="projectId" value={project.id} />
+              <input type="hidden" name="projectId" value={projectPublicId} />
               <label>Database name</label>
               <input name="name" placeholder={`${project.slug}-db`} />
               <p className="small">
@@ -498,7 +519,7 @@ export default async function ProjectDetail({
           <div className="modal-head"><strong>Import a database</strong><a href="#" className="modal-close">×</a></div>
           <div className="modal-body">
             <form action={importDatabase}>
-              <input type="hidden" name="projectId" value={project.id} />
+              <input type="hidden" name="projectId" value={projectPublicId} />
               <label>Source database URL</label>
               <input name="sourceUrl" placeholder="postgresql://user:password@host:5432/dbname" required />
               <label>Target database name</label>

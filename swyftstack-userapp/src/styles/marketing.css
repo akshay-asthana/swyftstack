@@ -204,10 +204,16 @@ body:has(.m) {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   padding: 10px 18px; min-height: 40px;
   border-radius: var(--m-r-sm);
-  font-weight: 620; font-size: 14px; letter-spacing: -0.005em;
+  font-weight: 720; font-size: 14px; letter-spacing: -0.005em;
   border: 1px solid transparent;
   cursor: pointer; user-select: none; white-space: nowrap;
   transition: transform .12s ease, background .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+/* Primary/secondary buttons get a slightly heavier weight so the CTA reads
+ * stronger against the hero background. */
+.m-btn-primary,
+.m-btn-secondary {
+  font-weight: 760;
 }
 .m-btn:hover { transform: translateY(-1px); }
 .m-btn:active { transform: translateY(0); }
@@ -268,6 +274,8 @@ body:has(.m) {
   position: relative;
   padding: clamp(56px, 8vw, 120px) 0 clamp(48px, 6vw, 80px);
   overflow: hidden;
+  background: var(--m-bg);
+  isolation: isolate;
 }
 .m-hero::before {
   content: ""; position: absolute; inset: 0;
@@ -277,9 +285,9 @@ body:has(.m) {
 .m-hero::after {
   content: ""; position: absolute; inset: 0;
   background: radial-gradient(800px 400px at 50% 100%, transparent, var(--m-bg) 70%);
-  z-index: 0; pointer-events: none;
+  z-index: 1; pointer-events: none;
 }
-.m-hero-inner { position: relative; z-index: 1; text-align: center; max-width: 1120px; margin: 0 auto; }
+.m-hero-inner { position: relative; z-index: 2; text-align: center; max-width: 1120px; margin: 0 auto; }
 .m-hero h1 {
   font-size: var(--m-text-display); line-height: var(--m-line-tight);
   letter-spacing: -0.03em; margin-top: 18px;
@@ -311,77 +319,105 @@ body:has(.m) {
 .m-hero-trust-item { display: inline-flex; align-items: center; gap: 6px; }
 .m-hero-visual { margin: 56px auto 0; max-width: 1024px; }
 
-.m-hero-home {
-  background: var(--vantabackground);
+/* ============================================================
+ * Homepage hero (.m-hero.m-hero-home) - the dark Vanta-field variant.
+ *
+ * Design goals (and what we explicitly DON'T do):
+ *   1. The section background is ALWAYS dark in both themes. `--vantabackground`
+ *      is the source of truth; the !important + hardcoded fallback below
+ *      guarantee the dark field paints even if the variable doesn't resolve
+ *      (cache, FOUC, etc.).
+ *   2. The ::before pseudo must stay transparent so the <NetworkMesh> canvas
+ *      shows through. A previous version painted a solid color here, which
+ *      was the root cause of the "Vanta isn't visible" report.
+ *   3. The H1 renders as solid white. We do NOT use
+ *      `-webkit-text-fill-color: transparent` here - paired with a strong
+ *      text-shadow it produces the outlined / blurred look in light theme.
+ *      The accent span (`.m-text-grad`) uses the brand gradient and is
+ *      restored separately so the "in seconds" pop stays vivid.
+ * ============================================================ */
+.m-hero-home,
+.m[data-m-theme="light"] .m-hero-home,
+.m .m-hero.m-hero-home {
+  background: #07080d !important;
+  background: var(--vantabackground, #07080d) !important;
   margin-left: calc(50% - 50vw);
   margin-right: 0;
   width: 100vw;
 }
-.m-hero-home::before {
-  background: var(--vantabackground);
+.m-hero-home::before,
+.m[data-m-theme="light"] .m-hero-home::before {
+  background: transparent !important;
 }
-.m-hero-home::after {
-  background: linear-gradient(180deg, rgba(0,0,0,0) 62%, var(--m-bg) 100%);
+.m-hero-home::after,
+.m[data-m-theme="light"] .m-hero-home::after {
+  background: linear-gradient(180deg, rgba(0,0,0,0) 70%, #07080d 100%) !important;
 }
 .m-hero-home .m-hero-inner {
   max-width: 1160px;
 }
+
+/* Headline: solid white text, NOT a clipped gradient. The accent span keeps
+ * the warm brand gradient. */
 .m-hero-home h1,
 .m[data-m-theme="light"] .m-hero-home h1 {
-  background: linear-gradient(180deg, #ffffff 0%, #d7f9ff 100%);
-  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  background: none !important;
+  -webkit-background-clip: initial !important;
+          background-clip: initial !important;
+  -webkit-text-fill-color: #ffffff !important;
+  color: #ffffff !important;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, .55);
 }
-.m-hero-home .m-hero-lead {
-  color: rgba(226, 232, 240, .86);
+/* Re-apply the brand gradient to the accent span only. We have to repeat the
+ * declaration here because the parent h1 forces a solid white fill above. */
+.m-hero-home h1 .m-text-grad,
+.m[data-m-theme="light"] .m-hero-home h1 .m-text-grad {
+  background: linear-gradient(135deg, #ff8008 0%, #ffc837 100%) !important;
+  background: var(--m-gradient-cta) !important;
+  -webkit-background-clip: text !important;
+          background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  color: transparent !important;
+  text-shadow: none !important;
+  filter: drop-shadow(0 0 22px rgba(255, 128, 8, .35));
+}
+
+.m-hero-home .m-hero-lead,
+.m[data-m-theme="light"] .m-hero-home .m-hero-lead {
+  color: rgba(226, 232, 240, .92) !important;
   display: block;
   width: min(940px, 100%);
   margin-left: auto !important;
   margin-right: auto !important;
   text-align: center !important;
+  text-shadow: 0 2px 20px rgba(0, 0, 0, .55);
+  opacity: 1 !important;
 }
-.m-hero-home .m-hero-trust {
-  color: rgba(203, 213, 225, .74);
+.m-hero-home .m-hero-trust,
+.m[data-m-theme="light"] .m-hero-home .m-hero-trust {
+  color: rgba(203, 213, 225, .82) !important;
 }
 .m-hero-home .m-eyebrow {
   background: rgba(2, 6, 23, .64);
-  border-color: rgba(100, 174, 200, .36);
+  border-color: rgba(100, 174, 200, .42);
   color: #d7f9ff;
-  box-shadow: 0 12px 40px rgba(100, 174, 200, .12);
+  box-shadow: 0 12px 40px rgba(100, 174, 200, .14);
 }
 .m-hero-home .m-eyebrow-dot {
   background: #64aec8;
   box-shadow: 0 0 12px rgba(100, 174, 200, .9);
 }
-.m-hero-home .m-btn-secondary {
-  background: rgba(255,255,255,.1);
-  color: #ffffff;
-  border-color: rgba(255,255,255,.22);
+.m-hero-home .m-btn-secondary,
+.m[data-m-theme="light"] .m-hero-home .m-btn-secondary {
+  background: rgba(7, 8, 13, .76) !important;
+  color: #ffffff !important;
+  border-color: rgba(255,255,255,.36) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .22);
+  opacity: 1 !important;
 }
 .m-hero-home .m-btn-secondary:hover {
-  background: rgba(255,255,255,.16);
-  color: #ffffff;
-  border-color: rgba(255,255,255,.32);
-}
-.m[data-m-theme="light"] .m-hero-home {
-  background: var(--vantabackground) !important;
-}
-.m[data-m-theme="light"] .m-hero-home::before {
-  background: var(--vantabackground) !important;
-}
-.m[data-m-theme="light"] .m-hero-home::after {
-  background: linear-gradient(180deg, rgba(0,0,0,0) 62%, var(--m-bg) 100%) !important;
-}
-.m[data-m-theme="light"] .m-hero-home .m-hero-lead {
-  color: rgba(226, 232, 240, .88) !important;
-  opacity: 1;
-}
-.m[data-m-theme="light"] .m-hero-home .m-hero-trust {
-  color: rgba(203, 213, 225, .76) !important;
-}
-.m[data-m-theme="light"] .m-hero-home .m-btn-secondary {
-  background: rgba(255,255,255,.12) !important;
-  color: #ffffff !important;
-  border-color: rgba(255,255,255,.28) !important;
+  background: rgba(15, 23, 42, .85) !important;
+  border-color: rgba(255,255,255,.46) !important;
 }
 
 /* gradient text helper */
@@ -1121,7 +1157,14 @@ details[open] > .m-md-summary::after { content: "−"; }
  * (replaces the old animated-filter aurora; see hero-background.tsx
  * for the rationale)
  * ============================================================ */
-.m-hero-bg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.m-hero-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  min-height: 100%;
+}
 .m-hero-bg-base {
   position: absolute; inset: 0;
   background:
@@ -1130,6 +1173,17 @@ details[open] > .m-md-summary::after { content: "−"; }
 }
 .m-hero-bg-home .m-hero-bg-base {
   background: var(--vantabackground);
+}
+.m-hero-bg > div,
+.m-hero-bg > canvas {
+  position: absolute;
+  inset: 0;
+}
+.m-hero-bg > div:nth-child(2) {
+  z-index: 1;
+}
+.m-hero-bg-fade {
+  z-index: 2;
 }
 .m-hero-bg-fade {
   position: absolute; inset: 0;

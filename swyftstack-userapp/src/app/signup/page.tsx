@@ -8,11 +8,12 @@ import {
 } from "swyftstack-shared";
 import { currentUser, setUserSession } from "@/lib/auth";
 import { Icon } from "@/components/icons";
+import { isEarlyAccessMode } from "@/lib/early-access";
 
 const ERRORS: Record<string, string> = {
   exists: "An account with that email already exists.",
   password: "Password must be at least 8 characters.",
-  required: "Name, email, and password are required.",
+  required: "Name, organization name, email, and password are required.",
 };
 
 export default async function SignupPage({
@@ -20,6 +21,7 @@ export default async function SignupPage({
 }: {
   searchParams: { error?: string };
 }) {
+  if (isEarlyAccessMode()) redirect("/request-early-access");
   if (await currentUser()) redirect("/console");
   const googleUrl = new URL("/api/auth/google/start", env.PLATFORM_BASE_URL);
   googleUrl.searchParams.set("next", "/console");
@@ -29,9 +31,10 @@ export default async function SignupPage({
     const name = String(formData.get("name") ?? "").trim();
     const email = String(formData.get("email") ?? "").trim();
     const company = String(formData.get("company") ?? "").trim();
+    const organizationName = String(formData.get("organizationName") ?? "").trim();
     const password = String(formData.get("password") ?? "");
 
-    if (!name || !email || !password) redirect("/signup?error=required");
+    if (!name || !organizationName || !email || !password) redirect("/signup?error=required");
     if (password.length < 8) redirect("/signup?error=password");
 
     let next = "/console";
@@ -40,6 +43,7 @@ export default async function SignupPage({
         name,
         email,
         company,
+        organizationName,
         password,
       });
       await setUserSession(account.user.id);
@@ -66,13 +70,15 @@ export default async function SignupPage({
             <div className="brand-sub">Cloud Platform</div>
           </div>
         </div>
-        <p className="sub" style={{ margin: "8px 0 16px" }}>Create your workspace.</p>
+        <p className="sub" style={{ margin: "8px 0 16px" }}>Create your organization.</p>
         <a className="btn google" href={googleUrl.toString()}>Continue with Google</a>
         <div className="divider"><span>or</span></div>
         <label>Name</label>
         <input name="name" required autoFocus autoComplete="name" />
         <label>Email</label>
         <input name="email" type="email" required autoComplete="email" />
+        <label>Organization name</label>
+        <input name="organizationName" required autoComplete="organization" />
         <label>Company <span className="muted">(optional)</span></label>
         <input name="company" autoComplete="organization" />
         <label>Password</label>

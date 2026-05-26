@@ -24,7 +24,6 @@ export function MarketingFooter() {
             <div className="m-footer-col-title">Products</div>
             <Link href="/postgres">Managed PostgreSQL</Link>
             <Link href="/storage">Object storage</Link>
-            <Link href="/static-sites">Static site hosting</Link>
             <Link href="/migrate">Migration hub</Link>
             <Link href="/platform">Platform overview</Link>
           </div>

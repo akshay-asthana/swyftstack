@@ -14,6 +14,7 @@ import {
   LockIcon, MigrateIcon, PostgresIcon, ShieldIcon, TerminalIcon,
 } from "@/components/marketing/icons";
 import { FaqJsonLd, SITE_URL } from "@/components/marketing/jsonld";
+import { authTarget } from "@/lib/early-access";
 
 export const dynamic = "force-dynamic";
 
@@ -72,7 +73,7 @@ export default function PostgresPage() {
             PostgreSQL 16 with SSL, daily backups, and a connection string ready to paste in under a minute.
           </p>
           <div className="m-hero-ctas">
-            <Link className="m-btn m-btn-primary m-btn-lg" href="/signup">
+            <Link className="m-btn m-btn-primary m-btn-lg" href={authTarget("/signup")}>
               Deploy a database <ArrowRightIcon size={16} />
             </Link>
             <Link className="m-btn m-btn-secondary m-btn-lg" href="/migrate">Migrate from your provider</Link>
@@ -199,16 +200,15 @@ export default function PostgresPage() {
       {/* --- Pricing teaser --- */}
       <Section alt>
         <div className="m-card m-card-glow" style={{ padding: 36, textAlign: "center" }}>
-          <h2 style={{ marginBottom: 12 }}>Launch offer · $9 / month</h2>
+          <h2 style={{ marginBottom: 12 }}>Starter starts at $19 / month</h2>
           <p className="m-feature-body" style={{ maxWidth: 580, margin: "0 auto" }}>
-            First 500 customers get Starter at $9/mo (then $19/mo) or Growth at $49/mo (then $99/mo)
-            for the first two months. Both include daily backups, one-click restore, and the full feature set.
+            Both Starter and Pro include daily backups, one-click restore, migration tooling, and the full PostgreSQL feature set.
           </p>
           <div className="m-row m-mt-5" style={{ justifyContent: "center" }}>
             <Link className="m-btn m-btn-primary m-btn-lg" href="/pricing">
               See pricing <ArrowRightIcon size={16} />
             </Link>
-            <Link className="m-btn m-btn-secondary m-btn-lg" href="/signup">Deploy a database</Link>
+            <Link className="m-btn m-btn-secondary m-btn-lg" href={authTarget("/signup")}>Deploy a database</Link>
           </div>
         </div>
       </Section>

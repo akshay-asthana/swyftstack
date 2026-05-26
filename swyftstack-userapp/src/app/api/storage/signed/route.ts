@@ -2,6 +2,7 @@ import {
   readStorageObject,
   uploadStorageObject,
   verifySignedStorageUrl,
+  uuidFromPublicId,
 } from "swyftstack-shared";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,8 @@ export async function GET(req: Request) {
   if (p.action !== "download" || !verifySignedStorageUrl(p)) {
     return new Response("Invalid signed URL", { status: 403 });
   }
-  const { data, object } = await readStorageObject(p.bucketId, p.key, null);
+  const bucketId = uuidFromPublicId(p.bucketId, "bucket");
+  const { data, object } = await readStorageObject(bucketId, p.key, null);
   return new Response(data, {
     headers: {
       "content-type": object.contentType ?? "application/octet-stream",
@@ -39,7 +41,7 @@ export async function PUT(req: Request) {
   }
   const data = Buffer.from(await req.arrayBuffer());
   await uploadStorageObject({
-    bucketId: p.bucketId,
+    bucketId: uuidFromPublicId(p.bucketId, "bucket"),
     key: p.key,
     data,
     contentType: req.headers.get("content-type") ?? "application/octet-stream",

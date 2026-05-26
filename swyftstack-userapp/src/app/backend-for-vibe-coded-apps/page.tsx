@@ -4,6 +4,7 @@
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
 import { SITE_URL } from "@/components/marketing/jsonld";
+import { SHARED_DB_FAQ } from "@/lib/solutions-content";
 
 export const dynamic = "force-dynamic";
 
@@ -66,12 +67,35 @@ export default function VibeCodedPage() {
           { title: "v0",       body: "Wiring DATABASE_URL into Vercel env vars after deploy." },
         ],
       }}
+      snippets={{
+        eyebrow: "What to paste",
+        title: "Exactly what your AI tool needs to see",
+        subtitle: "Drop these into your tool's secrets/environment section. Your AI will pick them up automatically.",
+        snippets: [
+          { name: ".env", language: "sh", code: `# Your database (paste from the Swyftstack dashboard)
+DATABASE_URL="postgresql://user:pass@host.swyftstack.com:5432/dbname?sslmode=require"
+
+# Your storage (only needed if you upload images / files)
+SWYFTSTACK_ACCESS_KEY="..."
+SWYFTSTACK_SECRET_KEY="..."
+SWYFTSTACK_BUCKET="my-uploads"
+SWYFTSTACK_ENDPOINT="https://storage.swyftstack.com"` },
+          { name: "Prompt to your AI", language: "sh", code: `Use DATABASE_URL (a Postgres connection string) for the database.
+Create the tables this app needs and write all user data there
+instead of localStorage.
+
+Use SWYFTSTACK_* env vars for any file uploads -
+the SDK is the standard @aws-sdk/client-s3.` },
+        ],
+      }}
       faq={{
         items: [
           { q: "Do I need to know how to code?", a: "You need to know how to copy and paste. Your AI tool does the rest." },
           { q: "What if my app outgrows the Starter plan?", a: "Click upgrade. Same database, same connection string, more headroom." },
           { q: "Is my data safe?", a: "SSL on by default. Encrypted backups. Two-factor authentication on your account. Same security as the big players." },
           { q: "Can I move to a different provider later?", a: "Yes. PostgreSQL is the standard - you can move anytime, ever, with no lock-in. We'll help you export." },
+          { q: "How is this different from a Lovable/Bolt built-in database?", a: "AI-tool built-in databases tend to live in the editor. The moment you deploy to production or invite a teammate, you discover the data doesn't follow. A real Postgres URL works the same in dev, prod, and from any tool you switch to later." },
+          ...SHARED_DB_FAQ,
         ],
       }}
       finalCta={{

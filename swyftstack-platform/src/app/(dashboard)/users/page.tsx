@@ -3,10 +3,12 @@ import { revalidatePath } from "next/cache";
 import {
   audit,
   createPasswordCustomerAccount,
+  formatPublicId,
   prisma,
   SignupEmailExistsError,
   BANDWIDTH_IN_TYPES,
   BANDWIDTH_OUT_TYPES,
+  uuidFromPublicId,
 } from "swyftstack-shared";
 import { Badge, bytes, StatCard, Modal, AreaChart, BarChart, Panel, timeAgo } from "@/components/ui";
 import { DataTable, RowMenu, type DTRow } from "@/components/client";
@@ -26,6 +28,7 @@ async function createUser(formData: FormData) {
       name: str(formData, "name"),
       email: str(formData, "email"),
       company: str(formData, "company"),
+      organizationName: str(formData, "company") || `${str(formData, "name")}'s organization`,
       password: String(formData.get("password") ?? ""),
     });
     await prisma.user.update({
@@ -42,7 +45,7 @@ async function createUser(formData: FormData) {
 }
 
 async function setUserStatus(formData: FormData, status: "active" | "suspended") {
-  const id = str(formData, "id");
+  const id = uuidFromPublicId(str(formData, "id"), "user");
   await prisma.user.update({ where: { id }, data: { status } });
   await audit({ actorType: "admin", action: `user.${status}`, targetType: "user", targetId: id });
   revalidatePath("/users");
@@ -52,7 +55,7 @@ async function unsuspendUser(fd: FormData) { "use server"; await setUserStatus(f
 
 async function deleteUser(formData: FormData) {
   "use server";
-  const id = str(formData, "id");
+  const id = uuidFromPublicId(str(formData, "id"), "user");
   const resources = await prisma.app.count({ where: { project: { organization: { ownerUserId: id } } } });
   const dbs = await prisma.database.count({ where: { project: { organization: { ownerUserId: id } } } });
   if (resources > 0 || dbs > 0) return; // not safe — surfaced as a disabled menu item
@@ -156,13 +159,14 @@ export default async function UsersPage() {
     .slice(0, 8);
 
   const rows: DTRow[] = realUsers.map((u) => {
+    const publicUserId = formatPublicId("user", u.id);
     const sub = u.ownedOrganizations[0]?.subscriptions[0];
     const usage = usageByUser.get(u.id) ?? { vcpu: 0, bwIn: 0, bwOut: 0 };
     const storage = storageByUser.get(u.id) ?? 0;
     const billing = sub?.status === "trialing" ? "trial" : sub && sub.plan.priceCents > 0 ? "paying" : "free";
     return {
-      id: u.id,
-      href: `/users/${u.id}`,
+      id: publicUserId,
+      href: `/users/${publicUserId}`,
       values: {
         user: `${u.name ?? ""} ${u.email}`,
         auth: u.authProvider,
@@ -174,7 +178,7 @@ export default async function UsersPage() {
       },
       cells: [
         <div key="u">
-          <Link href={`/users/${u.id}`}><strong>{u.name ?? "—"}</strong></Link>
+          <Link href={`/users/${publicUserId}`}><strong>{u.name ?? "—"}</strong></Link>
           <div className="small">{u.email}{u.isPlatformAdmin ? " · admin" : ""}</div>
         </div>,
         <Badge key="a" status={u.authProvider === "password" ? "muted" : "ok"} />,
@@ -187,16 +191,16 @@ export default async function UsersPage() {
         <span key="bw" className="small">↓{bytes(usage.bwIn)} ↑{bytes(usage.bwOut)}</span>,
         <span key="ll" className="small">{timeAgo(u.lastLoginAt)}</span>,
         <RowMenu key="m" label={u.email}>
-          <Link href={`/users/${u.id}`}>View profile</Link>
-          <Link href={`/users/${u.id}#billing`}>Edit / assign plan</Link>
-          <Link href={`/users/${u.id}#activity`}>View audit logs</Link>
+          <Link href={`/users/${publicUserId}`}>View profile</Link>
+          <Link href={`/users/${publicUserId}#billing`}>Edit / assign plan</Link>
+          <Link href={`/users/${publicUserId}#activity`}>View audit logs</Link>
           <div className="sep" />
           {u.status === "suspended" ? (
-            <form action={unsuspendUser}><input type="hidden" name="id" value={u.id} /><button>Unsuspend</button></form>
+            <form action={unsuspendUser}><input type="hidden" name="id" value={publicUserId} /><button>Unsuspend</button></form>
           ) : (
-            <form action={suspendUser}><input type="hidden" name="id" value={u.id} /><button className="danger">Suspend</button></form>
+            <form action={suspendUser}><input type="hidden" name="id" value={publicUserId} /><button className="danger">Suspend</button></form>
           )}
-          <form action={deleteUser}><input type="hidden" name="id" value={u.id} /><button className="danger">Delete (if no resources)</button></form>
+          <form action={deleteUser}><input type="hidden" name="id" value={publicUserId} /><button className="danger">Delete (if no resources)</button></form>
         </RowMenu>,
       ],
     };

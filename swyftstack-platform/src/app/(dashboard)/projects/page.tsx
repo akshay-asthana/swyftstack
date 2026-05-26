@@ -1,6 +1,14 @@
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
-import { prisma, enqueueJob, audit, BANDWIDTH_IN_TYPES, BANDWIDTH_OUT_TYPES } from "swyftstack-shared";
+import {
+  formatPublicId,
+  prisma,
+  enqueueJob,
+  audit,
+  BANDWIDTH_IN_TYPES,
+  BANDWIDTH_OUT_TYPES,
+  uuidFromPublicId,
+} from "swyftstack-shared";
 import { Badge, bytes, StatCard, timeAgo } from "@/components/ui";
 import { DataTable, RowMenu, type DTRow } from "@/components/client";
 import { monthStart, vcpuHours } from "@/lib/stats";
@@ -9,14 +17,14 @@ export const dynamic = "force-dynamic";
 
 async function suspend(formData: FormData) {
   "use server";
-  const id = String(formData.get("id"));
+  const id = uuidFromPublicId(String(formData.get("id")), "project");
   await enqueueJob("suspend_project", { projectId: id });
   await audit({ actorType: "admin", action: "project.suspend_requested", targetType: "project", targetId: id });
   revalidatePath("/projects");
 }
 async function unsuspend(formData: FormData) {
   "use server";
-  const id = String(formData.get("id"));
+  const id = uuidFromPublicId(String(formData.get("id")), "project");
   await prisma.project.update({ where: { id }, data: { status: "active" } });
   await audit({ actorType: "admin", action: "project.unsuspended", targetType: "project", targetId: id });
   revalidatePath("/projects");
@@ -58,9 +66,11 @@ export default async function ProjectsPage() {
 
   const rows: DTRow[] = real.map((p) => {
     const u = usageByProject.get(p.id) ?? { vcpu: 0, bwIn: 0, bwOut: 0 };
+    const publicProjectId = formatPublicId("project", p.id);
+    const publicOrgId = formatPublicId("organization", p.organizationId);
     return {
-      id: p.id,
-      href: `/projects/${p.id}`,
+      id: publicProjectId,
+      href: `/projects/${publicProjectId}`,
       values: {
         name: p.name,
         org: p.organization.name,
@@ -72,7 +82,7 @@ export default async function ProjectsPage() {
       },
       cells: [
         <div key="n">
-          <Link href={`/projects/${p.id}`}><strong>{p.name}</strong></Link>
+          <Link href={`/projects/${publicProjectId}`}><strong>{p.name}</strong></Link>
           <div className="small">{p.organization.name}</div>
         </div>,
         p.organization.owner?.email ?? "—",
@@ -84,14 +94,14 @@ export default async function ProjectsPage() {
         <span key="bw" className="small">↓{bytes(u.bwIn)} ↑{bytes(u.bwOut)}</span>,
         <span key="c" className="small">{timeAgo(p.createdAt)}</span>,
         <RowMenu key="m" label={p.name}>
-          <Link href={`/projects/${p.id}`}>Open project</Link>
-          <Link href={`/projects/${p.id}#usage`}>View usage</Link>
-          <Link href={`/organizations/${p.organizationId}`}>Open organization</Link>
+          <Link href={`/projects/${publicProjectId}`}>Open project</Link>
+          <Link href={`/projects/${publicProjectId}#usage`}>View usage</Link>
+          <Link href={`/organizations/${publicOrgId}`}>Open organization</Link>
           <div className="sep" />
           {p.status === "active" ? (
-            <form action={suspend}><input type="hidden" name="id" value={p.id} /><button className="danger">Suspend project</button></form>
+            <form action={suspend}><input type="hidden" name="id" value={publicProjectId} /><button className="danger">Suspend project</button></form>
           ) : (
-            <form action={unsuspend}><input type="hidden" name="id" value={p.id} /><button>Unsuspend project</button></form>
+            <form action={unsuspend}><input type="hidden" name="id" value={publicProjectId} /><button>Unsuspend project</button></form>
           )}
         </RowMenu>,
       ],

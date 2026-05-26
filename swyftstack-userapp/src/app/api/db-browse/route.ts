@@ -12,6 +12,7 @@ import {
   UnsafeQueryError,
   DatabaseUnavailableError,
   InvalidIdentifierError,
+  uuidFromPublicId,
 } from "swyftstack-shared";
 import { currentUser } from "@/lib/auth";
 
@@ -77,17 +78,18 @@ export async function POST(req: Request) {
     return new Response("Bad JSON", { status: 400 });
   }
   if (!body?.databaseId) return new Response("Missing databaseId", { status: 400 });
-  const db = await authoriseDatabase(body.databaseId, user.id);
+  const databaseId = uuidFromPublicId(body.databaseId, "database");
+  const db = await authoriseDatabase(databaseId, user.id);
   if (!db) return new Response("Not found", { status: 404 });
 
   try {
     if (body.type === "list_tables") {
-      const tables = await databaseBrowserService.listTables(body.databaseId);
+      const tables = await databaseBrowserService.listTables(databaseId);
       return Response.json({ tables });
     }
     if (body.type === "describe_table") {
       const columns = await databaseBrowserService.describeTable(
-        body.databaseId,
+        databaseId,
         body.table,
         body.schema,
       );
@@ -96,13 +98,13 @@ export async function POST(req: Request) {
     if (body.type === "browse") {
       const filters = normalizeFilters(body.filters);
       const columns = await databaseBrowserService.describeTable(
-        body.databaseId,
+        databaseId,
         body.table,
         body.schema,
       );
       validateFilters(filters, columns.map((c) => c.name));
       const result = await databaseBrowserService.browseTable(
-        body.databaseId,
+        databaseId,
         body.table,
         { filters, sort: body.sort, page: body.page, limit: body.limit },
         body.schema,
@@ -110,7 +112,7 @@ export async function POST(req: Request) {
       return Response.json(result);
     }
     if (body.type === "run_query") {
-      const result = await databaseBrowserService.runQuery(body.databaseId, body.sql);
+      const result = await databaseBrowserService.runQuery(databaseId, body.sql);
       await projectActivity(db.projectId, "database.query_executed", user.id, {
         databaseId: db.id,
         rowCount: result.rowCount,
@@ -119,7 +121,7 @@ export async function POST(req: Request) {
       return Response.json(result);
     }
     if (body.type === "stats") {
-      const stats = await databaseBrowserService.getStats(body.databaseId);
+      const stats = await databaseBrowserService.getStats(databaseId);
       return Response.json(stats);
     }
     return new Response("Unknown action", { status: 400 });

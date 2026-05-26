@@ -7,6 +7,7 @@ type CustomerAccountInput = {
   name: string;
   email: string;
   company?: string;
+  organizationName?: string;
   password?: string;
   emailVerified?: boolean;
   authProvider?: AuthProvider;
@@ -29,11 +30,13 @@ function compactName(value: string | undefined): string | null {
   return name || null;
 }
 
-function workspaceName(input: CustomerAccountInput): string {
+function organizationName(input: CustomerAccountInput): string {
+  const organization = compactName(input.organizationName);
+  if (organization) return organization;
   const company = compactName(input.company);
   if (company) return company;
   const name = compactName(input.name);
-  return name ? `${name}'s workspace` : "Personal workspace";
+  return name ? `${name}'s organization` : "Personal organization";
 }
 
 export async function createPasswordCustomerAccount(input: CustomerAccountInput) {
@@ -113,7 +116,7 @@ async function createCustomerAccount(
 
     const organization = await tx.organization.create({
       data: {
-        name: workspaceName(input),
+        name: organizationName(input),
         ownerUserId: user.id,
         members: {
           create: {

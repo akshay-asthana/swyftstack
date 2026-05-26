@@ -12,7 +12,7 @@ interface Group {
 }
 
 const GROUPS: Group[] = [
-  { title: "Workspace", features: [], limits: [["maxProjects", "Max projects"]] },
+  { title: "Organization", features: [], limits: [["maxProjects", "Max projects"]] },
   {
     title: "Compute",
     features: ["app_hosting", "static_hosting", "serverless_api"],

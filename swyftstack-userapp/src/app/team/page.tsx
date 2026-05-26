@@ -1,10 +1,13 @@
 import { revalidatePath } from "next/cache";
 import {
   env,
+  formatPublicId,
   hashToken,
+  isProductionEnv,
   prisma,
   randomSecret,
   sendTransactionalEmail,
+  uuidFromPublicId,
 } from "swyftstack-shared";
 import { requireUser } from "@/lib/auth";
 import { UserShell } from "@/components/user-shell";
@@ -38,14 +41,14 @@ function inviteUrl(token: string): string {
   return url.toString();
 }
 
-async function sendInviteEmail(email: string, token: string, workspace: string) {
+async function sendInviteEmail(email: string, token: string, organization: string) {
   const link = inviteUrl(token);
   await sendTransactionalEmail({
     to: email,
-    subject: `Join ${workspace} on Swyftstack`,
-    text: `You have been invited to ${workspace} on Swyftstack.\n\nAccept the invite here:\n${link}\n\nThis link expires in 7 days.`,
+    subject: `Join ${organization} on Swyftstack`,
+    text: `You have been invited to ${organization} on Swyftstack.\n\nAccept the invite here:\n${link}\n\nThis link expires in 7 days.`,
   });
-  if (env.NODE_ENV !== "production") console.log(`[dev-invite-link] ${link}`);
+  if (!isProductionEnv()) console.log(`[dev-invite-link] ${link}`);
   return link;
 }
 
@@ -60,7 +63,9 @@ async function createInvite(formData: FormData) {
   if (!teamEnabled || (maxMembers != null && org.members.length >= maxMembers)) return;
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const role = ROLES.includes(String(formData.get("role"))) ? String(formData.get("role")) : "viewer";
-  const projectId = String(formData.get("projectId") ?? "") || null;
+  const projectValue = String(formData.get("projectId") ?? "");
+  const projectId = projectValue ? uuidFromPublicId(projectValue, "project") : null;
+  if (projectId && !org.projects.some((project) => project.id === projectId)) return;
   if (!email) return;
   const token = randomSecret(32);
   await prisma.invitation.create({
@@ -116,11 +121,11 @@ export default async function TeamPage() {
   const user = await requireUser();
   const org = await loadOrg(user.id);
   return (
-    <UserShell user={user} workspace={org?.name}>
+    <UserShell user={user} organizationName={org?.name}>
       <div className="page-head">
         <div>
           <h1 className="h1">Team</h1>
-          <p className="sub" style={{ marginBottom: 0 }}>Invite collaborators and control their workspace/project role.</p>
+          <p className="sub" style={{ marginBottom: 0 }}>Invite collaborators and control their organization/project role.</p>
         </div>
       </div>
       {!org ? (
@@ -132,7 +137,7 @@ export default async function TeamPage() {
               <div className="form-grid">
                 <div><label>Email</label><input name="email" type="email" required placeholder="teammate@example.com" /></div>
                 <div><label>Role</label><select name="role" defaultValue="developer">{ROLES.filter((r) => r !== "owner").map((r) => <option key={r} value={r}>{r}</option>)}</select></div>
-                <div><label>Project scope</label><select name="projectId" defaultValue=""><option value="">Organization-wide</option>{org.projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+                <div><label>Project scope</label><select name="projectId" defaultValue=""><option value="">Organization-wide</option>{org.projects.map((p) => <option key={p.id} value={formatPublicId("project", p.id)}>{p.name}</option>)}</select></div>
               </div>
               <div style={{ marginTop: 14 }}><button className="btn">Send invite</button></div>
             </form>

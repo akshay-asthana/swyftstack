@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import { ArrowRightIcon } from "./icons";
 import { Section, SectionHead, FeatureCard, CTASection } from "./sections";
 import { FaqJsonLd, BreadcrumbJsonLd, SITE_URL } from "./jsonld";
+import { authTarget, isEarlyAccessMode } from "@/lib/early-access";
 
 export type ProductHero = {
   eyebrow?: string;
@@ -35,6 +36,10 @@ export type ProductSection = {
 };
 
 export function ProductHeroBlock({ hero }: { hero: ProductHero }) {
+  const marketingHref = (href: string) =>
+    isEarlyAccessMode() && (href.startsWith("/signup") || href.startsWith("/login"))
+      ? authTarget("/signup")
+      : href;
   return (
     <section className="m-hero">
       <div className="m-hero-grid-bg" aria-hidden />
@@ -46,12 +51,12 @@ export function ProductHeroBlock({ hero }: { hero: ProductHero }) {
         <p className="m-hero-lead">{hero.subtitle}</p>
         <div className="m-hero-ctas">
           {hero.primary && (
-            <Link href={hero.primary.href} className="m-btn m-btn-primary m-btn-lg">
+            <Link href={marketingHref(hero.primary.href)} className="m-btn m-btn-primary m-btn-lg">
               {hero.primary.label} <ArrowRightIcon size={16} />
             </Link>
           )}
           {hero.secondary && (
-            <Link href={hero.secondary.href} className="m-btn m-btn-secondary m-btn-lg">
+            <Link href={marketingHref(hero.secondary.href)} className="m-btn m-btn-secondary m-btn-lg">
               {hero.secondary.label}
             </Link>
           )}

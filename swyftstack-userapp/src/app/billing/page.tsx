@@ -21,7 +21,7 @@ export default async function BillingPage() {
   });
   const sub = org?.subscriptions[0];
   return (
-    <UserShell user={user} workspace={org?.name}>
+    <UserShell user={user} organizationName={org?.name}>
       <div className="page-head">
         <div>
           <h1 className="h1">Billing</h1>

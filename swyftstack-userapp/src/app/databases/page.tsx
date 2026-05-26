@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { prisma } from "swyftstack-shared";
+import { formatPublicId, prisma } from "swyftstack-shared";
 import { requireUser } from "@/lib/auth";
 import { UserShell } from "@/components/user-shell";
 import { Badge, Panel, Table, bytes, timeAgo } from "@/components/ui";
@@ -15,9 +15,9 @@ export default async function DatabasesPage() {
     include: { project: { include: { organization: true } }, backups: { orderBy: { createdAt: "desc" }, take: 1 } },
     orderBy: { createdAt: "desc" },
   });
-  const workspace = databases[0]?.project.organization.name;
+  const organizationName = databases[0]?.project.organization.name;
   return (
-    <UserShell user={user} workspace={workspace}>
+    <UserShell user={user} organizationName={organizationName}>
       <div className="page-head">
         <div>
           <h1 className="h1">Databases</h1>
@@ -31,12 +31,12 @@ export default async function DatabasesPage() {
           empty="No databases yet."
           rows={databases.map((db) => [
             <strong key="n">{db.name}</strong>,
-            <Link key="p" href={`/projects/${db.projectId}`}>{db.project.name}</Link>,
+            <Link key="p" href={`/projects/${formatPublicId("project", db.projectId)}`}>{db.project.name}</Link>,
             <Badge key="s" status={db.status} />,
             bytes(db.currentSizeBytes),
             db.backups[0] ? <Badge key="b" status={db.backups[0].status} /> : "none",
             timeAgo(db.createdAt),
-            <Link key="l" className="btn sm secondary" href={`/projects/${db.projectId}/databases/${db.id}`}>Open</Link>,
+            <Link key="l" className="btn sm secondary" href={`/projects/${formatPublicId("project", db.projectId)}/databases/${formatPublicId("database", db.id)}`}>Open</Link>,
           ])}
         />
       </Panel>

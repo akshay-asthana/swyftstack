@@ -1,9 +1,9 @@
-// Shared admin helpers for users: workspace bootstrap + plan assignment with
+// Shared admin helpers for users: organization bootstrap + plan assignment with
 // trial-pricing support (§13). Used by both the users list and user detail.
 import { prisma } from "swyftstack-shared";
 
-/** Ensure the user owns at least one workspace org + default project. */
-export async function ensureOwnedWorkspace(userId: string, displayName: string) {
+/** Ensure the user owns at least one organization + default project. */
+export async function ensureOwnedOrganization(userId: string, displayName: string) {
   const existing = await prisma.organization.findFirst({
     where: { ownerUserId: userId },
     orderBy: { createdAt: "asc" },
@@ -11,7 +11,7 @@ export async function ensureOwnedWorkspace(userId: string, displayName: string) 
   if (existing) return existing;
   return prisma.organization.create({
     data: {
-      name: displayName ? `${displayName}'s workspace` : "User workspace",
+      name: displayName ? `${displayName}'s organization` : "User organization",
       ownerUserId: userId,
       members: { create: { userId, role: "owner" } },
       projects: {
@@ -28,7 +28,7 @@ export async function ensureOwnedWorkspace(userId: string, displayName: string) 
 }
 
 /**
- * Assign a plan to a user's workspace. If the plan has a trial, the new
+ * Assign a plan to a user's organization. If the plan has a trial, the new
  * subscription starts in the `trialing` phase with trial price + window;
  * it reverts to the regular price after trialDays.
  */
@@ -38,7 +38,7 @@ export async function assignPlanToUser(userId: string, planId: string) {
     prisma.user.findUniqueOrThrow({ where: { id: userId } }),
     prisma.plan.findUniqueOrThrow({ where: { id: planId } }),
   ]);
-  const org = await ensureOwnedWorkspace(userId, user.name ?? user.email);
+  const org = await ensureOwnedOrganization(userId, user.name ?? user.email);
 
   const now = new Date();
   const periodEnd = new Date(now);
@@ -70,6 +70,7 @@ export async function assignPlanToUser(userId: string, planId: string) {
     },
   });
 }
+
 
 /** The user's active/owned subscription, with plan + limits, or null. */
 export async function activeSubscriptionForUser(userId: string) {

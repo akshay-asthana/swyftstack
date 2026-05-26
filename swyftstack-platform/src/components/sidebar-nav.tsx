@@ -66,7 +66,7 @@ function isActive(pathname: string, href: string): boolean {
 }
 
 export function SidebarNav() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "/";
   return (
     <nav className="nav">
       {NAV.map((group) => (

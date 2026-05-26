@@ -13,6 +13,8 @@ import {
   storageEndpoint,
   uploadStorageObject,
   env,
+  formatPublicId,
+  uuidFromPublicId,
   type Role,
 } from "swyftstack-shared";
 import { requireUser } from "@/lib/auth";
@@ -25,21 +27,26 @@ export const dynamic = "force-dynamic";
 
 async function requireMembership(projectId: string) {
   const user = await requireUser();
+  const resolvedProjectId = uuidFromPublicId(projectId, "project");
   const membership = await prisma.projectMember.findUnique({
-    where: { projectId_userId: { projectId, userId: user.id } },
+    where: { projectId_userId: { projectId: resolvedProjectId, userId: user.id } },
   });
   if (!membership) notFound();
-  return { user, role: membership.role as Role };
+  return { user, role: membership.role as Role, projectId: resolvedProjectId };
 }
+
+const projectHref = (projectId: string) => `/projects/${formatPublicId("project", projectId)}`;
+const bucketHref = (projectId: string, bucketId: string) =>
+  `${projectHref(projectId)}/storage/${formatPublicId("bucket", bucketId)}`;
 
 async function uploadObject(formData: FormData) {
   "use server";
-  const projectId = String(formData.get("projectId") ?? "");
-  const bucketId = String(formData.get("bucketId") ?? "");
-  const { user, role } = await requireMembership(projectId);
-  if (!can(role, "storage.manage")) redirect(`/projects/${projectId}/storage/${bucketId}`);
+  const projectRef = String(formData.get("projectId") ?? "");
+  const bucketId = uuidFromPublicId(String(formData.get("bucketId") ?? ""), "bucket");
+  const { user, role, projectId } = await requireMembership(projectRef);
+  if (!can(role, "storage.manage")) redirect(bucketHref(projectId, bucketId));
   const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) redirect(`/projects/${projectId}/storage/${bucketId}`);
+  if (!(file instanceof File) || file.size === 0) redirect(bucketHref(projectId, bucketId));
   const key = String(formData.get("key") ?? "").trim() || file.name;
   await uploadStorageObject({
     bucketId,
@@ -48,39 +55,39 @@ async function uploadObject(formData: FormData) {
     contentType: file.type || "application/octet-stream",
     actorUserId: user.id,
   });
-  revalidatePath(`/projects/${projectId}/storage/${bucketId}`);
+  revalidatePath(bucketHref(projectId, bucketId));
 }
 
 async function deleteObject(formData: FormData) {
   "use server";
-  const projectId = String(formData.get("projectId") ?? "");
-  const bucketId = String(formData.get("bucketId") ?? "");
+  const projectRef = String(formData.get("projectId") ?? "");
+  const bucketId = uuidFromPublicId(String(formData.get("bucketId") ?? ""), "bucket");
   const key = String(formData.get("key") ?? "");
-  const { user, role } = await requireMembership(projectId);
-  if (!can(role, "storage.manage")) redirect(`/projects/${projectId}/storage/${bucketId}`);
+  const { user, role, projectId } = await requireMembership(projectRef);
+  if (!can(role, "storage.manage")) redirect(bucketHref(projectId, bucketId));
   await deleteStorageObject(bucketId, key, user.id);
-  revalidatePath(`/projects/${projectId}/storage/${bucketId}`);
+  revalidatePath(bucketHref(projectId, bucketId));
 }
 
 async function togglePublic(formData: FormData) {
   "use server";
-  const projectId = String(formData.get("projectId") ?? "");
-  const bucketId = String(formData.get("bucketId") ?? "");
+  const projectRef = String(formData.get("projectId") ?? "");
+  const bucketId = uuidFromPublicId(String(formData.get("bucketId") ?? ""), "bucket");
   const key = String(formData.get("key") ?? "");
-  const { role } = await requireMembership(projectId);
-  if (!can(role, "storage.manage")) redirect(`/projects/${projectId}/storage/${bucketId}`);
+  const { role, projectId } = await requireMembership(projectRef);
+  if (!can(role, "storage.manage")) redirect(bucketHref(projectId, bucketId));
   await setStorageObjectPublic(bucketId, key, formData.get("public") === "on");
-  revalidatePath(`/projects/${projectId}/storage/${bucketId}`);
+  revalidatePath(bucketHref(projectId, bucketId));
 }
 
 async function rotateKeys(formData: FormData) {
   "use server";
-  const projectId = String(formData.get("projectId") ?? "");
-  const bucketId = String(formData.get("bucketId") ?? "");
-  const { role } = await requireMembership(projectId);
-  if (!can(role, "storage.manage")) redirect(`/projects/${projectId}/storage/${bucketId}`);
+  const projectRef = String(formData.get("projectId") ?? "");
+  const bucketId = uuidFromPublicId(String(formData.get("bucketId") ?? ""), "bucket");
+  const { role, projectId } = await requireMembership(projectRef);
+  if (!can(role, "storage.manage")) redirect(bucketHref(projectId, bucketId));
   await rotateStorageCredentials(bucketId);
-  revalidatePath(`/projects/${projectId}/storage/${bucketId}`);
+  revalidatePath(bucketHref(projectId, bucketId));
 }
 
 export default async function BucketDetailPage({
@@ -88,12 +95,15 @@ export default async function BucketDetailPage({
 }: {
   params: { id: string; bucketId: string };
 }) {
-  const { user, role } = await requireMembership(params.id);
+  const { user, role, projectId } = await requireMembership(params.id);
+  const bucketId = uuidFromPublicId(params.bucketId, "bucket");
   const bucket = await prisma.storageBucket.findUnique({
-    where: { id: params.bucketId },
+    where: { id: bucketId },
     include: { project: { include: { organization: true } } },
   });
-  if (!bucket || bucket.projectId !== params.id) notFound();
+  if (!bucket || bucket.projectId !== projectId) notFound();
+  const projectPublicId = formatPublicId("project", bucket.projectId);
+  const bucketPublicId = formatPublicId("bucket", bucket.id);
 
   const [objects, credential, endpoint] = await Promise.all([
     listStorageObjects(bucket.id),
@@ -103,7 +113,7 @@ export default async function BucketDetailPage({
   const canManage = can(role, "storage.manage");
 
   return (
-    <UserShell user={user} workspace={bucket.project.organization.name}>
+    <UserShell user={user} organizationName={bucket.project.organization.name}>
       <div className="page-head">
         <div>
           <div className="row" style={{ gap: 10 }}>
@@ -111,7 +121,7 @@ export default async function BucketDetailPage({
             <Badge status={bucket.status} />
           </div>
           <p className="sub" style={{ margin: "4px 0 0" }}>
-            <Link href="/projects">Projects</Link> · <Link href={`/projects/${bucket.projectId}`}>{bucket.project.name}</Link> · object storage
+            <Link href="/projects">Projects</Link> · <Link href={projectHref(bucket.projectId)}>{bucket.project.name}</Link> · object storage
           </p>
         </div>
       </div>
@@ -133,8 +143,8 @@ export default async function BucketDetailPage({
         </dl>
         {canManage && (
           <form action={rotateKeys} style={{ marginTop: 12 }}>
-            <input type="hidden" name="projectId" value={bucket.projectId} />
-            <input type="hidden" name="bucketId" value={bucket.id} />
+            <input type="hidden" name="projectId" value={projectPublicId} />
+            <input type="hidden" name="bucketId" value={bucketPublicId} />
             <button className="btn secondary" type="submit"><Icon name="key" size={14} /> Rotate keys</button>
           </form>
         )}
@@ -143,8 +153,8 @@ export default async function BucketDetailPage({
       {canManage && (
         <Panel title="Upload file">
           <form action={uploadObject}>
-            <input type="hidden" name="projectId" value={bucket.projectId} />
-            <input type="hidden" name="bucketId" value={bucket.id} />
+            <input type="hidden" name="projectId" value={projectPublicId} />
+            <input type="hidden" name="bucketId" value={bucketPublicId} />
             <label>Object key</label>
             <input name="key" placeholder="uploads/avatar.png" />
             <label>File</label>
@@ -159,8 +169,8 @@ export default async function BucketDetailPage({
           columns={["Key", "Size", "Type", "Updated", "Visibility", "Actions"]}
           empty="No files in this bucket."
           rows={objects.map((o) => {
-            const downloadUrl = `/api/storage/object?bucketId=${bucket.id}&key=${encodeURIComponent(o.key)}`;
-            const publicUrl = `/api/storage/public?bucketId=${bucket.id}&key=${encodeURIComponent(o.key)}`;
+            const downloadUrl = `/api/storage/object?bucketId=${bucketPublicId}&key=${encodeURIComponent(o.key)}`;
+            const publicUrl = `/api/storage/public?bucketId=${bucketPublicId}&key=${encodeURIComponent(o.key)}`;
             const signedUrl = signStorageUrl({ bucketId: bucket.id, key: o.key, action: "download" });
             return [
               <code key="k">{o.key}</code>,
@@ -175,15 +185,15 @@ export default async function BucketDetailPage({
                 {canManage && (
                   <>
                     <form action={togglePublic}>
-                      <input type="hidden" name="projectId" value={bucket.projectId} />
-                      <input type="hidden" name="bucketId" value={bucket.id} />
+                      <input type="hidden" name="projectId" value={projectPublicId} />
+                      <input type="hidden" name="bucketId" value={bucketPublicId} />
                       <input type="hidden" name="key" value={o.key} />
                       <input type="hidden" name="public" value={o.isPublic ? "off" : "on"} />
                       <button className="btn sm secondary" type="submit">{o.isPublic ? "Make private" : "Make public"}</button>
                     </form>
                     <form action={deleteObject}>
-                      <input type="hidden" name="projectId" value={bucket.projectId} />
-                      <input type="hidden" name="bucketId" value={bucket.id} />
+                      <input type="hidden" name="projectId" value={projectPublicId} />
+                      <input type="hidden" name="bucketId" value={bucketPublicId} />
                       <input type="hidden" name="key" value={o.key} />
                       <button className="btn sm danger" type="submit">Delete</button>
                     </form>
@@ -198,7 +208,7 @@ export default async function BucketDetailPage({
       <Panel title="Quickstart">
         <div className="snippet-grid">
           {[
-            ["Browser upload", `const form = new FormData();\nform.append("file", file);\nform.append("key", file.name);\nawait fetch("${endpoint.endpoint}/object?bucketId=${bucket.id}", { method: "POST", body: form });`],
+            ["Browser upload", `const form = new FormData();\nform.append("file", file);\nform.append("key", file.name);\nawait fetch("${endpoint.endpoint}/object?bucketId=${bucketPublicId}", { method: "POST", body: form });`],
             ["Signed upload", `await fetch("${signStorageUrl({ bucketId: bucket.id, key: "uploads/file.txt", action: "upload" })}", { method: "PUT", body: file });`],
             ["curl download", `curl -L "${signStorageUrl({ bucketId: bucket.id, key: objects[0]?.key ?? "path/file.txt", action: "download" })}" -o file`],
           ].map(([title, value]) => (

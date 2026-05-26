@@ -8,7 +8,7 @@ type Item = [href: string, label: string, icon: IconName];
 
 const NAV: { title: string; items: Item[] }[] = [
   {
-    title: "Workspace",
+    title: "Organization",
     items: [
       ["/console", "Overview", "overview"],
       ["/projects", "Projects", "projects"],
@@ -36,7 +36,7 @@ function isActive(pathname: string, href: string): boolean {
 }
 
 export function UserNav() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "/";
   return (
     <nav className="nav">
       {NAV.map((group) => (
@@ -48,7 +48,7 @@ export function UserNav() {
               <Link key={href} href={href} className={active ? "active" : undefined}
                 aria-current={active ? "page" : undefined}>
                 <span className="nav-ico"><Icon name={icon} size={17} /></span>
-                {label}
+                <span className="nav-label">{label}</span>
               </Link>
             );
           })}

@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import {
   prisma, enqueueJob, projectActivity, databaseConnectionUrl,
-  can, type Role,
+  can, formatPublicId, uuidFromPublicId, type Role,
 } from "swyftstack-shared";
 import { requireUser } from "@/lib/auth";
 import { UserShell } from "@/components/user-shell";
@@ -16,12 +16,17 @@ export const dynamic = "force-dynamic";
 
 async function requireMembership(projectId: string) {
   const user = await requireUser();
+  const resolvedProjectId = uuidFromPublicId(projectId, "project");
   const membership = await prisma.projectMember.findUnique({
-    where: { projectId_userId: { projectId, userId: user.id } },
+    where: { projectId_userId: { projectId: resolvedProjectId, userId: user.id } },
   });
   if (!membership) notFound();
-  return { user, role: membership.role as Role };
+  return { user, role: membership.role as Role, projectId: resolvedProjectId };
 }
+
+const projectHref = (projectId: string) => `/projects/${formatPublicId("project", projectId)}`;
+const dbHref = (projectId: string, dbId: string) =>
+  `${projectHref(projectId)}/databases/${formatPublicId("database", dbId)}`;
 
 function backupStatusText(status: string): string {
   const copy: Record<string, string> = {
@@ -37,36 +42,36 @@ function backupStatusText(status: string): string {
 
 async function rotatePassword(formData: FormData) {
   "use server";
-  const projectId = String(formData.get("projectId"));
-  const dbId = String(formData.get("dbId"));
-  const { user, role } = await requireMembership(projectId);
-  if (!can(role, "db.rotate_password")) redirect(`/projects/${projectId}/databases/${dbId}`);
+  const projectRef = String(formData.get("projectId"));
+  const dbId = uuidFromPublicId(String(formData.get("dbId")), "database");
+  const { user, role, projectId } = await requireMembership(projectRef);
+  if (!can(role, "db.rotate_password")) redirect(dbHref(projectId, dbId));
   await enqueueJob("rotate_database_password", { databaseId: dbId }, { priority: 40 });
   await projectActivity(projectId, "database.password_rotation_requested", user.id, { databaseId: dbId });
-  revalidatePath(`/projects/${projectId}/databases/${dbId}`);
+  revalidatePath(dbHref(projectId, dbId));
 }
 
 async function createBackup(formData: FormData) {
   "use server";
-  const projectId = String(formData.get("projectId"));
-  const dbId = String(formData.get("dbId"));
-  const { user, role } = await requireMembership(projectId);
-  if (!can(role, "db.create")) redirect(`/projects/${projectId}/databases/${dbId}`);
+  const projectRef = String(formData.get("projectId"));
+  const dbId = uuidFromPublicId(String(formData.get("dbId")), "database");
+  const { user, role, projectId } = await requireMembership(projectRef);
+  if (!can(role, "db.create")) redirect(dbHref(projectId, dbId));
   await enqueueJob("backup_database", { databaseId: dbId }, { priority: 50 });
   await projectActivity(projectId, "database.backup_requested", user.id, { databaseId: dbId });
-  revalidatePath(`/projects/${projectId}/databases/${dbId}`);
+  revalidatePath(dbHref(projectId, dbId));
 }
 
 async function restoreBackup(formData: FormData) {
   "use server";
-  const projectId = String(formData.get("projectId"));
-  const dbId = String(formData.get("dbId"));
+  const projectRef = String(formData.get("projectId"));
+  const dbId = uuidFromPublicId(String(formData.get("dbId")), "database");
   const backupId = String(formData.get("backupId"));
-  const { user, role } = await requireMembership(projectId);
-  if (!can(role, "backup.restore")) redirect(`/projects/${projectId}/databases/${dbId}`);
+  const { user, role, projectId } = await requireMembership(projectRef);
+  if (!can(role, "backup.restore")) redirect(dbHref(projectId, dbId));
   await enqueueJob("restore_database", { backupId }, { priority: 50 });
   await projectActivity(projectId, "database.restore_requested", user.id, { databaseId: dbId, backupId });
-  revalidatePath(`/projects/${projectId}/databases/${dbId}`);
+  revalidatePath(dbHref(projectId, dbId));
 }
 
 export default async function DatabaseDetail({
@@ -74,17 +79,20 @@ export default async function DatabaseDetail({
 }: {
   params: { id: string; dbId: string };
 }) {
-  const { user, role } = await requireMembership(params.id);
+  const { user, role, projectId } = await requireMembership(params.id);
+  const dbId = uuidFromPublicId(params.dbId, "database");
 
   const db = await prisma.database.findUnique({
-    where: { id: params.dbId },
+    where: { id: dbId },
     include: {
       project: { include: { organization: true } },
       cluster: true,
       backups: { orderBy: { createdAt: "desc" }, take: 10 },
     },
   });
-  if (!db || db.projectId !== params.id) notFound();
+  if (!db || db.projectId !== projectId) notFound();
+  const projectPublicId = formatPublicId("project", db.projectId);
+  const dbPublicId = formatPublicId("database", db.id);
 
   const conn = await databaseConnectionUrl(db.id);
   const lastBackup = db.backups[0];
@@ -94,7 +102,7 @@ export default async function DatabaseDetail({
   const snippetUrl = conn ? conn.url.replace(encodeURIComponent(conn.password), "********") : "";
 
   return (
-    <UserShell user={user} workspace={db.project.organization.name}>
+    <UserShell user={user} organizationName={db.project.organization.name}>
       <div className="page-head">
         <div>
           <div className="row" style={{ gap: 10 }}>
@@ -103,7 +111,7 @@ export default async function DatabaseDetail({
           </div>
           <p className="sub" style={{ margin: "4px 0 0" }}>
             <Link href="/projects">Projects</Link> ·{" "}
-            <Link href={`/projects/${db.projectId}`}>{db.project.name}</Link> · managed PostgreSQL
+            <Link href={projectHref(db.projectId)}>{db.project.name}</Link> · managed PostgreSQL
           </p>
         </div>
       </div>
@@ -153,13 +161,13 @@ export default async function DatabaseDetail({
         <Panel title="Actions">
           <div className="row">
             {canRotate && <form action={rotatePassword}>
-              <input type="hidden" name="projectId" value={db.projectId} />
-              <input type="hidden" name="dbId" value={db.id} />
+              <input type="hidden" name="projectId" value={projectPublicId} />
+              <input type="hidden" name="dbId" value={dbPublicId} />
               <button className="btn secondary" type="submit"><Icon name="key" size={14} /> Rotate password</button>
             </form>}
             {canManage && <form action={createBackup}>
-              <input type="hidden" name="projectId" value={db.projectId} />
-              <input type="hidden" name="dbId" value={db.id} />
+              <input type="hidden" name="projectId" value={projectPublicId} />
+              <input type="hidden" name="dbId" value={dbPublicId} />
               <button className="btn secondary" type="submit"><Icon name="backups" size={14} /> Create backup</button>
             </form>}
           </div>
@@ -192,7 +200,7 @@ export default async function DatabaseDetail({
 
       {db.status === "active" && (
         <Panel title="Browse data" flush>
-          <DatabaseBrowser databaseId={db.id} />
+          <DatabaseBrowser databaseId={dbPublicId} />
         </Panel>
       )}
 
@@ -207,8 +215,8 @@ export default async function DatabaseDetail({
             timeAgo(b.createdAt),
             canRestore && b.status === "verified" ? (
               <form key="r" action={restoreBackup}>
-                <input type="hidden" name="projectId" value={db.projectId} />
-                <input type="hidden" name="dbId" value={db.id} />
+                <input type="hidden" name="projectId" value={projectPublicId} />
+                <input type="hidden" name="dbId" value={dbPublicId} />
                 <input type="hidden" name="backupId" value={b.id} />
                 <button className="btn sm secondary" type="submit">Restore safely</button>
               </form>

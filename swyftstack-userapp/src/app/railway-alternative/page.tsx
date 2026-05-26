@@ -1,11 +1,19 @@
-// /railway-alternative - content from MARKETING_PAGES_CONTENT.md §17.
+// /railway-alternative - commercial comparison page. Rewritten to make
+// Swyftstack the obvious choice for teams whose Railway bill is dominated
+// by the database + storage portion of the stack.
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
 import { SITE_URL } from "@/components/marketing/jsonld";
+import {
+  competitorWhenList,
+  makeComparisonColumns,
+  PAY_FOR_BULLETS,
+  SHARED_DB_FAQ,
+} from "@/lib/solutions-content";
 
 export const dynamic = "force-dynamic";
 
-const DESCRIPTION = "Railway alternative for production data: flat monthly billing, included daily backups, one-click migration, object storage, and a focused Swyftstack dashboard.";
+const DESCRIPTION = "Railway alternative for production data: flat monthly billing, daily backups, included S3-compatible storage, three-click migration, and a focused dashboard.";
 
 export const metadata: Metadata = {
   title: "Railway alternative - predictable database pricing | Swyftstack",
@@ -18,63 +26,77 @@ export default function RailwayAlternativePage() {
   return (
     <MarketingTemplate
       eyebrow="Railway alternative"
-      headline="Looking for a Railway alternative?"
-      headlineAccent="Choose predictable data infrastructure."
-      subheadline="Railway is a broad app platform. Swyftstack is purpose-built for the database and storage layer teams need to run in production."
+      headline="Keep Railway for apps. Move the database to"
+      headlineAccent="something predictable."
+      subheadline="Railway is a great place to run app containers. The database tier - billed by the GB-hour - is where most Railway invoices get noisy. Swyftstack is the focused PostgreSQL + S3 layer that you point your Railway services at."
       primaryCta={{ label: "Migrate from Railway", href: "/migrate-from-railway" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
-      whenLists={{
-        left: {
-          title: "Where Railway can get noisy",
-          items: [
-            "Your database, app hosting, workers, cron, and deploy config all live in one broad product surface",
-            "Database operations share attention with app deploys and usage-based infrastructure decisions",
-            "Your monthly spend can move with runtime, service, and traffic changes",
-            "You want one config for your entire stack, even if the database is the only part you need to improve",
-          ],
-        },
-        right: {
-          title: "Why teams choose Swyftstack",
-          items: [
-            "Focused managed PostgreSQL and S3-compatible storage for teams already happy with their app host",
-            "Flat monthly plans instead of database spend tied to a usage meter",
-            "Backups, restore, migration, usage alerts, and team controls as first-class workflows",
-            "Works cleanly with Vercel, Netlify, Fly, a VPS, or Railway app hosting if you want to keep it",
-          ],
-        },
-      }}
+      whenLists={competitorWhenList({
+        competitor: "Railway",
+        whenCompetitor: [
+          "You run several containerised services and you like Railway's project orchestration.",
+          "Your monthly Railway bill is mostly compute, not data, and the database tier is fine.",
+          "You're prototyping and the database is throwaway - usage-meter pricing is cheap for that.",
+          "You want your app and database in the same dashboard for an early-stage team.",
+        ],
+        whenSwyftstack: [
+          "Your Railway invoice is dominated by Postgres GB-hours and egress, and you want a flat number.",
+          "You want daily backups configured for you instead of bolting on a cron job.",
+          "You want S3-compatible storage on the same bill instead of stitching in R2 or B2.",
+          "You want a one-click restore button, not a manual pg_restore drill at 2am.",
+          "You'd rather email a human than file a ticket and wait.",
+        ],
+      })}
       comparison={{
-        eyebrow: "Why Swyftstack wins",
-        title: "Railway Hobby vs Swyftstack Starter",
-        columns: [
-          { label: "Feature" },
-          { label: "Railway Hobby" },
-          { label: "Swyftstack Starter", highlight: true },
-        ],
+        eyebrow: "Side-by-side",
+        title: "Railway Hobby vs Swyftstack Starter / Growth",
+        subtitle: "Comparing the data-tier specifically - what you actually get for the database half of the bill.",
+        columns: makeComparisonColumns("Railway Hobby"),
         rows: [
-          { label: "Monthly price",       cells: ["", "$5 base + usage", "$19 flat"] },
-          { label: "Launch price (2 mo)", cells: ["", "-", "$9"] },
-          { label: "Predictable bill",    cells: ["", false, true] },
-          { label: "Database storage",    cells: ["", "5 GB included", "10 GB"] },
-          { label: "Object storage",      cells: ["", false, "100 GB"] },
-          { label: "Daily backups",       cells: ["", "Manual setup", "Automatic"] },
-          { label: "One-click restore",   cells: ["", false, true] },
-          { label: "Migration tool",      cells: ["", false, true] },
-          { label: "Platform focus",      cells: ["", "Full app platform", "Dedicated data platform"] },
-          { label: "App hosting",         cells: ["", true, "Use your preferred host"] },
-          { label: "Static hosting",      cells: ["", "Limited", "Unlimited"] },
+          { label: "Monthly price (data tier)", cells: ["$5 base + GB-hour usage", "$9 Starter (launch) / $49 Growth"] },
+          { label: "Predictable monthly bill", cells: ["No - varies with usage", "Yes - flat per tier"] },
+          { label: "Real PostgreSQL (no proxy)", cells: ["Yes", "Yes - PG 16 unmodified"] },
+          { label: "Database storage included", cells: ["5 GB included, then metered", "10 GB Starter / 100 GB Growth"] },
+          { label: "Object storage included", cells: ["Not included", "100 GB Starter / 1 TB Growth"] },
+          { label: "Egress included", cells: ["Metered, $0.05/GB after 100 GB", "500 GB Starter / 5 TB Growth"] },
+          { label: "Daily backups", cells: ["Manual setup / DIY cron", "Automatic, encrypted, 7-30 day retention"] },
+          { label: "One-click restore", cells: ["Manual pg_restore", "One click"] },
+          { label: "Migration tool", cells: ["Self-service pg_dump", "Three-click hosted migration"] },
+          { label: "Provisioning time", cells: ["~2 minutes", "47 seconds"] },
+          { label: "Single invoice for db + storage + egress", cells: ["Yes (within Railway)", "Yes"] },
+          { label: "Vendor lock-in", cells: ["Low - standard PG", "Low - standard PG + S3"] },
         ],
+      }}
+      steps={{
+        eyebrow: "Switching cost",
+        title: "Keep Railway. Just move the database.",
+        subtitle: "You don't have to leave Railway to take the database off the usage meter. Run your app where it is; change one env var.",
+        items: [
+          { n: 1, title: "Spin up a Swyftstack database", body: "47 seconds. Copy the connection string." },
+          { n: 2, title: "Run a hosted migration", body: "Paste your Railway Postgres URL. We pg_dump over the wire while your app keeps running." },
+          { n: 3, title: "Update Railway env vars", body: "Change DATABASE_URL on your Railway service. Redeploy." },
+          { n: 4, title: "Turn off the Railway database", body: "Only after you're satisfied - the old database stays warm so rollback is free." },
+        ],
+      }}
+      bullets={{
+        eyebrow: "Pricing",
+        title: "What you pay for, what you don't",
+        subtitle: "If your Railway database tier is over $30/mo, the math almost always works in our favour. Bring last month's invoice and we'll do the comparison with you.",
+        items: PAY_FOR_BULLETS,
       }}
       faq={{
         items: [
-          { q: "Can I keep Railway for my app and use Swyftstack for the database?", a: "Yes - many teams do exactly that. Keep Railway where it works for app hosting, then put production data on Swyftstack for a calmer database workflow." },
-          { q: "How does Swyftstack make database spend easier to forecast?", a: "Starter is a flat $19/month with database storage, object storage, backups, restore, and 500 GB egress included. You know the database number before the month starts." },
-          { q: "How does the migration work?", a: "Copy your Railway Postgres connection string, paste it into Swyftstack, wait for the progress bar. Source database is untouched the whole time." },
+          { q: "Can I keep Railway and use Swyftstack only for the database?", a: "Yes - that's the most common pattern. Keep your Railway app services exactly where they are; point DATABASE_URL at Swyftstack. The migration tool handles the cut-over." },
+          { q: "How does Swyftstack make database spend easier to forecast?", a: "Starter is $9/mo (launch) flat - storage, backups, restore, and 500 GB egress included. You know the database number before the month starts." },
+          { q: "Will my Railway Postgres data migrate cleanly?", a: "Yes. We migrate the schema, data, and indexes byte-for-byte. Connection-string-level cut-over - your Railway app code doesn't change." },
+          { q: "Does the migration cause downtime?", a: "No. The source database keeps serving traffic during the migration. You only swap DATABASE_URL when verification passes and you're ready." },
+          { q: "What if I also need object storage?", a: "Included on every plan - same S3-compatible API as AWS. You can drop Railway's volume mounts or B2/R2 buckets and consolidate the invoice." },
+          ...SHARED_DB_FAQ,
         ],
       }}
       finalCta={{
         title: "Make the database bill predictable.",
-        subtitle: "Migrate in three clicks - free until you switch your DATABASE_URL.",
+        subtitle: "Three-click migration. Your Railway app stays where it is. Roll back free until you're sure.",
         primary: { label: "Migrate from Railway", href: "/migrate-from-railway" },
         secondary: { label: "See pricing", href: "/pricing" },
       }}

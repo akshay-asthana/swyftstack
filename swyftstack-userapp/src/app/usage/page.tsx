@@ -3,6 +3,7 @@ import { prisma } from "swyftstack-shared";
 import { requireUser } from "@/lib/auth";
 import { UserShell } from "@/components/user-shell";
 import { Panel, MetricRow, StatCard, bytes } from "@/components/ui";
+import { orgHasAppDeployment } from "@/lib/feature-flags";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ export default async function UsagePage() {
     return (
       <UserShell user={user}>
         <h1 className="h1">Usage &amp; Billing</h1>
-        <div className="note">No workspace found. <Link href="/pricing">Choose a plan</Link> to begin.</div>
+        <div className="note">No organization found. <Link href="/pricing">Choose a plan</Link> to begin.</div>
       </UserShell>
     );
   }
@@ -33,6 +34,7 @@ export default async function UsagePage() {
   const subscription = org.subscriptions[0] ?? null;
   const plan = subscription?.plan ?? null;
   const limits = plan?.limits ?? null;
+  const appDeploymentEnabled = await orgHasAppDeployment(org.id);
 
   const projects = await prisma.project.findMany({
     where: { organizationId: org.id }, select: { id: true },
@@ -64,7 +66,7 @@ export default async function UsagePage() {
     : "—";
 
   return (
-    <UserShell user={user} workspace={org.name}>
+    <UserShell user={user} organizationName={org.name}>
       <div className="page-head">
         <div>
           <h1 className="h1">Usage &amp; Billing</h1>
@@ -86,12 +88,16 @@ export default async function UsagePage() {
         {!limits && <p className="small">No plan limits configured.</p>}
         {limits && (
           <>
-            <MetricRow name="App runtime — vCPU hours"
-              value={`${vcpuUsed.toFixed(0)} / ${vcpuLimit?.toFixed(0) ?? "∞"}`}
-              percent={pct(vcpuUsed, vcpuLimit)} />
-            <MetricRow name="Build — vCPU hours"
-              value={`${buildUsed.toFixed(0)} / ${buildLimit?.toFixed(0) ?? "∞"}`}
-              percent={pct(buildUsed, buildLimit)} />
+            {appDeploymentEnabled && (
+              <>
+                <MetricRow name="App runtime — vCPU hours"
+                  value={`${vcpuUsed.toFixed(0)} / ${vcpuLimit?.toFixed(0) ?? "∞"}`}
+                  percent={pct(vcpuUsed, vcpuLimit)} />
+                <MetricRow name="Build — vCPU hours"
+                  value={`${buildUsed.toFixed(0)} / ${buildLimit?.toFixed(0) ?? "∞"}`}
+                  percent={pct(buildUsed, buildLimit)} />
+              </>
+            )}
             <MetricRow name="Database storage"
               value={`${bytes(dbBytes)} / ${limits.maxDatabaseStorageBytes ? bytes(limits.maxDatabaseStorageBytes) : "∞"}`}
               percent={pct(Number(dbBytes), num(limits.maxDatabaseStorageBytes))} />

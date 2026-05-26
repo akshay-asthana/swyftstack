@@ -4,6 +4,7 @@
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
 import { SITE_URL } from "@/components/marketing/jsonld";
+import { SHARED_DB_FAQ, WHY_SWYFTSTACK_BULLETS, competitorWhenList } from "@/lib/solutions-content";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,20 @@ export default function NextjsDatabasePage() {
       subheadline="Managed PostgreSQL and S3 storage, wired into your Next.js app in less time than npm install."
       primaryCta={{ label: "Deploy a database", href: "/signup" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
+      whenLists={competitorWhenList({
+        competitor: "Vercel Postgres / Supabase",
+        whenCompetitor: [
+          "You're 100% on Vercel and want the database in the same dashboard.",
+          "You want a full BaaS (auth + edge functions + realtime) and you're happy with the trade-offs.",
+          "You're optimising for the integrated developer experience over invoice clarity.",
+        ],
+        whenSwyftstack: [
+          "You want real Postgres - not a fork, not a proxy - that any client speaks normally.",
+          "You'd rather pick your own auth (NextAuth, Clerk, Auth0) and keep the database neutral.",
+          "You want predictable monthly pricing instead of usage-meter surprises at the end of the month.",
+          "You also want S3-compatible storage on the same bill, not as a separate vendor.",
+        ],
+      })}
       steps={{
         eyebrow: "Setup",
         title: "Three steps. The Vercel deploy is the slowest part.",
@@ -77,12 +92,19 @@ await s3.send(new PutObjectCommand({
 }));` },
         ],
       }}
+      bullets={{
+        eyebrow: "Why Next.js teams pick us",
+        title: "What you get on day one",
+        subtitle: "Every Swyftstack plan ships with the database, storage, backups, and observability you'd otherwise stitch together.",
+        items: WHY_SWYFTSTACK_BULLETS,
+      }}
       faq={{
         items: [
           { q: "Does it work with App Router and Pages Router?", a: "Both. The database client doesn't care about your router; whatever framework you choose for queries works the same in either." },
           { q: "Where should I run my queries - server components, route handlers, server actions?", a: "Any of them. Server components and server actions both run in the Node.js runtime by default, where pg/Prisma/Drizzle work natively." },
           { q: "What about edge runtime?", a: "Use a serverless-friendly driver like @neondatabase/serverless or pg over HTTP. We're a standard Postgres host; whatever the driver supports, we support." },
-          { q: "What if my app outgrows the Starter plan?", a: "Click upgrade. Same database, same connection string, more capacity. No downtime." },
+          { q: "Does it work with NextAuth, Clerk, Auth0?", a: "Yes. We don't ship auth - bring whatever you like. NextAuth's Postgres adapter, Clerk's webhooks, Auth0's user sync - all work normally." },
+          ...SHARED_DB_FAQ,
         ],
       }}
       finalCta={{

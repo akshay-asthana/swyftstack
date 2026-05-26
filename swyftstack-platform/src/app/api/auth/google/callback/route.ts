@@ -31,6 +31,11 @@ function safeNext(value: string | undefined): string {
   return value;
 }
 
+function secureCookieEnv(): boolean {
+  const nodeEnv = (process.env as Record<string, string | undefined>).NODE_ENV;
+  return nodeEnv === "production" || nodeEnv === "prod";
+}
+
 function sign(value: string): string {
   return crypto.createHmac("sha256", env.AUTH_SECRET).update(value).digest("base64url");
 }
@@ -122,6 +127,7 @@ export async function GET(req: Request) {
     const user = await findOrCreateOAuthCustomerAccount({
       email: profile.email,
       name: profile.name ?? profile.email,
+      organizationName: existingUser ? undefined : "New organization",
       emailVerified: true,
       authProvider: "google",
       providerAccountId: profile.sub ?? profile.email,
@@ -164,11 +170,16 @@ export async function GET(req: Request) {
       );
     }
 
-    const res = userAppRedirect(safeNext(state.next));
+    const nextPath = safeNext(state.next);
+    const res = userAppRedirect(
+      existingUser
+        ? nextPath
+        : `/onboarding/organization?next=${encodeURIComponent(nextPath)}`,
+    );
     res.cookies.set(USER_SESSION_COOKIE, sessionToken, {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: secureCookieEnv(),
       path: "/",
       maxAge: USER_SESSION_MAX_AGE,
     });

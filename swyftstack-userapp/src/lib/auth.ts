@@ -21,6 +21,11 @@ function requestMeta() {
   };
 }
 
+function secureCookieEnv(): boolean {
+  const nodeEnv = (process.env as Record<string, string | undefined>).NODE_ENV;
+  return nodeEnv === "production" || nodeEnv === "prod";
+}
+
 export async function setUserSession(userId: string): Promise<void> {
   const token = randomSecret(32);
   const meta = requestMeta();
@@ -37,7 +42,7 @@ export async function setUserSession(userId: string): Promise<void> {
   cookies().set(USER_SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: secureCookieEnv(),
     path: "/",
     maxAge: USER_SESSION_MAX_AGE,
   });

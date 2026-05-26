@@ -1,4 +1,4 @@
-import { prisma, enqueueJob, audit } from "swyftstack-shared";
+import { formatPublicId, prisma, enqueueJob, audit, uuidFromPublicId, withPublicId } from "swyftstack-shared";
 import { z } from "zod";
 import { authorize, json } from "@/lib/api";
 
@@ -14,11 +14,26 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!a.ok) return a.res;
   const p = CreateApp.safeParse(await req.json());
   if (!p.success) return json({ error: p.error.flatten() }, { status: 400 });
+  let projectId: string;
+  try {
+    projectId = uuidFromPublicId(params.id, "project");
+  } catch {
+    return json({ error: "invalid project id" }, { status: 400 });
+  }
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { organization: { select: { enableAppDeployment: true } } },
+  });
+  if (!project) return json({ error: "project not found" }, { status: 404 });
+  if (!project.organization.enableAppDeployment) {
+    return json({ error: "app deployment is not enabled for this organization" }, { status: 403 });
+  }
 
   const node = await prisma.node.findFirst({ where: { roles: { has: "app" }, status: "active" } });
   const app = await prisma.app.create({
     data: {
-      projectId: params.id,
+      projectId,
       nodeId: node?.id,
       name: p.data.name,
       type: p.data.type,
@@ -46,5 +61,18 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     targetType: "app",
     targetId: app.id,
   });
-  return json({ app, deployment, jobId }, { status: 201 });
+  return json({
+    app: {
+      ...withPublicId("app", app),
+      projectId: formatPublicId("project", app.projectId),
+      nodeId: app.nodeId ? formatPublicId("node", app.nodeId) : null,
+    },
+    deployment: {
+      ...withPublicId("deployment", deployment),
+      appId: formatPublicId("app", deployment.appId),
+      buildNodeId: deployment.buildNodeId ? formatPublicId("node", deployment.buildNodeId) : null,
+      runtimeNodeId: deployment.runtimeNodeId ? formatPublicId("node", deployment.runtimeNodeId) : null,
+    },
+    jobId,
+  }, { status: 201 });
 }

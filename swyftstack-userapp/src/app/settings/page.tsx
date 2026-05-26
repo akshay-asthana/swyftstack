@@ -51,11 +51,11 @@ export default async function SettingsPage() {
   const prefs = await ensureNotificationPreferences(user.id);
 
   return (
-    <UserShell user={user} workspace={org?.name}>
+    <UserShell user={user} organizationName={org?.name}>
       <div className="page-head">
         <div>
           <h1 className="h1">Settings</h1>
-          <p className="sub" style={{ marginBottom: 0 }}>Manage your account and workspace.</p>
+          <p className="sub" style={{ marginBottom: 0 }}>Manage your account and organization.</p>
         </div>
       </div>
 
@@ -82,7 +82,7 @@ export default async function SettingsPage() {
         </div>
 
         <div>
-          <Panel title="Workspace">
+          <Panel title="Organization">
             <dl className="kv" style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: "8px 12px", fontSize: 13, margin: 0 }}>
               <dt className="muted">Name</dt><dd style={{ margin: 0 }}>{org?.name ?? "—"}</dd>
               <dt className="muted">Plan</dt><dd style={{ margin: 0 }}>{plan?.name ?? "No active plan"}</dd>

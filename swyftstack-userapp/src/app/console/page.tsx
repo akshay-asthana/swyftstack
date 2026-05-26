@@ -6,6 +6,7 @@ import {
   StatCard, Panel, Table, Badge, MetricRow, FeedItem, Ring, bytes, timeAgo,
 } from "@/components/ui";
 import { Icon, type IconName } from "@/components/icons";
+import { userHasAppDeployment } from "@/lib/feature-flags";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,9 @@ const pretty = (s: string) => s.replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.
 
 export default async function Dashboard() {
   const user = await requireUser();
+  // App deployment + vCPU metering is hidden unless at least one of the
+  // user's organizations has `enable_app_deployment = true`.
+  const appDeploymentEnabled = await userHasAppDeployment(user.id);
 
   const memberships = await prisma.projectMember.findMany({
     where: { userId: user.id },
@@ -79,7 +83,7 @@ export default async function Dashboard() {
     limit && Number(limit) > 0 ? (Number(used) / Number(limit)) * 100 : 0;
 
   return (
-    <UserShell user={user} workspace={ownedOrg?.name}>
+    <UserShell user={user} organizationName={ownedOrg?.name}>
       <div className="page-head">
         <div>
           <h1 className="hello">Welcome back, {user.name?.split(" ")[0] ?? "there"}</h1>
@@ -95,38 +99,46 @@ export default async function Dashboard() {
         </div>
       )}
 
-      <div className="grid cols-5" style={{ marginBottom: 16 }}>
+      <div className={appDeploymentEnabled ? "grid cols-5" : "grid cols-3"} style={{ marginBottom: 16 }}>
         <StatCard icon="projects" tone="violet" label="Projects" value={activeProjects}
           foot={`${memberships.length} total`} />
-        <StatCard icon="rocket" tone="green" label="Apps" value={runningApps}
-          foot={`${apps.length} deployed`} />
+        {appDeploymentEnabled && (
+          <StatCard icon="rocket" tone="green" label="Apps" value={runningApps}
+            foot={`${apps.length} deployed`} />
+        )}
         <StatCard icon="database" tone="blue" label="Databases" value={activeDbs}
           foot={`${databases.length} total`} />
         <StatCard icon="storage" tone="amber" label="Storage" value={bytes(storageBytes)}
           foot={`${buckets.length} buckets`} />
-        <div className="statcard">
-          <div className="stat-top">
-            <div className="stat-icon rose"><Icon name="cpu" size={18} /></div>
-            <div className="stat-label">This Month vCPU</div>
-          </div>
-          <div className="ring-card">
-            <Ring percent={vcpuPct} />
-            <div className="ring-meta">
-              <div className="stat-value" style={{ fontSize: 18 }}>{vcpuHours.toFixed(0)}<small> vCPU-h</small></div>
-              <div className="stat-foot">of {vcpuLimit ? vcpuLimit.toFixed(0) : "∞"} included</div>
+        {appDeploymentEnabled && (
+          <div className="statcard">
+            <div className="stat-top">
+              <div className="stat-icon rose"><Icon name="cpu" size={18} /></div>
+              <div className="stat-label">This Month vCPU</div>
+            </div>
+            <div className="ring-card">
+              <Ring percent={vcpuPct} />
+              <div className="ring-meta">
+                <div className="stat-value" style={{ fontSize: 18 }}>{vcpuHours.toFixed(0)}<small> vCPU-h</small></div>
+                <div className="stat-foot">of {vcpuLimit ? vcpuLimit.toFixed(0) : "∞"} included</div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="split">
         <Panel title="Usage overview" action={<Link className="small" href="/usage">Details →</Link>}>
-          <MetricRow name="vCPU hours" value={`${vcpuHours.toFixed(0)} / ${vcpuLimit ? vcpuLimit.toFixed(0) : "∞"}`} percent={vcpuPct} />
-          <MetricRow name="Database storage" value={`${bytes(dbBytes)} / ${limits?.maxDatabaseStorageBytes ? bytes(limits.maxDatabaseStorageBytes) : "∞"}`} percent={pct(dbBytes, limits?.maxDatabaseStorageBytes)} />
-          <MetricRow name="Object storage" value={`${bytes(objBytes)} / ${limits?.maxObjectStorageBytes ? bytes(limits.maxObjectStorageBytes) : "∞"}`} percent={pct(objBytes, limits?.maxObjectStorageBytes)} />
-          <MetricRow name="Egress bandwidth" value={`${bytes(egressBytes)} / ${limits?.maxEgressBytes ? bytes(limits.maxEgressBytes) : "∞"}`} percent={pct(egressBytes, limits?.maxEgressBytes)} />
-          <MetricRow name="Bandwidth in (this month)" value={bytes(bandwidthIn)} percent={0} />
-          <MetricRow name="Bandwidth out (this month)" value={bytes(bandwidthOut)} percent={0} />
+          <div className="usage-overview-grid">
+            {appDeploymentEnabled && (
+              <MetricRow name="vCPU hours" value={`${vcpuHours.toFixed(0)} / ${vcpuLimit ? vcpuLimit.toFixed(0) : "∞"}`} percent={vcpuPct} />
+            )}
+            <MetricRow name="Database storage" value={`${bytes(dbBytes)} / ${limits?.maxDatabaseStorageBytes ? bytes(limits.maxDatabaseStorageBytes) : "∞"}`} percent={pct(dbBytes, limits?.maxDatabaseStorageBytes)} />
+            <MetricRow name="Object storage" value={`${bytes(objBytes)} / ${limits?.maxObjectStorageBytes ? bytes(limits.maxObjectStorageBytes) : "∞"}`} percent={pct(objBytes, limits?.maxObjectStorageBytes)} />
+            <MetricRow name="Egress bandwidth" value={`${bytes(egressBytes)} / ${limits?.maxEgressBytes ? bytes(limits.maxEgressBytes) : "∞"}`} percent={pct(egressBytes, limits?.maxEgressBytes)} />
+            <MetricRow name="Bandwidth in" value={bytes(bandwidthIn)} percent={0} />
+            <MetricRow name="Bandwidth out" value={bytes(bandwidthOut)} percent={0} />
+          </div>
         </Panel>
 
         <Panel title="Recent activity">
@@ -143,20 +155,22 @@ export default async function Dashboard() {
         </Panel>
       </div>
 
-      <Panel title="Your apps" flush action={<Link className="small" href="/projects">All projects →</Link>}>
-        <Table
-          columns={["Name", "Type", "Status", "Project", "Domain", "Updated"]}
-          empty="No apps yet — open a project to deploy your first app."
-          rows={apps.slice(0, 8).map((a) => [
-            <strong key="n">{a.name}</strong>,
-            a.type,
-            <Badge key="s" status={a.status} />,
-            a.project.name,
-            a.defaultDomain ?? "—",
-            timeAgo(a.updatedAt),
-          ])}
-        />
-      </Panel>
+      {appDeploymentEnabled && (
+        <Panel title="Your apps" flush action={<Link className="small" href="/projects">All projects →</Link>}>
+          <Table
+            columns={["Name", "Type", "Status", "Project", "Domain", "Updated"]}
+            empty="No apps yet — open a project to deploy your first app."
+            rows={apps.slice(0, 8).map((a) => [
+              <strong key="n">{a.name}</strong>,
+              a.type,
+              <Badge key="s" status={a.status} />,
+              a.project.name,
+              a.defaultDomain ?? "—",
+              timeAgo(a.updatedAt),
+            ])}
+          />
+        </Panel>
+      )}
     </UserShell>
   );
 }

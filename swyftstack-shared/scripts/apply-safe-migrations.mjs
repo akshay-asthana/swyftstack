@@ -39,6 +39,7 @@ const MIGRATIONS = [
   "20260523120000_customer_console_mvp",
   "20260524120000_cms_marketing",
   "20260524090000_notifications_zeptomail",
+  "20260526110000_early_access_org_deployment",
 ];
 
 loadEnvFile(envPath);

@@ -5,13 +5,15 @@ import { PrismaClient } from "./generated/prisma/index.js";
 loadRootEnv();
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+const nodeEnv = (process.env as Record<string, string | undefined>).NODE_ENV;
+const isProduction = nodeEnv === "production" || nodeEnv === "prod";
 
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    log: process.env.NODE_ENV === "production" ? ["error"] : ["warn", "error"],
+    log: isProduction ? ["error"] : ["warn", "error"],
   });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+if (!isProduction) globalForPrisma.prisma = prisma;
 
 export * from "./generated/prisma/index.js";

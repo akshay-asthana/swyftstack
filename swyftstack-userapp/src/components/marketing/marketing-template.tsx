@@ -18,6 +18,7 @@ import { ComparisonTable, type ComparisonColumn, type ComparisonRow } from "./co
 import { CodeSnippet, type Snippet } from "./code-snippet";
 import { FaqJsonLd } from "./jsonld";
 import { ArrowRightIcon } from "./icons";
+import { authTarget, isEarlyAccessMode } from "@/lib/early-access";
 
 export type WhenList = { title: string; items: string[] };
 
@@ -68,6 +69,10 @@ export type MarketingTemplateProps = {
 };
 
 export function MarketingTemplate(p: MarketingTemplateProps) {
+  const marketingHref = (href: string) =>
+    isEarlyAccessMode() && (href.startsWith("/signup") || href.startsWith("/login"))
+      ? authTarget("/signup")
+      : href;
   return (
     <MarketingShell>
       {p.jsonLd}
@@ -90,12 +95,12 @@ export function MarketingTemplate(p: MarketingTemplateProps) {
           {(p.primaryCta || p.secondaryCta) && (
             <div className="m-hero-ctas">
               {p.primaryCta && (
-                <Link className="m-btn m-btn-primary m-btn-lg" href={p.primaryCta.href}>
+                <Link className="m-btn m-btn-primary m-btn-lg" href={marketingHref(p.primaryCta.href)}>
                   {p.primaryCta.label} <ArrowRightIcon size={16} />
                 </Link>
               )}
               {p.secondaryCta && (
-                <Link className="m-btn m-btn-secondary m-btn-lg" href={p.secondaryCta.href}>
+                <Link className="m-btn m-btn-secondary m-btn-lg" href={marketingHref(p.secondaryCta.href)}>
                   {p.secondaryCta.label}
                 </Link>
               )}

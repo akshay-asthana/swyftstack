@@ -5,7 +5,7 @@ import { SITE_URL } from "@/components/marketing/jsonld";
 
 export const dynamic = "force-dynamic";
 
-const DESCRIPTION = "Migrate from Heroku Postgres to Swyftstack - three clicks. Cut your bill from $50/mo to $19 ($9 launch). Same SQL, same tooling, modern dashboard.";
+const DESCRIPTION = "Migrate from Heroku Postgres to Swyftstack in three clicks. Starter is $19/mo. Same SQL, same tooling, modern dashboard.";
 
 export const metadata: Metadata = {
   title: "Migrate from Heroku Postgres to Swyftstack | Swyftstack",
@@ -20,7 +20,7 @@ export default function FromHerokuPage() {
       eyebrow="From Heroku Postgres"
       headline="Migrate from Heroku Postgres to Swyftstack"
       headlineAccent="in three clicks."
-      subheadline="Cut your bill from $50/mo to $19 ($9 during launch). Same Postgres, same tooling, modern dashboard."
+      subheadline="Move from Heroku Standard-0 to Swyftstack Starter at $19/mo. Same Postgres, same tooling, modern dashboard."
       primaryCta={{ label: "Start migration", href: "/signup" }}
       secondaryCta={{ label: "Compare to Heroku", href: "/heroku-postgres-alternative" }}
       steps={{
@@ -30,7 +30,7 @@ export default function FromHerokuPage() {
           { n: 1, title: "Get your Heroku connection string", body: "heroku config -a your-app-name → copy DATABASE_URL." },
           { n: 2, title: "Paste into Swyftstack",              body: "Dashboard → Migrate → \"From Heroku\". Paste, click Start." },
           { n: 3, title: "Wait for the progress bar",          body: "Most Heroku databases (under 5 GB) take 2-5 minutes." },
-          { n: 4, title: "Update Heroku app env",              body: "heroku config:set DATABASE_URL=\"<new connection string>\" - Heroku restarts the app with the new database." },
+          { n: 4, title: "Update DATABASE_URL",                body: "Set DATABASE_URL to the new connection string during your normal release window." },
         ],
       }}
       comparison={{
@@ -43,7 +43,6 @@ export default function FromHerokuPage() {
         ],
         rows: [
           { label: "Monthly price",       cells: ["", "$50", "$19"] },
-          { label: "Launch price (2 mo)", cells: ["", "-", "$9"] },
           { label: "Daily backups",       cells: ["", true, true] },
           { label: "One-click restore",   cells: ["", "Manual", "One click"] },
           { label: "Modern dashboard",    cells: ["", false, true] },

@@ -50,7 +50,7 @@ const schema = z.object({
   GOOGLE_CALLBACK_URL: z.string().default(""),
 
   // Runtime.
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  NODE_ENV: z.enum(["development", "test", "production", "prod"]).default("development"),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("debug"),
 
   // Dev-only local paths (used to seed the local_dev providers; the providers
@@ -66,3 +66,7 @@ const schema = z.object({
 
 export const env = schema.parse(process.env);
 export type Env = z.infer<typeof schema>;
+
+export function isProductionEnv(value: string | undefined = env.NODE_ENV): boolean {
+  return value === "production" || value === "prod";
+}

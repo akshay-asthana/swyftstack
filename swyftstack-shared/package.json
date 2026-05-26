@@ -18,6 +18,7 @@
     "seed": "tsx src/seed.ts",
     "seed:marketing": "tsx src/seed-marketing.ts",
     "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
   "dependencies": {

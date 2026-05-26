@@ -2,6 +2,7 @@ import {
   prisma,
   readStorageObject,
   uploadStorageObject,
+  uuidFromPublicId,
 } from "swyftstack-shared";
 import { currentUser } from "@/lib/auth";
 
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
   const user = await currentUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
   const url = new URL(req.url);
-  const bucketId = url.searchParams.get("bucketId") ?? "";
+  const bucketId = uuidFromPublicId(url.searchParams.get("bucketId") ?? "", "bucket");
   const key = url.searchParams.get("key") ?? "";
   if (!(await canAccess(bucketId, user.id))) return new Response("Not found", { status: 404 });
   const { data, object } = await readStorageObject(bucketId, key, user.id);
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
   const user = await currentUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
   const url = new URL(req.url);
-  const bucketId = url.searchParams.get("bucketId") ?? "";
+  const bucketId = uuidFromPublicId(url.searchParams.get("bucketId") ?? "", "bucket");
   if (!(await canAccess(bucketId, user.id))) return new Response("Not found", { status: 404 });
   const form = await req.formData();
   const file = form.get("file");
