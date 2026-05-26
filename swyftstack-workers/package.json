@@ -4,9 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "prisma generate --schema=../swyftstack-shared/prisma/schema.prisma",
     "dev": "tsx watch src/index.ts",
+    "prestart": "prisma generate --schema=../swyftstack-shared/prisma/schema.prisma",
     "start": "tsx src/index.ts",
     "scheduler": "tsx src/scheduler.ts",
+    "prebuild": "prisma generate --schema=../swyftstack-shared/prisma/schema.prisma",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
