@@ -1,4 +1,4 @@
-# Local development stack for Quickdock.
+# Local development stack for Swyftstack.
 #
 # `docker compose up -d postgres`            -> just the control-plane DB (default,
 #                                               recommended for fast FE dev).
@@ -8,17 +8,17 @@
 services:
   postgres:
     image: postgres:16
-    container_name: quickdock-postgres
+    container_name: swyftstack-postgres
     environment:
-      POSTGRES_USER: quickdock
+      POSTGRES_USER: swyftstack
       POSTGRES_PASSWORD: 1baFhoZVXqQ9SZ9m
-      POSTGRES_DB: quickdock_control
+      POSTGRES_DB: swyftstack_control
     ports:
       - "5432:5432"
     volumes:
-      - quickdock_pgdata:/var/lib/postgresql/data
+      - swyftstack_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U quickdock"]
+      test: ["CMD-SHELL", "pg_isready -U swyftstack"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -27,7 +27,7 @@ services:
   # from the admin Infrastructure page (NOT via env vars).
   customer-postgres:
     image: postgres:16
-    container_name: quickdock-customer-postgres
+    container_name: swyftstack-customer-postgres
     profiles: ["customer-db"]
     environment:
       POSTGRES_USER: postgres
@@ -36,7 +36,7 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - quickdock_customer_pgdata:/var/lib/postgresql/data
+      - swyftstack_customer_pgdata:/var/lib/postgresql/data
 
   admin:
     image: node:20
@@ -44,7 +44,7 @@ services:
     working_dir: /app
     command: sh -c "npm install && npm run db:generate && npm run dev:admin"
     environment:
-      DATABASE_URL: "postgresql://quickdock:1baFhoZVXqQ9SZ9m@postgres:5432/quickdock_control?schema=public"
+      DATABASE_URL: "postgresql://swyftstack:1baFhoZVXqQ9SZ9m@postgres:5432/swyftstack_control?schema=public"
     env_file: [.env]
     ports: ["3000:3000"]
     volumes: ["./:/app"]
@@ -58,7 +58,7 @@ services:
     command: sh -c "npm install && npm run dev:user"
     env_file: [.env]
     environment:
-      DATABASE_URL: "postgresql://quickdock:1baFhoZVXqQ9SZ9m@postgres:5432/quickdock_control?schema=public"
+      DATABASE_URL: "postgresql://swyftstack:1baFhoZVXqQ9SZ9m@postgres:5432/swyftstack_control?schema=public"
     ports: ["3001:3001"]
     volumes: ["./:/app"]
     depends_on:
@@ -71,11 +71,11 @@ services:
     command: sh -c "npm install && npm run db:generate && npm run dev:worker"
     env_file: [.env]
     environment:
-      DATABASE_URL: "postgresql://quickdock:1baFhoZVXqQ9SZ9m@postgres:5432/quickdock_control?schema=public"
+      DATABASE_URL: "postgresql://swyftstack:1baFhoZVXqQ9SZ9m@postgres:5432/swyftstack_control?schema=public"
     volumes: ["./:/app"]
     depends_on:
       postgres: { condition: service_healthy }
 
 volumes:
-  quickdock_pgdata:
-  quickdock_customer_pgdata:
+  swyftstack_pgdata:
+  swyftstack_customer_pgdata:

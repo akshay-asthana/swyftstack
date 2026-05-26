@@ -1,0 +1,301 @@
+/* ============================================================
+ * Swyftstack marketing theme tokens
+ * ----------------------------------------------------------
+ * Single source of truth for the public site. Edit colors,
+ * gradients, spacing, radii, shadows, and typography here.
+ * Console pages keep using globals.css; marketing pages use
+ * theme.css + marketing.css.
+ * ============================================================ */
+
+:root {
+  /* Edit these colors to test marketing gradients and the homepage Vanta field. */
+  --gradientcolor1: #ff8008;
+  --gradientcolor2: #ffc837;
+  --vantabackground: #07080d;
+  /* Network-mesh point/line color used by the homepage Vanta-style canvas.
+   * A soft orange that reads against both the dark and light hero
+   * backgrounds. Edit here to retune. */
+  --vantacolor: #ffb070;
+}
+
+/* Light-theme override: bump the orange slightly more saturated so it still
+ * reads against the white-ish page bg without being garish. */
+.m[data-m-theme="light"] {
+  --vantacolor: #ff8c3e;
+}
+
+.m {
+  /* ---- brand ---- */
+  --m-brand: var(--gradientcolor1);
+  --m-brand-hi: var(--gradientcolor2);
+  --m-brand-lo: #c45a00;
+  --m-brand-ink: #111827;
+  --m-accent: var(--gradientcolor2);
+  --m-accent-2: var(--gradientcolor1);
+  --m-accent-3: var(--gradientcolor2);
+  --m-accent-warm: var(--gradientcolor1);
+
+  /* ---- backgrounds (dark theme, premium infra feel) ---- */
+  --m-bg: #07080d;
+  --m-bg-1: #0b0d15;
+  --m-bg-2: #11131c;
+  --m-bg-3: #161927;
+  --m-bg-elevated: #1a1d2a;
+  --m-bg-glass: rgba(20, 23, 35, 0.72);
+
+  /* ---- surfaces (used on cards/panels over backgrounds) ---- */
+  --m-surface: #12141d;
+  --m-surface-2: #181b27;
+  --m-surface-3: #1e2230;
+  --m-surface-hover: #20233236;
+  --m-surface-glass: rgba(255, 255, 255, 0.04);
+  --m-surface-glass-strong: rgba(255, 255, 255, 0.07);
+
+  /* ---- borders ---- */
+  --m-border: rgba(255, 255, 255, 0.07);
+  --m-border-strong: rgba(255, 255, 255, 0.12);
+  --m-border-brand: color-mix(in srgb, var(--gradientcolor1) 42%, transparent);
+
+  /* ---- text ---- */
+  --m-text: #f3f4f8;
+  --m-text-strong: #ffffff;
+  --m-text-2: #c7cad6;
+  --m-text-muted: #8a90a4;
+  --m-text-faint: #5d6376;
+  --m-text-inverse: #0b0d15;
+  --m-text-brand: #ffc837;
+
+  /* ---- status ---- */
+  --m-ok: #34d399;
+  --m-warn: #fbbf24;
+  --m-bad: #f87171;
+  --m-info: #60a5fa;
+
+  /* ---- gradients ---- */
+  --m-gradient-hero:
+    radial-gradient(
+      900px 520px at 12% -10%,
+      color-mix(in srgb, var(--gradientcolor1) 26%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      700px 420px at 92% 10%,
+      color-mix(in srgb, var(--gradientcolor2) 18%, transparent),
+      transparent 60%
+    );
+  --m-gradient-brand: linear-gradient(135deg, var(--gradientcolor1) 0%, var(--gradientcolor2) 100%);
+  --m-gradient-cta: linear-gradient(135deg, var(--gradientcolor1) 0%, var(--gradientcolor2) 100%);
+  --m-gradient-heading-text: linear-gradient(180deg, #ffffff 0%, #c7f9f2 100%);
+  --m-gradient-card: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.01)
+  );
+  --m-gradient-mesh:
+    radial-gradient(at 20% 20%, color-mix(in srgb, var(--gradientcolor1) 16%, transparent), transparent 50%),
+    radial-gradient(at 80% 30%, color-mix(in srgb, var(--gradientcolor2) 14%, transparent), transparent 50%);
+  --m-gradient-divider: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.08),
+    transparent
+  );
+  --m-mm-bg: linear-gradient(
+    180deg,
+    rgba(12, 17, 24, 0.96),
+    rgba(8, 12, 20, 0.96)
+  );
+
+  /* ---- shadows ---- */
+  --m-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.32);
+  --m-shadow: 0 8px 24px rgba(0, 0, 0, 0.36);
+  --m-shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.5);
+  --m-shadow-glow:
+    0 0 0 1px color-mix(in srgb, var(--gradientcolor1) 32%, transparent),
+    0 16px 60px color-mix(in srgb, var(--gradientcolor1) 22%, transparent);
+  --m-shadow-glow-cyan:
+    0 0 0 1px color-mix(in srgb, var(--gradientcolor2) 30%, transparent),
+    0 16px 60px color-mix(in srgb, var(--gradientcolor2) 20%, transparent);
+  --m-shadow-card:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 18px 48px rgba(0, 0, 0, 0.45);
+
+  /* ---- radii ---- */
+  --m-r-xs: 6px;
+  --m-r-sm: 10px;
+  --m-r: 14px;
+  --m-r-lg: 18px;
+  --m-r-xl: 24px;
+  --m-r-pill: 999px;
+
+  /* ---- spacing (consistent scale) ---- */
+  --m-space-1: 4px;
+  --m-space-2: 8px;
+  --m-space-3: 12px;
+  --m-space-4: 16px;
+  --m-space-5: 24px;
+  --m-space-6: 32px;
+  --m-space-7: 48px;
+  --m-space-8: 64px;
+  --m-space-9: 96px;
+  --m-space-10: 128px;
+
+  /* ---- typography ---- */
+  --m-font:
+    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", sans-serif;
+  --m-font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, "JetBrains Mono", "Fira Code",
+    monospace;
+
+  --m-text-display: clamp(40px, 6.4vw, 72px);
+  --m-text-h1: clamp(34px, 5vw, 56px);
+  --m-text-h2: clamp(26px, 3.2vw, 38px);
+  --m-text-h3: clamp(20px, 2vw, 26px);
+  --m-text-lead: clamp(16px, 1.4vw, 19px);
+  --m-text-body: 15px;
+  --m-text-small: 13px;
+  --m-text-mini: 12px;
+
+  --m-line-tight: 1.05;
+  --m-line-snug: 1.2;
+  --m-line-normal: 1.55;
+  --m-line-loose: 1.7;
+
+  /* ---- container ---- */
+  --m-container: 1200px;
+  --m-container-narrow: 880px;
+  --m-container-prose: 720px;
+
+  /* ---- nav ---- */
+  --m-nav-h: 64px;
+  --m-nav-bg: rgba(11, 13, 21, 0.72);
+  --m-nav-border: rgba(255, 255, 255, 0.07);
+
+  /* ---- focus ---- */
+  --m-focus: 0 0 0 3px color-mix(in srgb, var(--gradientcolor1) 42%, transparent);
+
+  /* ---- chart palette ---- */
+  --m-chart-1: var(--gradientcolor1);
+  --m-chart-2: var(--gradientcolor2);
+  --m-chart-3: #34d399;
+  --m-chart-4: #fbbf24;
+  --m-chart-5: #f472b6;
+
+  /* ---- color-scheme hint so form controls follow the theme ---- */
+  color-scheme: dark;
+
+  /* ---- animation / orchestrator ---- */
+  --m-gradient-aurora:
+    radial-gradient(
+      60% 60% at 20% 30%,
+      color-mix(in srgb, var(--gradientcolor1) 30%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      50% 50% at 80% 25%,
+      color-mix(in srgb, var(--gradientcolor2) 24%, transparent),
+      transparent 60%
+    );
+  --m-gradient-connection: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--gradientcolor1) 85%, transparent),
+    color-mix(in srgb, var(--gradientcolor2) 85%, transparent),
+    transparent
+  );
+  --m-gradient-orb: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--gradientcolor1) 65%, transparent),
+    color-mix(in srgb, var(--gradientcolor1) 22%, transparent) 60%,
+    transparent 75%
+  );
+  --m-gradient-orb-cyan: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--gradientcolor2) 55%, transparent),
+    color-mix(in srgb, var(--gradientcolor2) 18%, transparent) 60%,
+    transparent 75%
+  );
+  --m-anim-fast: 180ms;
+  --m-anim: 320ms;
+  --m-anim-slow: 600ms;
+  --m-ease: cubic-bezier(0.4, 0.16, 0.18, 1);
+  --m-ease-out: cubic-bezier(0.16, 0.84, 0.32, 1);
+}
+
+/* ============================================================
+ * Light theme - applied by toggling [data-m-theme="light"] on the
+ * `.m` root. Same token names; just different values.
+ * ============================================================ */
+.m[data-m-theme="light"] {
+  color-scheme: light;
+
+  --m-bg: #fbfbfd;
+  --m-bg-1: #f3f4f8;
+  --m-bg-2: #eceef3;
+  --m-bg-3: #e3e6ed;
+  --m-bg-elevated: #ffffff;
+  --m-bg-glass: rgba(255, 255, 255, 0.82);
+
+  --m-surface: #ffffff;
+  --m-surface-2: #f7f8fc;
+  --m-surface-3: #f1f2f7;
+  --m-surface-hover: rgba(15, 18, 30, 0.04);
+  --m-surface-glass: rgba(15, 18, 30, 0.03);
+  --m-surface-glass-strong: rgba(15, 18, 30, 0.06);
+
+  --m-border: rgba(15, 18, 30, 0.08);
+  --m-border-strong: rgba(15, 18, 30, 0.14);
+  --m-border-brand: color-mix(in srgb, var(--gradientcolor1) 38%, transparent);
+
+  --m-text: #1a1d2a;
+  --m-text-strong: #0a0c14;
+  --m-text-2: #3c4150;
+  --m-text-muted: #5d6376;
+  --m-text-faint: #8a90a4;
+  --m-text-inverse: #ffffff;
+  --m-text-brand: #a94700;
+
+  --m-gradient-hero:
+    radial-gradient(
+      900px 520px at 12% -10%,
+      color-mix(in srgb, var(--gradientcolor1) 15%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      700px 420px at 92% 10%,
+      color-mix(in srgb, var(--gradientcolor2) 14%, transparent),
+      transparent 60%
+    );
+  --m-gradient-heading-text: linear-gradient(180deg, #07131f 0%, #334155 100%);
+  --m-gradient-card: linear-gradient(
+    180deg,
+    rgba(15, 18, 30, 0.02),
+    rgba(15, 18, 30, 0.005)
+  );
+  --m-gradient-mesh:
+    radial-gradient(at 20% 20%, color-mix(in srgb, var(--gradientcolor1) 10%, transparent), transparent 50%),
+    radial-gradient(at 80% 30%, color-mix(in srgb, var(--gradientcolor2) 12%, transparent), transparent 50%);
+  --m-gradient-divider: linear-gradient(
+    90deg,
+    transparent,
+    rgba(15, 18, 30, 0.1),
+    transparent
+  );
+  --m-mm-bg: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.97),
+    rgba(247, 249, 252, 0.97)
+  );
+
+  --m-shadow-sm: 0 1px 2px rgba(15, 18, 30, 0.06);
+  --m-shadow: 0 8px 24px rgba(15, 18, 30, 0.08);
+  --m-shadow-lg: 0 24px 60px rgba(15, 18, 30, 0.12);
+  --m-shadow-glow:
+    0 0 0 1px color-mix(in srgb, var(--gradientcolor1) 28%, transparent),
+    0 16px 60px color-mix(in srgb, var(--gradientcolor1) 14%, transparent);
+  --m-shadow-card:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 12px 36px rgba(15, 18, 30, 0.07);
+
+  --m-nav-bg: rgba(255, 255, 255, 0.82);
+  --m-nav-border: rgba(15, 18, 30, 0.08);
+}
