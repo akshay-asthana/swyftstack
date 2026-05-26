@@ -44,6 +44,13 @@ const STATIC_ROUTES: { path: string; priority: number; changeFrequency: Metadata
   { path: "/migrate-from-railway",     priority: 0.8, changeFrequency: "monthly" },
   { path: "/migrate-from-heroku",      priority: 0.8, changeFrequency: "monthly" },
   { path: "/migrate-from-planetscale", priority: 0.75, changeFrequency: "monthly" },
+
+  // Legal pages (indexable; SEO crawlers expect to find them).
+  { path: "/terms",           priority: 0.3, changeFrequency: "yearly" },
+  { path: "/privacy",         priority: 0.3, changeFrequency: "yearly" },
+  { path: "/cookies",         priority: 0.3, changeFrequency: "yearly" },
+  { path: "/refund",          priority: 0.3, changeFrequency: "yearly" },
+  { path: "/acceptable-use",  priority: 0.3, changeFrequency: "yearly" },
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

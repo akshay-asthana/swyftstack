@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
 import { SITE_URL } from "@/components/marketing/jsonld";
+import { complementWith } from "@/lib/solutions-content";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,13 @@ export default function V0Page() {
       subheadline="v0 generates the UI. Swyftstack adds the managed PostgreSQL database your app can actually save data to."
       primaryCta={{ label: "Get a database", href: "/signup" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
+      complement={complementWith({
+        partner: "v0",
+        partnerCovers: "your UI generator",
+        partnerBody: "v0 generates the React components and ships them through Vercel. Beautiful UI, ready to deploy — but it doesn't store data. The components need a database to write to.",
+        title: "v0 generates the UI. Swyftstack saves the data.",
+        subtitle: "v0 and Vercel host the front end; Swyftstack hosts the database the front end talks to. Same DATABASE_URL works in v0 preview, local dev, and Vercel production.",
+      })}
       steps={{
         eyebrow: "Walkthrough",
         title: "Wire v0 to a real database",

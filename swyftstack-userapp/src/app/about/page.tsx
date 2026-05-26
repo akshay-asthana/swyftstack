@@ -12,10 +12,10 @@ import { authTarget } from "@/lib/early-access";
 
 export const dynamic = "force-dynamic";
 
-const DESCRIPTION = "Why we built Swyftstack: managed PostgreSQL and S3 storage that respects your time. Predictable bills, instant dashboards, and a real human who answers your emails.";
+const DESCRIPTION = "Why we built Swyftstack: managed PostgreSQL and S3-compatible storage for teams who'd rather ship features than babysit infrastructure. Predictable bills, 47-second provisioning, a real human on every support email.";
 
 export const metadata: Metadata = {
-  title: "About Swyftstack - backend hosting that respects your time",
+  title: "About Swyftstack — the focused backend platform | Swyftstack",
   description: DESCRIPTION,
   alternates: { canonical: `${SITE_URL}/about` },
   openGraph: { title: "About Swyftstack", description: DESCRIPTION, url: `${SITE_URL}/about`, type: "website" },
@@ -66,7 +66,7 @@ export default function AboutPage() {
             We built Swyftstack because backend hosting was getting <span className="m-text-grad">harder</span>, not easier.
           </h1>
           <p className="m-hero-lead">
-            Two products, both simple, both fast. Predictable bills. A real human who answers your emails.
+            Two products — managed PostgreSQL and S3-compatible storage — done well. Predictable bills, instant provisioning, and a real human on every support email.
           </p>
         </div>
       </section>
@@ -77,15 +77,47 @@ export default function AboutPage() {
           <div className="m-prose">
             <h2>The story</h2>
             <p>
-              Every year, cloud platforms add more features, more dashboards, more tabs, more services that depend on
-              other services. Meanwhile, the actual thing most developers want hasn&rsquo;t changed:
-              <em> a database for my app, and somewhere to store user files.</em>
+              Every year, cloud platforms add more features, more dashboards, more tabs, more services that depend on other services. Pricing pages get longer. Bills get harder to forecast. The <em>thing</em> most developers actually need — &ldquo;a database for my app, and somewhere to store user files&rdquo; — keeps getting buried under bundled features they didn&rsquo;t ask for.
             </p>
-            <p>So we built that. Two products. Both simple. Both fast. Both backed by a real human who answers your emails.</p>
             <p>
-              We are not trying to be the biggest backend platform. We are trying to be the one developers tell their friends
-              about - the one that quietly works while they go ship their app.
+              We watched friends launch perfectly fine side projects and then quietly shut them down a year later because the platform-fee creep made them uneconomical. We watched a startup we admire move off a popular BaaS not because anything was technically wrong, but because they couldn&rsquo;t predict next month&rsquo;s bill within a 3× range.
             </p>
+            <p>
+              So we built Swyftstack: two products done well, on one dashboard, on one invoice. We don&rsquo;t ship auth, edge functions, generated APIs, or realtime channels. There&rsquo;s nothing wrong with those — they&rsquo;re just not what we&rsquo;re for. We host your database and your files; you wire them up to the framework, auth, and hosting you already use.
+            </p>
+            <p>
+              That focus is the whole point. It&rsquo;s what makes 47-second provisioning possible. It&rsquo;s why a single founder can read every support email and reply within an hour. It&rsquo;s why the pricing page has three tiers and a published overage rate instead of a calculator.
+            </p>
+          </div>
+        </div>
+      </Section>
+
+      {/* Who we're for / not for */}
+      <Section alt>
+        <SectionHead
+          eyebrow="Who we're for"
+          title="Honest about fit, both ways."
+          subtitle="The fastest way to be a good vendor is to tell people when we're the wrong choice. Here's a checklist."
+        />
+        <div className="m-grid m-grid-2">
+          <div className="m-card">
+            <h3 style={{ fontSize: 19, marginBottom: 8 }}>You&rsquo;ll like Swyftstack if&hellip;</h3>
+            <ul className="m-plan-list m-mt-3">
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--m-ok)" }}><path d="M5 12l5 5L20 7" /></svg><span>You&rsquo;re shipping a real app on Vercel/Render/Fly/Railway and want a no-drama Postgres + storage backend.</span></li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--m-ok)" }}><path d="M5 12l5 5L20 7" /></svg><span>You&rsquo;re tired of meter-based pricing and want a flat number you can budget for.</span></li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--m-ok)" }}><path d="M5 12l5 5L20 7" /></svg><span>You prefer real PostgreSQL with no proxy in front of it.</span></li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--m-ok)" }}><path d="M5 12l5 5L20 7" /></svg><span>You want to use Clerk / NextAuth / Auth0 for auth, not a bundled one you can&rsquo;t remove.</span></li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--m-ok)" }}><path d="M5 12l5 5L20 7" /></svg><span>You&rsquo;d rather email a founder than file a Zendesk ticket.</span></li>
+            </ul>
+          </div>
+          <div className="m-card">
+            <h3 style={{ fontSize: 19, marginBottom: 8 }}>You&rsquo;ll be happier elsewhere if&hellip;</h3>
+            <ul className="m-plan-list m-mt-3">
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--m-text-muted)" }}><path d="M6 6l12 12M18 6L6 18" /></svg><span>You want a full BaaS (auth + edge functions + realtime + generated APIs) in one box — Supabase, Convex, or Appwrite are excellent at that.</span></li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--m-text-muted)" }}><path d="M6 6l12 12M18 6L6 18" /></svg><span>You need a free tier — we don&rsquo;t have one. Paying customers fund the support; we&rsquo;d rather charge less to people who pay than subsidise freeloaders.</span></li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--m-text-muted)" }}><path d="M6 6l12 12M18 6L6 18" /></svg><span>You need to self-host inside your own VPC — that&rsquo;s a different product. Run PostgreSQL yourself; you&rsquo;ll get the isolation you need.</span></li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--m-text-muted)" }}><path d="M6 6l12 12M18 6L6 18" /></svg><span>You need a database other than Postgres (MySQL, MongoDB, DynamoDB) — we&rsquo;re Postgres-only on purpose.</span></li>
+            </ul>
           </div>
         </div>
       </Section>

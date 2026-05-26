@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
 import { SITE_URL } from "@/components/marketing/jsonld";
-import { SHARED_DB_FAQ, WHY_SWYFTSTACK_BULLETS, competitorWhenList } from "@/lib/solutions-content";
+import { SHARED_DB_FAQ, WHY_SWYFTSTACK_BULLETS, competitorWhenList, complementWith } from "@/lib/solutions-content";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +24,13 @@ export default function DjangoDatabasePage() {
       subheadline="dj-database-url + psycopg, SSL by default, daily backups. django-storages-compatible S3 included."
       primaryCta={{ label: "Deploy a database", href: "/signup" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
+      complement={complementWith({
+        partner: "Your Django host",
+        partnerCovers: "your app runtime",
+        partnerBody: "Render, Fly.io, Railway, your own VM — wherever you run gunicorn/uvicorn or your worker queue. The host runs your app code; nothing about that changes.",
+        title: "Whatever runs your Django app, Swyftstack runs your data.",
+        subtitle: "Render, Fly.io, Railway, a managed VPS — we don't compete with your app host. Point DATABASE_URL at Swyftstack and your Django settings stay otherwise untouched.",
+      })}
       whenLists={competitorWhenList({
         competitor: "Self-managed Postgres on a VPS",
         whenCompetitor: [
@@ -81,7 +88,7 @@ python manage.py collectstatic --noinput` },
         ],
       }}
       bullets={{
-        eyebrow: "Why Django teams pick us",
+        eyebrow: "Why Django teams choose us",
         title: "What you get on day one",
         subtitle: "Every Swyftstack plan ships with the database, storage, backups, and observability you'd otherwise stitch together.",
         items: WHY_SWYFTSTACK_BULLETS,

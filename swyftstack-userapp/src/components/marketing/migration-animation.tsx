@@ -8,7 +8,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRightIcon, CheckIcon, MigrateIcon, PostgresIcon } from "./icons";
-import swyftstackLogo from "@/brand-assets/swyftstack-logo.png";
+import swyftstackLogo from "@/brand-assets/Swyftstack-logo.png";
 
 type Phase = "idle" | "connecting" | "dumping" | "restoring" | "verifying" | "done";
 

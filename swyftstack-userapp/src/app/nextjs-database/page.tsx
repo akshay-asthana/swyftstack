@@ -4,7 +4,7 @@
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
 import { SITE_URL } from "@/components/marketing/jsonld";
-import { SHARED_DB_FAQ, WHY_SWYFTSTACK_BULLETS, competitorWhenList } from "@/lib/solutions-content";
+import { SHARED_DB_FAQ, WHY_SWYFTSTACK_BULLETS, competitorWhenList, complementWith } from "@/lib/solutions-content";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +26,11 @@ export default function NextjsDatabasePage() {
       subheadline="Managed PostgreSQL and S3 storage, wired into your Next.js app in less time than npm install."
       primaryCta={{ label: "Deploy a database", href: "/signup" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
+      complement={complementWith({
+        partner: "Vercel",
+        partnerCovers: "your frontend + edge",
+        partnerBody: "Vercel serves your Next.js pages, runs your server actions and route handlers, and ships your static assets to the edge. It's where your app code lives.",
+      })}
       whenLists={competitorWhenList({
         competitor: "Vercel Postgres / Supabase",
         whenCompetitor: [
@@ -93,7 +98,7 @@ await s3.send(new PutObjectCommand({
         ],
       }}
       bullets={{
-        eyebrow: "Why Next.js teams pick us",
+        eyebrow: "Why Next.js teams choose us",
         title: "What you get on day one",
         subtitle: "Every Swyftstack plan ships with the database, storage, backups, and observability you'd otherwise stitch together.",
         items: WHY_SWYFTSTACK_BULLETS,

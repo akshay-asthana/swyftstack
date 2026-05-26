@@ -3,7 +3,7 @@
 // SEO-friendly slugs (no /for/* or /vs/* prefixes).
 import Image from "next/image";
 import Link from "next/link";
-import swyftstackLogo from "@/brand-assets/swyftstack-logo.png";
+import swyftstackLogo from "@/brand-assets/Swyftstack-logo.png";
 
 export function MarketingFooter() {
   return (
@@ -61,9 +61,12 @@ export function MarketingFooter() {
         <div className="m-footer-bottom">
           <span>© {new Date().getFullYear()} Swyftstack. All rights reserved.</span>
           <div className="m-footer-bottom-links">
+            <Link href="/terms">Terms</Link>
+            <Link href="/privacy">Privacy</Link>
+            <Link href="/cookies">Cookies</Link>
+            <Link href="/refund">Refund</Link>
+            <Link href="/acceptable-use">Acceptable use</Link>
             <Link href="/security">Status</Link>
-            <Link href="/about">About</Link>
-            <Link href="/console">Console</Link>
           </div>
         </div>
       </div>

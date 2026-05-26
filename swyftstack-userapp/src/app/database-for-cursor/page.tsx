@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
 import { SITE_URL } from "@/components/marketing/jsonld";
+import { complementWith } from "@/lib/solutions-content";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,13 @@ export default function CursorPage() {
       subheadline="A copyable connection string. No AWS console, no setup, no yak shaving."
       primaryCta={{ label: "Deploy a database", href: "/signup" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
+      complement={complementWith({
+        partner: "Cursor",
+        partnerCovers: "your editor + AI pair",
+        partnerBody: "Cursor is the IDE. You prompt it, it writes the code, you ship. Cursor doesn't host anything — that's deliberate. You pick the runtime and the database.",
+        title: "Cursor writes the code. Swyftstack runs the database.",
+        subtitle: "Cursor sits in your editor; we sit at the other end of DATABASE_URL. Tell Cursor to read from process.env.DATABASE_URL and we'll have a managed Postgres ready in 47 seconds.",
+      })}
       snippets={{
         eyebrow: "Setup",
         title: "Three lines and you're shipping",

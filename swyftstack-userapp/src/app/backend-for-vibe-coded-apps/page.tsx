@@ -4,7 +4,7 @@
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
 import { SITE_URL } from "@/components/marketing/jsonld";
-import { SHARED_DB_FAQ } from "@/lib/solutions-content";
+import { SHARED_DB_FAQ, complementWith } from "@/lib/solutions-content";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +26,13 @@ export default function VibeCodedPage() {
       subheadline="Lovable, Bolt, Cursor, and v0 built the app. Now connect a real database and storage."
       primaryCta={{ label: "Deploy my first backend", href: "/signup" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
+      complement={complementWith({
+        partner: "Lovable / Bolt / Cursor / v0",
+        partnerCovers: "your app + UI",
+        partnerBody: "These tools build the app. They generate the React components, the styling, the screens. They're great at that — they're not built to permanently store the things your users type or upload.",
+        title: "Your AI tool builds the app. Swyftstack makes it real.",
+        subtitle: "Lovable, Bolt, Cursor, v0, Replit — pick your favourite. We don't compete with any of them. We add the persistent database + storage your app needs to actually remember what users did between visits.",
+      })}
       whenLists={{
         left: {
           title: "What \"backend\" actually means",

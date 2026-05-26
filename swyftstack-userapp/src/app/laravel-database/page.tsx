@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
 import { SITE_URL } from "@/components/marketing/jsonld";
-import { SHARED_DB_FAQ, WHY_SWYFTSTACK_BULLETS, competitorWhenList } from "@/lib/solutions-content";
+import { SHARED_DB_FAQ, WHY_SWYFTSTACK_BULLETS, competitorWhenList, complementWith } from "@/lib/solutions-content";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +24,13 @@ export default function LaravelDatabasePage() {
       subheadline="A managed PostgreSQL Laravel will be happy with, including SSL, backups, and a copyable connection string under a minute."
       primaryCta={{ label: "Deploy a database", href: "/signup" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
+      complement={complementWith({
+        partner: "Laravel Forge / Vapor",
+        partnerCovers: "your PHP runtime",
+        partnerBody: "Forge provisions the VPS your Laravel app runs on. Vapor pushes it to Lambda. We don't replace either — we replace the bare-metal Postgres line item with a managed connection string.",
+        title: "Forge ships your Laravel app. Swyftstack ships its data.",
+        subtitle: "Whether you're on Forge, Vapor, Ploi, or your own server, Swyftstack is just a DATABASE_URL away. config/database.php and config/filesystems.php stay otherwise untouched.",
+      })}
       whenLists={competitorWhenList({
         competitor: "Forge / DigitalOcean Postgres",
         whenCompetitor: [
@@ -84,7 +91,7 @@ DB_SSLMODE=require` },
         ],
       }}
       bullets={{
-        eyebrow: "Why Laravel teams pick us",
+        eyebrow: "Why Laravel teams choose us",
         title: "What you get on day one",
         subtitle: "Every Swyftstack plan ships with the database, storage, backups, and observability you'd otherwise stitch together.",
         items: WHY_SWYFTSTACK_BULLETS,

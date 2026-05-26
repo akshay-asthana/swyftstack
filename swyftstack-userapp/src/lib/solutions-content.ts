@@ -9,36 +9,52 @@
 //
 // Update common copy once here and it lands on every page that imports it.
 
+import type { ReactNode } from "react";
 import type { Faq, WhenList } from "@/components/marketing/marketing-template";
 import type { ComparisonColumn, ComparisonRow } from "@/components/marketing/comparison-table";
+import {
+  BackupIcon,
+  BoltIcon,
+  BucketIcon,
+  GlobeIcon,
+  LockIcon,
+  PostgresIcon,
+} from "@/components/marketing/icons";
+import { createElement } from "react";
 
 /* ============================================================
  * Why-Swyftstack bullets shared by every solutions page.
  * Drop into `MarketingTemplate.bullets.items`.
  * ============================================================ */
 
-export const WHY_SWYFTSTACK_BULLETS: { title: string; body: string }[] = [
+export const WHY_SWYFTSTACK_BULLETS: { icon: ReactNode; title: string; body: string }[] = [
   {
+    icon: createElement(PostgresIcon, { size: 22 }),
     title: "Real Postgres, no fork",
     body: "PostgreSQL 16 straight from postgresql.org. No custom protocol, no proprietary driver. Whatever your ORM expects, just works.",
   },
   {
+    icon: createElement(BucketIcon, { size: 22 }),
     title: "S3-compatible storage included",
     body: "Use the AWS SDK you already use. Same endpoint, same signing, same multipart uploads. Public buckets get a CDN URL automatically.",
   },
   {
+    icon: createElement(BoltIcon, { size: 22 }),
     title: "47-second provisioning",
     body: "Click \"Create database\". Get a connection string with SSL by default. No waiting room, no provisioning queue, no DNS to set up first.",
   },
   {
+    icon: createElement(BackupIcon, { size: 22 }),
     title: "Daily backups, tested restores",
     body: "Encrypted daily backups with 7- or 30-day retention. Weekly automated restore drills - because untested backups aren't backups.",
   },
   {
+    icon: createElement(LockIcon, { size: 22 }),
     title: "One bill, one platform",
     body: "Database, storage, backups, and egress on a single invoice. No three-vendor accounting at the end of the quarter.",
   },
   {
+    icon: createElement(GlobeIcon, { size: 22 }),
     title: "No vendor lock-in",
     body: "Open standards on both ends. pg_dump and S3 export are first-class, even on the free tier. Move on whenever you want.",
   },
@@ -72,6 +88,45 @@ export const SHARED_DB_FAQ: Faq[] = [
     a: "No. SSL is on by default, certificates are managed and auto-renewed. Standard rejectUnauthorized: true works out of the box.",
   },
 ];
+
+/* ============================================================
+ * "We complement [partner]" intro cards shared across every
+ * solutions page. Surfaces the framing "they host your frontend,
+ * we host your data" right under the hero so visitors know we're
+ * an addition to their stack, not a switch they have to make.
+ * ============================================================ */
+
+export function complementWith(opts: {
+  /** Partner platform — e.g. "Vercel", "Lovable", "Bolt.new", "Cursor". */
+  partner: string;
+  /** What the partner covers — e.g. "your frontend app", "your AI-generated UI". */
+  partnerCovers: string;
+  /** Short body for the partner card. */
+  partnerBody: string;
+  /** Optional eyebrow override. */
+  eyebrow?: string;
+  /** Optional title override. */
+  title?: string;
+  /** Optional subtitle override. */
+  subtitle?: string;
+}) {
+  return {
+    eyebrow: opts.eyebrow ?? "How we fit together",
+    title: opts.title ?? `${opts.partner} hosts your app. Swyftstack hosts your data.`,
+    subtitle:
+      opts.subtitle ??
+      `Swyftstack isn't a ${opts.partner} replacement. ${opts.partner} runs your frontend and app code. We run the database your app talks to and the bucket your users upload to. One platform on each side of the wire — and a single DATABASE_URL between them.`,
+    partner: {
+      name: opts.partner,
+      covers: opts.partnerCovers,
+      body: opts.partnerBody,
+    },
+    swyftstack: {
+      covers: "your data + your files",
+      body: "Managed PostgreSQL 16 on a single DATABASE_URL, plus S3-compatible object storage on the same dashboard. SSL by default, daily backups, scoped credentials, and a single invoice for both.",
+    },
+  };
+}
 
 /* ============================================================
  * "When competitor / when us" lists for comparison pages.

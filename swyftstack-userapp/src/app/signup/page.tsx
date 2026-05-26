@@ -86,6 +86,11 @@ export default async function SignupPage({
         <div style={{ marginTop: 18 }}>
           <button className="btn" type="submit" style={{ width: "100%" }}>Create account</button>
         </div>
+        <p className="small muted" style={{ marginTop: 10, textAlign: "center", lineHeight: 1.5 }}>
+          By creating an account you agree to our{" "}
+          <Link href="/terms">Terms of Service</Link> and{" "}
+          <Link href="/privacy">Privacy Policy</Link>.
+        </p>
         {error && <div className="err">{error}</div>}
         <p className="small auth-foot">
           Already have an account? <Link href="/login">Sign in</Link>

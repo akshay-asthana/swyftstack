@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
 import { SITE_URL } from "@/components/marketing/jsonld";
+import { complementWith } from "@/lib/solutions-content";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,13 @@ export default function BoltPage() {
       subheadline="Bolt sandboxes wipe data between sessions. A connected Swyftstack database is permanent."
       primaryCta={{ label: "Get a database", href: "/signup" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
+      complement={complementWith({
+        partner: "Bolt.new",
+        partnerCovers: "your app sandbox",
+        partnerBody: "Bolt.new builds and runs your app in an in-browser sandbox. The sandbox is great for iterating on UI fast — but it wipes data between sessions. Bolt is the runtime, not the storage layer.",
+        title: "Bolt builds the app. Swyftstack stores it.",
+        subtitle: "Bolt.new sandboxes are wiped between sessions. Connect a Swyftstack PostgreSQL database and your users, content, and state survive a page refresh.",
+      })}
       steps={{
         eyebrow: "Walkthrough",
         title: "Persist your Bolt app's data in four steps",

@@ -17,7 +17,7 @@ import { HeroBackgroundAnimation } from "./hero-background";
 import { ComparisonTable, type ComparisonColumn, type ComparisonRow } from "./comparison-table";
 import { CodeSnippet, type Snippet } from "./code-snippet";
 import { FaqJsonLd } from "./jsonld";
-import { ArrowRightIcon } from "./icons";
+import { ArrowRightIcon, BucketIcon, GlobeIcon, PostgresIcon } from "./icons";
 import { authTarget, isEarlyAccessMode } from "@/lib/early-access";
 
 export type WhenList = { title: string; items: string[] };
@@ -39,6 +39,17 @@ export type MarketingTemplateProps = {
   primaryCta?: { label: string; href: string };
   /** Secondary CTA. */
   secondaryCta?: { label: string; href: string };
+
+  /** Optional "we complement [partner]" intro framing. Rendered just below
+   *  the hero so visitors immediately understand we host the data + files
+   *  while the partner handles the frontend / app runtime. */
+  complement?: {
+    eyebrow?: string;
+    title?: string;
+    subtitle?: string;
+    partner: { name: string; covers: string; body: string };
+    swyftstack?: { covers?: string; body?: string };
+  };
 
   /** Optional "When [competitor] is the right choice / When we are" two-column. */
   whenLists?: { left: WhenList; right: WhenList };
@@ -109,6 +120,45 @@ export function MarketingTemplate(p: MarketingTemplateProps) {
         </div>
       </section>
 
+      {/* ─────────── Complement ───────────
+       *  We're not competing with the partner platform — they host the
+       *  frontend, we host the data + files. Surfaces that framing right
+       *  under the hero so visitors don't anchor on "switch off X". */}
+      {p.complement && (
+        <Section borderTop>
+          <SectionHead
+            eyebrow={p.complement.eyebrow ?? "How we fit together"}
+            title={p.complement.title ?? `We complement ${p.complement.partner.name}.`}
+            subtitle={
+              p.complement.subtitle ??
+              `${p.complement.partner.name} hosts your frontend app. Swyftstack hosts your database and files. One platform on each side of the wire — and a single connection string between them.`
+            }
+          />
+          <div className="m-grid m-grid-2">
+            <div className="m-card">
+              <div className="m-feature-icon"><GlobeIcon size={22} /></div>
+              <div className="m-feature-title">{p.complement.partner.name}: {p.complement.partner.covers}</div>
+              <p className="m-feature-body m-mt-3">{p.complement.partner.body}</p>
+            </div>
+            <div className="m-card m-card-glow">
+              <div className="m-feature-icon" style={{ color: "var(--m-text-brand)" }}>
+                <PostgresIcon size={22} />
+              </div>
+              <div className="m-feature-title">
+                Swyftstack: {p.complement.swyftstack?.covers ?? "your data + your files"}
+              </div>
+              <p className="m-feature-body m-mt-3">
+                {p.complement.swyftstack?.body ?? "Managed PostgreSQL plus S3-compatible storage on one bill. Real Postgres your frontend can hit over a single DATABASE_URL, and signed-URL object storage for every upload your users make."}
+              </p>
+              <div className="m-row m-row-tight m-mt-4" style={{ gap: 10, color: "var(--m-text-2)", fontSize: 13 }}>
+                <span className="m-row m-row-tight"><PostgresIcon size={14} /> PostgreSQL 16</span>
+                <span className="m-row m-row-tight"><BucketIcon size={14} /> S3-compatible storage</span>
+              </div>
+            </div>
+          </div>
+        </Section>
+      )}
+
       {/* ─────────── When / when ─────────── */}
       {p.whenLists && (
         <Section borderTop>
@@ -152,7 +202,7 @@ export function MarketingTemplate(p: MarketingTemplateProps) {
                   }}>{s.n}</span>
                   <span style={{ fontWeight: 680, color: "var(--m-text-strong)", fontSize: 15 }}>{s.title}</span>
                 </div>
-                <p className="m-feature-body m-mt-3">{s.body}</p>
+                <p className="m-feature-body m-mt-3" style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}>{s.body}</p>
               </div>
             ))}
           </div>

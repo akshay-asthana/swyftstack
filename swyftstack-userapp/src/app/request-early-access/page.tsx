@@ -137,6 +137,11 @@ export default function RequestEarlyAccessPage({
               <div style={{ marginTop: 18 }}>
                 <button className="m-btn m-btn-primary m-btn-lg" type="submit">Request early access</button>
               </div>
+              <p className="m-muted" style={{ marginTop: 12, fontSize: 12.5, lineHeight: 1.5 }}>
+                By requesting access you agree to our{" "}
+                <Link href="/terms">Terms of Service</Link> and{" "}
+                <Link href="/privacy">Privacy Policy</Link>.
+              </p>
             </form>
           )}
         </div>

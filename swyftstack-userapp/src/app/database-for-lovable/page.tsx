@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
 import { SITE_URL } from "@/components/marketing/jsonld";
+import { complementWith } from "@/lib/solutions-content";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,13 @@ export default function LovablePage() {
       subheadline="Lovable builds the app. Swyftstack gives it a real PostgreSQL backend that remembers users between visits."
       primaryCta={{ label: "Get a database", href: "/signup" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
+      complement={complementWith({
+        partner: "Lovable",
+        partnerCovers: "your app + UI",
+        partnerBody: "Lovable scaffolds your React app from a prompt and hosts the front end. The chat updates components, screens, and styling — everything users see.",
+        title: "Lovable builds the app. Swyftstack remembers the data.",
+        subtitle: "Lovable handles the UI and deploys it; we handle the PostgreSQL database your app reads and writes to. One DATABASE_URL between them and you're done.",
+      })}
       steps={{
         eyebrow: "Walkthrough",
         title: "Four steps. Lovable does most of the work.",

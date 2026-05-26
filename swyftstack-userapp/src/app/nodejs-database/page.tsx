@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import { MarketingTemplate } from "@/components/marketing/marketing-template";
 import { SITE_URL } from "@/components/marketing/jsonld";
-import { SHARED_DB_FAQ, WHY_SWYFTSTACK_BULLETS, competitorWhenList } from "@/lib/solutions-content";
+import { SHARED_DB_FAQ, WHY_SWYFTSTACK_BULLETS, competitorWhenList, complementWith } from "@/lib/solutions-content";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +24,13 @@ export default function NodejsDatabasePage() {
       subheadline="Express, Fastify, Hono, Nest. pg, Prisma, and Drizzle all work as-is."
       primaryCta={{ label: "Deploy a database", href: "/signup" }}
       secondaryCta={{ label: "See pricing", href: "/pricing" }}
+      complement={complementWith({
+        partner: "Your Node host",
+        partnerCovers: "your API + workers",
+        partnerBody: "Render, Fly.io, Railway, Vercel functions, Heroku, your own droplet — wherever Express, Fastify, Hono, or Nest runs. The host runs your app; nothing about that has to change.",
+        title: "Wherever Node runs, Swyftstack handles the data.",
+        subtitle: "Render, Fly.io, Railway, Vercel functions, your own VM — point DATABASE_URL at Swyftstack and your existing pg/Prisma/Drizzle setup keeps working untouched.",
+      })}
       whenLists={competitorWhenList({
         competitor: "Self-hosted Postgres + Minio",
         whenCompetitor: [
@@ -98,7 +105,7 @@ app.post("/upload", upload.single("file"), async (req, res) => {
         ],
       }}
       bullets={{
-        eyebrow: "Why Node teams pick us",
+        eyebrow: "Why Node teams choose us",
         title: "What you get on day one",
         subtitle: "Every Swyftstack plan ships with the database, storage, backups, and observability you'd otherwise stitch together.",
         items: WHY_SWYFTSTACK_BULLETS,

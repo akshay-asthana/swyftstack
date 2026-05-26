@@ -74,10 +74,6 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
     a: "Yes. Most customers run NextAuth, Clerk, Auth0, or Supabase Auth alongside Swyftstack. We focus on database and storage; you pick your auth.",
   },
   {
-    q: "Where is my data stored?",
-    a: "US or EU - you pick at signup. Encrypted in transit and at rest. Backups are encrypted too.",
-  },
-  {
     q: "What if my app outgrows the Starter plan?",
     a: "Click upgrade. Same database, same connection string, more headroom - no downtime.",
   },

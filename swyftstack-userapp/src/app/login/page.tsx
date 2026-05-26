@@ -61,6 +61,11 @@ export default async function LoginPage({ searchParams }: { searchParams: { erro
         <div style={{ marginTop: 18 }}>
           <button className="btn" type="submit" style={{ width: "100%" }}>Sign in</button>
         </div>
+        <p className="small muted" style={{ marginTop: 10, textAlign: "center", lineHeight: 1.5 }}>
+          By signing in you agree to our{" "}
+          <Link href="/terms">Terms of Service</Link> and{" "}
+          <Link href="/privacy">Privacy Policy</Link>.
+        </p>
         {error && <div className="err">{error}</div>}
         <p className="small auth-foot">
           New to Swyftstack? <Link href="/signup">Create an account</Link>
